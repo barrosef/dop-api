@@ -22,6 +22,8 @@ dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "ruff>=0.9"]
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+# Código gerado por protoc não se revisa nem se formata — regenera-se.
+extend-exclude = ["app/coreclient/gen"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

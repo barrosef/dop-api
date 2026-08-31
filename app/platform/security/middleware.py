@@ -40,8 +40,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if self.resolver is not None:
             try:
                 user_id, role, grants = await self.resolver(principal, account_id)
-            except HTTPException:
-                raise
+            except HTTPException as exc:
+                # Middleware roda ACIMA do ExceptionMiddleware do Starlette:
+                # HTTPException levantada aqui não seria traduzida por ninguém
+                # e viraria 500. Então traduzimos na mão — é assim que "sem
+                # vínculo com a conta" chega ao cliente como 403.
+                return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
             except Exception:
                 return JSONResponse({"detail": "Falha ao resolver a conta"}, status_code=503)
 

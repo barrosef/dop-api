@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from grpc.aio import AioRpcError
 
 from app.coreclient.client import core
+from app.coreclient.resolver import CoreResolver
 from app.platform.errors import grpc_exception_handler
 from app.platform.logging.config import configure as configure_logging
 from app.platform.logging.config import get_logger
@@ -77,7 +78,9 @@ def create_app() -> FastAPI:
 
     verifier = FirebaseVerifier(settings.firebase_project)
     # Ordem importa: logging abre o contexto, auth preenche o principal.
-    app.add_middleware(AuthMiddleware, verifier=verifier, resolver=None)
+    # O resolver é quem pergunta ao CORE user_id, papel e concessões — o BFF não
+    # decide permissão, ele traduz a decisão do núcleo (ADR-0016).
+    app.add_middleware(AuthMiddleware, verifier=verifier, resolver=CoreResolver())
     app.add_middleware(LoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,

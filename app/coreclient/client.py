@@ -62,22 +62,41 @@ class CoreClient:
         return self._channel
 
     @staticmethod
-    def metadata() -> Sequence[tuple[str, str]]:
+    def metadata_for(
+        *, user_id: str = "", account_id: str = "", actor_name: str = ""
+    ) -> Sequence[tuple[str, str]]:
+        """Monta o contrato de metadados SEM depender do auth_ctx.
+
+        Existe porque o resolver de autorização roda ANTES do auth_ctx ser
+        preenchido — é justamente ele quem descobre user_id e papel. Sem esta
+        porta de entrada, a primeira chamada ao core sairia sem conta ativa e o
+        interceptor do core a recusaria.
+        """
+        md = [("x-request-id", current_request_id() or uuid.uuid4().hex)]
+        if user_id or account_id:
+            md += [
+                ("x-account-id", account_id),
+                ("x-actor-id", user_id),
+                ("x-actor-kind", "user"),
+                ("x-actor-name", actor_name),
+            ]
+        return md
+
+    @classmethod
+    def metadata(cls) -> Sequence[tuple[str, str]]:
         """Propaga o contexto de chamada — quem, em qual conta.
 
         A BORDA preenche; o domínio confia. É o mesmo contrato lido pelo
         interceptor UnaryCallContext do core.
         """
         ctx = auth_ctx.get()
-        md = [("x-request-id", current_request_id() or uuid.uuid4().hex)]
-        if ctx:
-            md += [
-                ("x-account-id", ctx.account_id),
-                ("x-actor-id", ctx.user_id),
-                ("x-actor-kind", "user"),
-                ("x-actor-name", ctx.principal.name or ctx.principal.email),
-            ]
-        return md
+        if ctx is None:
+            return cls.metadata_for()
+        return cls.metadata_for(
+            user_id=ctx.user_id,
+            account_id=ctx.account_id,
+            actor_name=ctx.principal.name or ctx.principal.email,
+        )
 
     @staticmethod
     def idempotency_key() -> str:

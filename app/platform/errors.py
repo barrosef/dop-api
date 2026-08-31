@@ -29,15 +29,23 @@ def http_status_for(code: StatusCode) -> int:
     return _STATUS_TO_HTTP.get(code, 500)
 
 
+def _detail_for(exc: AioRpcError, status: int) -> str:
+    # 5xx não expõe detalhe interno ao cliente: mensagem de erro do núcleo pode
+    # carregar host, query ou credencial. A regra vale nos DOIS caminhos —
+    # handler de rota e tradução dentro do middleware.
+    return "erro interno" if status >= 500 else (exc.details() or "erro no núcleo")
+
+
 async def grpc_exception_handler(_request: Request, exc: AioRpcError) -> JSONResponse:
     status = http_status_for(exc.code())
-    detail = exc.details() or "erro no núcleo"
-    # 5xx não expõe detalhe interno ao cliente.
-    if status >= 500:
-        detail = "erro interno"
-    return JSONResponse({"detail": detail}, status_code=status)
+    return JSONResponse({"detail": _detail_for(exc, status)}, status_code=status)
 
 
 def as_http(exc: AioRpcError) -> HTTPException:
+    """Mesma tradução, para quem não pode contar com o handler da aplicação.
+
+    O AuthMiddleware roda ACIMA do ExceptionMiddleware do Starlette: um
+    AioRpcError levantado lá não passaria pelo `grpc_exception_handler`.
+    """
     status = http_status_for(exc.code())
-    return HTTPException(status_code=status, detail=exc.details() or "erro no núcleo")
+    return HTTPException(status_code=status, detail=_detail_for(exc, status))

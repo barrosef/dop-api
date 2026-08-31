@@ -4,8 +4,10 @@ O padrão: o handler não recebe parâmetro de auth nem de log; o transversal fi
 invisível no código de negócio. É o que mantém os routers legíveis.
 """
 
+from collections.abc import Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from types import MappingProxyType
 
 
 @dataclass(frozen=True)
@@ -47,7 +49,11 @@ class AuthContext:
 
 
 # Populados por LoggingMiddleware e AuthMiddleware, nessa ordem.
-request_ctx: ContextVar[dict] = ContextVar("request_ctx", default={})
+# Default IMUTÁVEL: um dict vazio compartilhado entre contextos é um bug à
+# espera de acontecer — quem escrevesse nele contaminaria todas as requisições.
+_SEM_CONTEXTO: Mapping[str, str] = MappingProxyType({})
+
+request_ctx: ContextVar[Mapping[str, str]] = ContextVar("request_ctx", default=_SEM_CONTEXTO)
 auth_ctx: ContextVar[AuthContext | None] = ContextVar("auth_ctx", default=None)
 
 

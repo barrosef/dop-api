@@ -53,6 +53,41 @@ qualquer profundidade do evento.
 > padrão (o `configure()` roda no lifespan) e as linhas saem fora do formato,
 > silenciosamente. Sempre `get_logger()` no ponto de uso.
 
+## Contratos (.proto) e stubs gerados
+
+Os `.proto` são a **fonte da verdade** e vivem no `dop-core` (`api/proto`). Aqui
+só se **gera**:
+
+```bash
+make proto                                  # usa ../dop-core/api/proto
+DOP_CORE_PROTO=/caminho/api/proto make proto
+```
+
+A saída vai para `app/coreclient/gen/` e **não se edita à mão**.
+
+> **Armadilha resolvida:** `protoc` gera `from dop.v1 import common_pb2`, que só
+> resolveria com `gen/` na raiz do `sys.path`. Em vez de mexer no `sys.path` em
+> tempo de execução — que quebra de formas difíceis de depurar, e de maneira
+> diferente sob pytest e sob uvicorn — o script reescreve o import para
+> `from app.coreclient.gen.dop.v1 import ...`. É determinístico, aparece no
+> diff, e o resto do app importa como qualquer outro módulo. O `ruff` ignora o
+> diretório gerado (`extend-exclude` no `pyproject.toml`).
+
+Quem fala com o núcleo passa por `app/coreclient/`:
+
+| módulo | papel |
+|---|---|
+| `client.py` | canal único, retry, deadline e os metadados de contexto |
+| `stubs.py` | fábrica dos stubs — **o ponto único** que o teste substitui |
+| `convert.py` | enum do proto ↔ string da borda, e o `CallContext` |
+| `resolver.py` | `(principal, account_id) → (user_id, role, grants)`, perguntando ao core |
+
+O `resolver` roda no `AuthMiddleware`: chama `EnsureUser` (idempotente, em todo
+login), confirma o vínculo com a conta pedida via `ListAccounts` — **sem vínculo
+é 403** — e descobre o papel em `ListMemberships`. Concessões de recurso vêm
+vazias enquanto o `ResourceService` não expuser consulta por usuário; owner e
+admin seguem com `manage` implícito.
+
 ## Desenvolvimento
 
 ```bash
