@@ -20,9 +20,12 @@ from app.grpcapi.gen.dop.bff.v1 import hierarchy_pb2 as bff_hier_pb2
 from app.grpcapi.gen.dop.bff.v1 import hierarchy_pb2_grpc as bff_hier_grpc
 from app.grpcapi.gen.dop.bff.v1 import identity_pb2 as bff_pb2
 from app.grpcapi.gen.dop.bff.v1 import identity_pb2_grpc as bff_grpc
+from app.grpcapi.gen.dop.bff.v1 import resource_pb2 as bff_res_pb2
+from app.grpcapi.gen.dop.bff.v1 import resource_pb2_grpc as bff_res_grpc
 from app.grpcapi.hierarchy import HierarchyServicer
 from app.grpcapi.identity import IdentityServicer
 from app.grpcapi.interceptors import AuthInterceptor, ErrorInterceptor, LoggingInterceptor
+from app.grpcapi.resource import ResourceServicer
 from app.platform.logging.config import get_logger
 from app.platform.security.firebase import FirebaseVerifier
 
@@ -64,6 +67,7 @@ class GrpcServer:
         )
         bff_grpc.add_IdentityServiceServicer_to_server(IdentityServicer(), self._server)
         bff_hier_grpc.add_HierarchyServiceServicer_to_server(HierarchyServicer(), self._server)
+        bff_res_grpc.add_ResourceServiceServicer_to_server(ResourceServicer(), self._server)
 
         # Reflection, como no núcleo (internal/app/run.go): sem ela, grpcurl e
         # Bruno não conseguem sequer listar a superfície, e a borda fica menos
@@ -72,6 +76,7 @@ class GrpcServer:
             (
                 bff_pb2.DESCRIPTOR.services_by_name["IdentityService"].full_name,
                 bff_hier_pb2.DESCRIPTOR.services_by_name["HierarchyService"].full_name,
+                bff_res_pb2.DESCRIPTOR.services_by_name["ResourceService"].full_name,
                 reflection.SERVICE_NAME,
             ),
             self._server,

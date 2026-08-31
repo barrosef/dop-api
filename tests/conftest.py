@@ -16,13 +16,20 @@ import time
 import grpc
 import pytest
 from fastapi.testclient import TestClient
+from google.protobuf import struct_pb2
 from grpc.aio import AioRpcError
 
 from app.coreclient import stubs
-from app.coreclient.gen.dop.v1 import common_pb2, hierarchy_pb2, identity_pb2
+from app.coreclient.gen.dop.v1 import (
+    common_pb2,
+    hierarchy_pb2,
+    identity_pb2,
+    resource_pb2,
+)
 from app.coreclient.resolver import CoreResolver
 from app.grpcapi.gen.dop.bff.v1 import hierarchy_pb2_grpc as bff_hier_grpc
 from app.grpcapi.gen.dop.bff.v1 import identity_pb2_grpc as bff_grpc
+from app.grpcapi.gen.dop.bff.v1 import resource_pb2_grpc as bff_res_grpc
 from app.grpcapi.server import GrpcServer
 from app.main import create_app
 from app.platform.security.firebase import FirebaseVerifier
@@ -290,3 +297,65 @@ def cliente_hier(hierarquia):
 async def stub_hier(servidor_grpc, hierarquia):
     async with grpc.aio.insecure_channel(f"127.0.0.1:{servidor_grpc.port}") as canal:
         yield bff_hier_grpc.HierarchyServiceStub(canal)
+
+
+# ── recursos ────────────────────────────────────────────────────────────────
+
+
+class RecursosFalsos:
+    """Núcleo falso de recursos.
+
+    O recurso que ele devolve tem `credential_ref` preenchido e NENHUM campo
+    com o valor — igual ao núcleo de verdade. Um duplo que devolvesse o segredo
+    faria o teste de vazamento passar por acidente.
+    """
+
+    def __init__(self):
+        config = struct_pb2.Struct()
+        config.update({"category": "task_manager", "provider": "clickup"})
+        r = resource_pb2.Resource(
+            id="res-1",
+            account=common_pb2.AccountRef(id="acct-1"),
+            kind=resource_pb2.Resource.KIND_INTEGRATION,
+            name="ClickUp do time",
+            version=1,
+            config=config,
+            credential_ref="integration_credential:acct-1:res-1",
+        )
+        self.recurso = r
+        self.ListResources = ChamadaFalsa(
+            resource_pb2.ListResourcesResponse(resources=[r])
+        )
+        self.GetResource = ChamadaFalsa(r)
+        self.CreateResource = ChamadaFalsa(r)
+        self.SetCredential = ChamadaFalsa(
+            resource_pb2.SetCredentialResponse(credential_ref=r.credential_ref)
+        )
+        self.GrantResource = ChamadaFalsa(
+            resource_pb2.ResourceGrant(
+                id="g-1",
+                resource=common_pb2.ResourceRef(id="res-1"),
+                user=common_pb2.UserRef(id="u-2"),
+                level="use",
+            )
+        )
+        self.RevokeGrant = ChamadaFalsa(resource_pb2.RevokeGrantResponse(revoked=True))
+
+
+@pytest.fixture
+def recursos(nucleo, monkeypatch):
+    falso = RecursosFalsos()
+    monkeypatch.setattr(stubs, "resource_stub", lambda: falso)
+    return falso
+
+
+@pytest.fixture
+def cliente_res(recursos):
+    with TestClient(create_app()) as c:
+        yield c
+
+
+@pytest.fixture
+async def stub_res(servidor_grpc, recursos):
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{servidor_grpc.port}") as canal:
+        yield bff_res_grpc.ResourceServiceStub(canal)

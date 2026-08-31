@@ -1,0 +1,84 @@
+syntax = "proto3";
+package dop.bff.v1;
+
+import "google/protobuf/struct.proto";
+
+// Recursos na BORDA: integrações, skills e fluxos compartilháveis.
+//
+// Mesma disciplina de identity.proto: identidade vem do token em
+// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
+// Não existe CallContext aqui.
+//
+// **Regra dura: o segredo nunca aparece numa resposta.** `SetCredential` grava
+// no cofre e o recurso volta com `credential_ref` — um rótulo opaco que diz que
+// HÁ credencial, nunca qual é. Não existe RPC de leitura do valor, e não deve
+// passar a existir: quem precisa dele é o executor, direto do cofre (ADR-0001).
+
+enum ResourceKind {
+  RESOURCE_KIND_UNSPECIFIED = 0;
+  RESOURCE_KIND_INTEGRATION = 1;
+  RESOURCE_KIND_SKILL       = 2;
+  RESOURCE_KIND_WORKFLOW    = 3;
+  RESOURCE_KIND_GIT_FLOW    = 4;
+}
+
+message Resource {
+  string id      = 1;
+  ResourceKind kind = 2;
+  string name    = 3;
+  int32  version = 4;
+  // Categoria e provedor vivem aqui. A categoria é string minúscula
+  // (git | task_manager | agent): quem manda no vocabulário é o provedor.
+  google.protobuf.Struct config = 5;
+  // Vazio = integração ainda sem segredo. Nunca o segredo.
+  string credential_ref = 6;
+}
+
+message Grant {
+  string id          = 1;
+  string resource_id = 2;
+  string user_id     = 3;
+  string level       = 4;  // use | manage
+}
+
+message ListResourcesRequest {
+  // Vazio = todos os tipos.
+  ResourceKind kind = 1;
+}
+message ListResourcesResponse { repeated Resource resources = 1; }
+
+message GetResourceRequest { string id = 1; }
+
+message CreateResourceRequest {
+  ResourceKind kind = 1;
+  string name = 2;
+  google.protobuf.Struct config = 3;
+  string idempotency_key = 4;
+}
+
+// O segredo entra por RPC SEPARADA, e não no CreateResource: mantém o valor
+// fora da requisição mais logada e mais retentada de todas.
+message SetCredentialRequest {
+  string resource_id = 1;
+  bytes  secret      = 2;
+}
+
+message GrantResourceRequest {
+  string resource_id = 1;
+  string user_id     = 2;
+  string level       = 3;
+}
+
+message RevokeGrantRequest  { string grant_id = 1; }
+message RevokeGrantResponse { bool revoked = 1; }
+
+service ResourceService {
+  rpc ListResources  (ListResourcesRequest)  returns (ListResourcesResponse);
+  rpc GetResource    (GetResourceRequest)    returns (Resource);
+  rpc CreateResource (CreateResourceRequest) returns (Resource);
+  // Devolve o RECURSO (sem o valor), não a referência nua: o cockpit precisa
+  // mostrar "credencial configurada" sem uma segunda ida ao servidor.
+  rpc SetCredential  (SetCredentialRequest)  returns (Resource);
+  rpc GrantResource  (GrantResourceRequest)  returns (Grant);
+  rpc RevokeGrant    (RevokeGrantRequest)    returns (RevokeGrantResponse);
+}
