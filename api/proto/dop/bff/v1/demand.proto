@@ -133,14 +133,23 @@ message Finding {
 message DemandCockpit {
   Demand demand = 1;
   repeated Thread threads = 2;
-  // O quadro de achados. Vem VAZIO enquanto dop.v1.DemandService não tiver
-  // leitura de achados: o núcleo só expõe PublishFinding (a consulta existe no
-  // domínio, `Service.Findings`, mas não no contrato). Por isso o campo ao
-  // lado: "nenhum achado" e "não dá para saber" são fatos diferentes, e a tela
-  // precisa dizer qual dos dois está mostrando — a mesma disciplina de
-  // ausente ≠ zerado, um nível acima.
+  // O quadro de achados da demanda, lido de dop.v1 ListFindings.
   repeated Finding findings = 3;
-  bool findings_available   = 4;
+
+  // 4 era `findings_available`, e ele foi REMOVIDO, não renomeado.
+  //
+  // Existia porque o contrato do núcleo não tinha leitura de achados: a lista
+  // vinha vazia e a bandeira separava "esta demanda não tem achados" de "a
+  // borda não consegue ler achados". Com ListFindings no contrato o segundo
+  // caso deixou de existir — ou a leitura funciona e a lista é a resposta, ou
+  // a chamada falha inteira com o status do núcleo. A bandeira seria `true`
+  // constante, e campo que só sabe dizer uma coisa vira ruído que alguém um
+  // dia interpreta ao contrário. Lista vazia agora significa lista vazia.
+  //
+  // O número fica reservado: reaproveitá-lo faria um cliente antigo ler o
+  // campo novo como se fosse a bandeira antiga, em silêncio.
+  reserved 4;
+  reserved "findings_available";
 }
 
 // ── requisições ─────────────────────────────────────────────────────────────

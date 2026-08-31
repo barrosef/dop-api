@@ -16,6 +16,12 @@ dependencies = [
     "sse-starlette>=2.2",
     "grpcio-reflection>=1.83.1",
     "pyjwt[crypto]>=2.13.0",
+    # SDK do provedor de agente Anthropic — usado SÓ pelo adaptador
+    # `app/runtime/adapters/anthropic_provider.py`, atrás da porta
+    # `AgentProvider` (ADR-0001). O segundo adaptador (OpenAI/Codex) fala HTTP
+    # com o `httpx` que já está aqui: um SDK por fornecedor, com o transitivo
+    # de cada um, é o custo que a porta existe para evitar.
+    "anthropic>=1.2",
 ]
 
 [dependency-groups]

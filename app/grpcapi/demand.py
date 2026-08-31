@@ -149,7 +149,6 @@ class DemandServicer(bff_grpc.DemandServiceServicer):
             demand=_demand(c.demand),
             threads=[_thread(t) for t in c.threads],
             findings=[_finding(f) for f in c.findings],
-            findings_available=c.findings_available,
         )
 
     async def StartDemand(self, request: bff.StartDemandRequest, context) -> bff.Demand:

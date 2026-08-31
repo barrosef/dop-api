@@ -79,6 +79,11 @@ class DemandServiceStub:
                 request_serializer=dop_dot_v1_dot_demand__pb2.PublishFindingRequest.SerializeToString,
                 response_deserializer=dop_dot_v1_dot_demand__pb2.Finding.FromString,
                 _registered_method=True)
+        self.ListFindings = channel.unary_unary(
+                '/dop.v1.DemandService/ListFindings',
+                request_serializer=dop_dot_v1_dot_demand__pb2.ListFindingsRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_demand__pb2.ListFindingsResponse.FromString,
+                _registered_method=True)
         self.WatchDemand = channel.unary_stream(
                 '/dop.v1.DemandService/WatchDemand',
                 request_serializer=dop_dot_v1_dot_demand__pb2.WatchDemandRequest.SerializeToString,
@@ -145,6 +150,19 @@ class DemandServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListFindings(self, request, context):
+        """Os achados JÁ publicados na demanda.
+
+        A leitura existia só no domínio Go, e a borda ficava sem como mostrar o
+        quadro de achados — que é o que impede um agente (ou um humano) de refazer
+        investigação que outro já concluiu (ADR-0009). Ler pelo pacote de contexto
+        não serve: aquele é truncado por orçamento de tokens e a montagem grava um
+        evento de medição, então abrir uma tela viraria linha de custo.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def WatchDemand(self, request, context):
         """Streaming: o BFF converte em SSE (ADR-0017).
         """
@@ -199,6 +217,11 @@ def add_DemandServiceServicer_to_server(servicer, server):
                     servicer.PublishFinding,
                     request_deserializer=dop_dot_v1_dot_demand__pb2.PublishFindingRequest.FromString,
                     response_serializer=dop_dot_v1_dot_demand__pb2.Finding.SerializeToString,
+            ),
+            'ListFindings': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListFindings,
+                    request_deserializer=dop_dot_v1_dot_demand__pb2.ListFindingsRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_demand__pb2.ListFindingsResponse.SerializeToString,
             ),
             'WatchDemand': grpc.unary_stream_rpc_method_handler(
                     servicer.WatchDemand,
@@ -449,6 +472,33 @@ class DemandService:
             '/dop.v1.DemandService/PublishFinding',
             dop_dot_v1_dot_demand__pb2.PublishFindingRequest.SerializeToString,
             dop_dot_v1_dot_demand__pb2.Finding.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListFindings(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.DemandService/ListFindings',
+            dop_dot_v1_dot_demand__pb2.ListFindingsRequest.SerializeToString,
+            dop_dot_v1_dot_demand__pb2.ListFindingsResponse.FromString,
             options,
             channel_credentials,
             insecure,

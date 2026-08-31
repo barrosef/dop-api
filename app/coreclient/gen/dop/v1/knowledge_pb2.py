@@ -27,33 +27,37 @@ from app.coreclient.gen.dop.v1 import demand_pb2 as dop_dot_v1_dot_demand__pb2
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x64op/v1/knowledge.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\x1a\x13\x64op/v1/demand.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xbd\x02\n\x11KnowledgeArtifact\x12\n\n\x02id\x18\x01 \x01(\t\x12#\n\x07project\x18\x02 \x01(\x0b\x32\x12.dop.v1.ProjectRef\x12,\n\x04kind\x18\x03 \x01(\x0e\x32\x1e.dop.v1.KnowledgeArtifact.Kind\x12\x0c\n\x04name\x18\x04 \x01(\t\x12\x0f\n\x07version\x18\x05 \x01(\x05\x12\x12\n\nobject_ref\x18\x06 \x01(\t\x12%\n\x04meta\x18\x07 \x01(\x0b\x32\x17.google.protobuf.Struct\x12!\n\x05\x61udit\x18\x08 \x01(\x0b\x32\x12.dop.v1.AuditStamp\"L\n\x04Kind\x12\x14\n\x10KIND_UNSPECIFIED\x10\x00\x12\r\n\tKIND_RULE\x10\x01\x12\x0e\n\nKIND_INDEX\x10\x02\x12\x0f\n\x0bKIND_MEMORY\x10\x03\"\xd6\x01\n\x0e\x43ontextPackage\x12!\n\x06\x64\x65mand\x18\x01 \x01(\x0b\x32\x11.dop.v1.DemandRef\x12\r\n\x05rules\x18\x02 \x03(\t\x12(\n\x05index\x18\x03 \x03(\x0b\x32\x19.dop.v1.KnowledgeArtifact\x12+\n\x08memories\x18\x04 \x03(\x0b\x32\x19.dop.v1.KnowledgeArtifact\x12!\n\x08\x66indings\x18\x05 \x03(\x0b\x32\x0f.dop.v1.Finding\x12\x18\n\x10\x65stimated_tokens\x18\x06 \x01(\x05\"Q\n\x1a\x42uildContextPackageRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x11\n\tdemand_id\x18\x02 \x01(\t\"z\n\x13SearchMemoryRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12#\n\x07project\x18\x02 \x01(\x0b\x32\x12.dop.v1.ProjectRef\x12\r\n\x05query\x18\x03 \x01(\t\x12\r\n\x05limit\x18\x04 \x01(\x05\"T\n\x14SearchMemoryResponse\x12,\n\tartifacts\x18\x01 \x03(\x0b\x32\x19.dop.v1.KnowledgeArtifact\x12\x0e\n\x06scores\x18\x02 \x03(\x02\"g\n\x10ReadIndexRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12#\n\x07project\x18\x02 \x01(\x0b\x32\x12.dop.v1.ProjectRef\x12\x0c\n\x04repo\x18\x03 \x01(\t\"\x8d\x01\n\x12PutArtifactRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12+\n\x08\x61rtifact\x18\x02 \x01(\x0b\x32\x19.dop.v1.KnowledgeArtifact\x12\x0f\n\x07\x63ontent\x18\x03 \x01(\x0c\x12\x17\n\x0fidempotency_key\x18\x04 \x01(\t\"Y\n\x10ListRulesRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12#\n\x07project\x18\x02 \x01(\x0b\x32\x12.dop.v1.ProjectRef\"\"\n\x11ListRulesResponse\x12\r\n\x05rules\x18\x01 \x03(\t2\xfa\x02\n\x10KnowledgeService\x12Q\n\x13\x42uildContextPackage\x12\".dop.v1.BuildContextPackageRequest\x1a\x16.dop.v1.ContextPackage\x12I\n\x0cSearchMemory\x12\x1b.dop.v1.SearchMemoryRequest\x1a\x1c.dop.v1.SearchMemoryResponse\x12@\n\tReadIndex\x12\x18.dop.v1.ReadIndexRequest\x1a\x19.dop.v1.KnowledgeArtifact\x12\x44\n\x0bPutArtifact\x12\x1a.dop.v1.PutArtifactRequest\x1a\x19.dop.v1.KnowledgeArtifact\x12@\n\tListRules\x12\x18.dop.v1.ListRulesRequest\x1a\x19.dop.v1.ListRulesResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x64op/v1/knowledge.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\x1a\x13\x64op/v1/demand.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xbd\x02\n\x11KnowledgeArtifact\x12\n\n\x02id\x18\x01 \x01(\t\x12#\n\x07project\x18\x02 \x01(\x0b\x32\x12.dop.v1.ProjectRef\x12,\n\x04kind\x18\x03 \x01(\x0e\x32\x1e.dop.v1.KnowledgeArtifact.Kind\x12\x0c\n\x04name\x18\x04 \x01(\t\x12\x0f\n\x07version\x18\x05 \x01(\x05\x12\x12\n\nobject_ref\x18\x06 \x01(\t\x12%\n\x04meta\x18\x07 \x01(\x0b\x32\x17.google.protobuf.Struct\x12!\n\x05\x61udit\x18\x08 \x01(\x0b\x32\x12.dop.v1.AuditStamp\"L\n\x04Kind\x12\x14\n\x10KIND_UNSPECIFIED\x10\x00\x12\r\n\tKIND_RULE\x10\x01\x12\x0e\n\nKIND_INDEX\x10\x02\x12\x0f\n\x0bKIND_MEMORY\x10\x03\"\xbc\x02\n\x0e\x43ontextPackage\x12!\n\x06\x64\x65mand\x18\x01 \x01(\x0b\x32\x11.dop.v1.DemandRef\x12\r\n\x05rules\x18\x02 \x03(\t\x12(\n\x05index\x18\x03 \x03(\x0b\x32\x19.dop.v1.KnowledgeArtifact\x12+\n\x08memories\x18\x04 \x03(\x0b\x32\x19.dop.v1.KnowledgeArtifact\x12!\n\x08\x66indings\x18\x05 \x03(\x0b\x32\x0f.dop.v1.Finding\x12\x18\n\x10\x65stimated_tokens\x18\x06 \x01(\x05\x12\x34\n\x07\x64ropped\x18\x07 \x03(\x0b\x32#.dop.v1.ContextPackage.DroppedEntry\x1a.\n\x0c\x44roppedEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"Q\n\x1a\x42uildContextPackageRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x11\n\tdemand_id\x18\x02 \x01(\t\"z\n\x13SearchMemoryRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12#\n\x07project\x18\x02 \x01(\x0b\x32\x12.dop.v1.ProjectRef\x12\r\n\x05query\x18\x03 \x01(\t\x12\r\n\x05limit\x18\x04 \x01(\x05\"T\n\x14SearchMemoryResponse\x12,\n\tartifacts\x18\x01 \x03(\x0b\x32\x19.dop.v1.KnowledgeArtifact\x12\x0e\n\x06scores\x18\x02 \x03(\x02\"g\n\x10ReadIndexRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12#\n\x07project\x18\x02 \x01(\x0b\x32\x12.dop.v1.ProjectRef\x12\x0c\n\x04repo\x18\x03 \x01(\t\"\x8d\x01\n\x12PutArtifactRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12+\n\x08\x61rtifact\x18\x02 \x01(\x0b\x32\x19.dop.v1.KnowledgeArtifact\x12\x0f\n\x07\x63ontent\x18\x03 \x01(\x0c\x12\x17\n\x0fidempotency_key\x18\x04 \x01(\t\"Y\n\x10ListRulesRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12#\n\x07project\x18\x02 \x01(\x0b\x32\x12.dop.v1.ProjectRef\"\"\n\x11ListRulesResponse\x12\r\n\x05rules\x18\x01 \x03(\t2\xfa\x02\n\x10KnowledgeService\x12Q\n\x13\x42uildContextPackage\x12\".dop.v1.BuildContextPackageRequest\x1a\x16.dop.v1.ContextPackage\x12I\n\x0cSearchMemory\x12\x1b.dop.v1.SearchMemoryRequest\x1a\x1c.dop.v1.SearchMemoryResponse\x12@\n\tReadIndex\x12\x18.dop.v1.ReadIndexRequest\x1a\x19.dop.v1.KnowledgeArtifact\x12\x44\n\x0bPutArtifact\x12\x1a.dop.v1.PutArtifactRequest\x1a\x19.dop.v1.KnowledgeArtifact\x12@\n\tListRules\x12\x18.dop.v1.ListRulesRequest\x1a\x19.dop.v1.ListRulesResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'dop.v1.knowledge_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_CONTEXTPACKAGE_DROPPEDENTRY']._loaded_options = None
+  _globals['_CONTEXTPACKAGE_DROPPEDENTRY']._serialized_options = b'8\001'
   _globals['_KNOWLEDGEARTIFACT']._serialized_start=107
   _globals['_KNOWLEDGEARTIFACT']._serialized_end=424
   _globals['_KNOWLEDGEARTIFACT_KIND']._serialized_start=348
   _globals['_KNOWLEDGEARTIFACT_KIND']._serialized_end=424
   _globals['_CONTEXTPACKAGE']._serialized_start=427
-  _globals['_CONTEXTPACKAGE']._serialized_end=641
-  _globals['_BUILDCONTEXTPACKAGEREQUEST']._serialized_start=643
-  _globals['_BUILDCONTEXTPACKAGEREQUEST']._serialized_end=724
-  _globals['_SEARCHMEMORYREQUEST']._serialized_start=726
-  _globals['_SEARCHMEMORYREQUEST']._serialized_end=848
-  _globals['_SEARCHMEMORYRESPONSE']._serialized_start=850
-  _globals['_SEARCHMEMORYRESPONSE']._serialized_end=934
-  _globals['_READINDEXREQUEST']._serialized_start=936
-  _globals['_READINDEXREQUEST']._serialized_end=1039
-  _globals['_PUTARTIFACTREQUEST']._serialized_start=1042
-  _globals['_PUTARTIFACTREQUEST']._serialized_end=1183
-  _globals['_LISTRULESREQUEST']._serialized_start=1185
-  _globals['_LISTRULESREQUEST']._serialized_end=1274
-  _globals['_LISTRULESRESPONSE']._serialized_start=1276
-  _globals['_LISTRULESRESPONSE']._serialized_end=1310
-  _globals['_KNOWLEDGESERVICE']._serialized_start=1313
-  _globals['_KNOWLEDGESERVICE']._serialized_end=1691
+  _globals['_CONTEXTPACKAGE']._serialized_end=743
+  _globals['_CONTEXTPACKAGE_DROPPEDENTRY']._serialized_start=697
+  _globals['_CONTEXTPACKAGE_DROPPEDENTRY']._serialized_end=743
+  _globals['_BUILDCONTEXTPACKAGEREQUEST']._serialized_start=745
+  _globals['_BUILDCONTEXTPACKAGEREQUEST']._serialized_end=826
+  _globals['_SEARCHMEMORYREQUEST']._serialized_start=828
+  _globals['_SEARCHMEMORYREQUEST']._serialized_end=950
+  _globals['_SEARCHMEMORYRESPONSE']._serialized_start=952
+  _globals['_SEARCHMEMORYRESPONSE']._serialized_end=1036
+  _globals['_READINDEXREQUEST']._serialized_start=1038
+  _globals['_READINDEXREQUEST']._serialized_end=1141
+  _globals['_PUTARTIFACTREQUEST']._serialized_start=1144
+  _globals['_PUTARTIFACTREQUEST']._serialized_end=1285
+  _globals['_LISTRULESREQUEST']._serialized_start=1287
+  _globals['_LISTRULESREQUEST']._serialized_end=1376
+  _globals['_LISTRULESRESPONSE']._serialized_start=1378
+  _globals['_LISTRULESRESPONSE']._serialized_end=1412
+  _globals['_KNOWLEDGESERVICE']._serialized_start=1415
+  _globals['_KNOWLEDGESERVICE']._serialized_end=1793
 # @@protoc_insertion_point(module_scope)

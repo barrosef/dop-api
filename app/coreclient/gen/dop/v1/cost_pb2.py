@@ -26,7 +26,7 @@ from app.coreclient.gen.dop.v1 import common_pb2 as dop_dot_v1_dot_common__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11\x64op/v1/cost.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x89\x02\n\nUsageEvent\x12\n\n\x02id\x18\x01 \x01(\t\x12!\n\x06\x64\x65mand\x18\x02 \x01(\x0b\x32\x11.dop.v1.DemandRef\x12\x11\n\tthread_id\x18\x03 \x01(\t\x12\r\n\x05model\x18\x04 \x01(\t\x12\x14\n\x0cinput_tokens\x18\x05 \x01(\x03\x12\x15\n\routput_tokens\x18\x06 \x01(\x03\x12\x19\n\x11\x63\x61\x63he_read_tokens\x18\x07 \x01(\x03\x12\x1d\n\x15\x63\x61\x63he_creation_tokens\x18\x08 \x01(\x03\x12\x1b\n\x04\x63ost\x18\t \x01(\x0b\x32\r.dop.v1.Money\x12&\n\x02\x61t\x18\n \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"U\n\x06\x42udget\x12\r\n\x05scope\x18\x01 \x01(\t\x12\x10\n\x08scope_id\x18\x02 \x01(\t\x12\x14\n\x0climit_micros\x18\x03 \x01(\x03\x12\x14\n\x0cspent_micros\x18\x04 \x01(\x03\"S\n\x0fRoutingDecision\x12\x11\n\ttask_kind\x18\x01 \x01(\t\x12\r\n\x05model\x18\x02 \x01(\t\x12\x0e\n\x06\x65\x66\x66ort\x18\x03 \x01(\t\x12\x0e\n\x06reason\x18\x04 \x01(\t\"r\n\x12RecordUsageRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12!\n\x05usage\x18\x02 \x01(\x0b\x32\x12.dop.v1.UsageEvent\x12\x17\n\x0fidempotency_key\x18\x03 \x01(\t\"@\n\x13RecordUsageResponse\x12\x10\n\x08recorded\x18\x01 \x01(\x08\x12\x17\n\x0f\x62udget_exceeded\x18\x02 \x01(\x08\"U\n\x10GetBudgetRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\r\n\x05scope\x18\x02 \x01(\t\x12\x10\n\x08scope_id\x18\x03 \x01(\t\"T\n\x10SetBudgetRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x1e\n\x06\x62udget\x18\x02 \x01(\x0b\x32\x0e.dop.v1.Budget\"[\n\x11RouteModelRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x11\n\ttask_kind\x18\x02 \x01(\t\x12\x11\n\tdemand_id\x18\x03 \x01(\t\"Y\n\x14SummarizeCostRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\r\n\x05scope\x18\x02 \x01(\t\x12\x10\n\x08scope_id\x18\x03 \x01(\t\"r\n\x15SummarizeCostResponse\x12\x1c\n\x05total\x18\x01 \x01(\x0b\x32\r.dop.v1.Money\x12\x17\n\x0f\x63\x61\x63he_hit_ratio\x18\x02 \x01(\x01\x12\"\n\x06recent\x18\x03 \x03(\x0b\x32\x12.dop.v1.UsageEvent2\xd3\x02\n\x0b\x43ostService\x12\x46\n\x0bRecordUsage\x12\x1a.dop.v1.RecordUsageRequest\x1a\x1b.dop.v1.RecordUsageResponse\x12\x35\n\tGetBudget\x12\x18.dop.v1.GetBudgetRequest\x1a\x0e.dop.v1.Budget\x12\x35\n\tSetBudget\x12\x18.dop.v1.SetBudgetRequest\x1a\x0e.dop.v1.Budget\x12@\n\nRouteModel\x12\x19.dop.v1.RouteModelRequest\x1a\x17.dop.v1.RoutingDecision\x12L\n\rSummarizeCost\x12\x1c.dop.v1.SummarizeCostRequest\x1a\x1d.dop.v1.SummarizeCostResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11\x64op/v1/cost.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x89\x02\n\nUsageEvent\x12\n\n\x02id\x18\x01 \x01(\t\x12!\n\x06\x64\x65mand\x18\x02 \x01(\x0b\x32\x11.dop.v1.DemandRef\x12\x11\n\tthread_id\x18\x03 \x01(\t\x12\r\n\x05model\x18\x04 \x01(\t\x12\x14\n\x0cinput_tokens\x18\x05 \x01(\x03\x12\x15\n\routput_tokens\x18\x06 \x01(\x03\x12\x19\n\x11\x63\x61\x63he_read_tokens\x18\x07 \x01(\x03\x12\x1d\n\x15\x63\x61\x63he_creation_tokens\x18\x08 \x01(\x03\x12\x1b\n\x04\x63ost\x18\t \x01(\x0b\x32\r.dop.v1.Money\x12&\n\x02\x61t\x18\n \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"g\n\x06\x42udget\x12\r\n\x05scope\x18\x01 \x01(\t\x12\x10\n\x08scope_id\x18\x02 \x01(\t\x12\x14\n\x0climit_micros\x18\x03 \x01(\x03\x12\x14\n\x0cspent_micros\x18\x04 \x01(\x03\x12\x10\n\x08\x63urrency\x18\x05 \x01(\t\"S\n\x0fRoutingDecision\x12\x11\n\ttask_kind\x18\x01 \x01(\t\x12\r\n\x05model\x18\x02 \x01(\t\x12\x0e\n\x06\x65\x66\x66ort\x18\x03 \x01(\t\x12\x0e\n\x06reason\x18\x04 \x01(\t\"r\n\x12RecordUsageRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12!\n\x05usage\x18\x02 \x01(\x0b\x32\x12.dop.v1.UsageEvent\x12\x17\n\x0fidempotency_key\x18\x03 \x01(\t\"@\n\x13RecordUsageResponse\x12\x10\n\x08recorded\x18\x01 \x01(\x08\x12\x17\n\x0f\x62udget_exceeded\x18\x02 \x01(\x08\"U\n\x10GetBudgetRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\r\n\x05scope\x18\x02 \x01(\t\x12\x10\n\x08scope_id\x18\x03 \x01(\t\"T\n\x10SetBudgetRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x1e\n\x06\x62udget\x18\x02 \x01(\x0b\x32\x0e.dop.v1.Budget\"[\n\x11RouteModelRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x11\n\ttask_kind\x18\x02 \x01(\t\x12\x11\n\tdemand_id\x18\x03 \x01(\t\"Y\n\x14SummarizeCostRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\r\n\x05scope\x18\x02 \x01(\t\x12\x10\n\x08scope_id\x18\x03 \x01(\t\"r\n\x15SummarizeCostResponse\x12\x1c\n\x05total\x18\x01 \x01(\x0b\x32\r.dop.v1.Money\x12\x17\n\x0f\x63\x61\x63he_hit_ratio\x18\x02 \x01(\x01\x12\"\n\x06recent\x18\x03 \x03(\x0b\x32\x12.dop.v1.UsageEvent2\xd3\x02\n\x0b\x43ostService\x12\x46\n\x0bRecordUsage\x12\x1a.dop.v1.RecordUsageRequest\x1a\x1b.dop.v1.RecordUsageResponse\x12\x35\n\tGetBudget\x12\x18.dop.v1.GetBudgetRequest\x1a\x0e.dop.v1.Budget\x12\x35\n\tSetBudget\x12\x18.dop.v1.SetBudgetRequest\x1a\x0e.dop.v1.Budget\x12@\n\nRouteModel\x12\x19.dop.v1.RouteModelRequest\x1a\x17.dop.v1.RoutingDecision\x12L\n\rSummarizeCost\x12\x1c.dop.v1.SummarizeCostRequest\x1a\x1d.dop.v1.SummarizeCostResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,23 +36,23 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_USAGEEVENT']._serialized_start=84
   _globals['_USAGEEVENT']._serialized_end=349
   _globals['_BUDGET']._serialized_start=351
-  _globals['_BUDGET']._serialized_end=436
-  _globals['_ROUTINGDECISION']._serialized_start=438
-  _globals['_ROUTINGDECISION']._serialized_end=521
-  _globals['_RECORDUSAGEREQUEST']._serialized_start=523
-  _globals['_RECORDUSAGEREQUEST']._serialized_end=637
-  _globals['_RECORDUSAGERESPONSE']._serialized_start=639
-  _globals['_RECORDUSAGERESPONSE']._serialized_end=703
-  _globals['_GETBUDGETREQUEST']._serialized_start=705
-  _globals['_GETBUDGETREQUEST']._serialized_end=790
-  _globals['_SETBUDGETREQUEST']._serialized_start=792
-  _globals['_SETBUDGETREQUEST']._serialized_end=876
-  _globals['_ROUTEMODELREQUEST']._serialized_start=878
-  _globals['_ROUTEMODELREQUEST']._serialized_end=969
-  _globals['_SUMMARIZECOSTREQUEST']._serialized_start=971
-  _globals['_SUMMARIZECOSTREQUEST']._serialized_end=1060
-  _globals['_SUMMARIZECOSTRESPONSE']._serialized_start=1062
-  _globals['_SUMMARIZECOSTRESPONSE']._serialized_end=1176
-  _globals['_COSTSERVICE']._serialized_start=1179
-  _globals['_COSTSERVICE']._serialized_end=1518
+  _globals['_BUDGET']._serialized_end=454
+  _globals['_ROUTINGDECISION']._serialized_start=456
+  _globals['_ROUTINGDECISION']._serialized_end=539
+  _globals['_RECORDUSAGEREQUEST']._serialized_start=541
+  _globals['_RECORDUSAGEREQUEST']._serialized_end=655
+  _globals['_RECORDUSAGERESPONSE']._serialized_start=657
+  _globals['_RECORDUSAGERESPONSE']._serialized_end=721
+  _globals['_GETBUDGETREQUEST']._serialized_start=723
+  _globals['_GETBUDGETREQUEST']._serialized_end=808
+  _globals['_SETBUDGETREQUEST']._serialized_start=810
+  _globals['_SETBUDGETREQUEST']._serialized_end=894
+  _globals['_ROUTEMODELREQUEST']._serialized_start=896
+  _globals['_ROUTEMODELREQUEST']._serialized_end=987
+  _globals['_SUMMARIZECOSTREQUEST']._serialized_start=989
+  _globals['_SUMMARIZECOSTREQUEST']._serialized_end=1078
+  _globals['_SUMMARIZECOSTRESPONSE']._serialized_start=1080
+  _globals['_SUMMARIZECOSTRESPONSE']._serialized_end=1194
+  _globals['_COSTSERVICE']._serialized_start=1197
+  _globals['_COSTSERVICE']._serialized_end=1536
 # @@protoc_insertion_point(module_scope)

@@ -63,7 +63,11 @@ class CoreClient:
 
     @staticmethod
     def metadata_for(
-        *, user_id: str = "", account_id: str = "", actor_name: str = ""
+        *,
+        user_id: str = "",
+        account_id: str = "",
+        actor_name: str = "",
+        actor_kind: str = "user",
     ) -> Sequence[tuple[str, str]]:
         """Monta o contrato de metadados SEM depender do auth_ctx.
 
@@ -77,7 +81,11 @@ class CoreClient:
             md += [
                 ("x-account-id", account_id),
                 ("x-actor-id", user_id),
-                ("x-actor-kind", "user"),
+                # A ESPÉCIE do ator, não só o id. O núcleo deriva a autoria
+                # daqui, e a plataforma inteira parte de "o dev é gerente de
+                # agentes": gravar a resposta do agente como fala do humano
+                # corrompe o log de eventos, que é a verdade (ADR-0006).
+                ("x-actor-kind", actor_kind),
                 ("x-actor-name", actor_name),
             ]
         return md

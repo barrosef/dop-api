@@ -25,43 +25,47 @@ _sym_db = _symbol_database.Default()
 from app.coreclient.gen.dop.v1 import common_pb2 as dop_dot_v1_dot_common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15\x64op/v1/workflow.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\"\x9e\x01\n\tStageSpec\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x1f\n\x04type\x18\x03 \x01(\x0e\x32\x11.dop.v1.StageType\x12\'\n\tartifacts\x18\x04 \x03(\x0e\x32\x14.dop.v1.ArtifactKind\x12\x1a\n\x04gate\x18\x05 \x01(\x0e\x32\x0c.dop.v1.Gate\x12\x10\n\x08subtypes\x18\x06 \x03(\t\"\xb3\x01\n\x04\x46low\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x05\x12\x13\n\x0bowner_scope\x18\x05 \x01(\t\x12\x10\n\x08owner_id\x18\x06 \x01(\t\x12!\n\x06stages\x18\x07 \x03(\x0b\x32\x11.dop.v1.StageSpec\x12!\n\x05\x61udit\x18\x08 \x01(\x0b\x32\x12.dop.v1.AuditStamp\"B\n\rEffectiveFlow\x12\x1a\n\x04\x66low\x18\x01 \x01(\x0b\x32\x0c.dop.v1.Flow\x12\x15\n\rresolved_from\x18\x02 \x01(\t\"[\n\x10ListFlowsRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x13\n\x0bowner_scope\x18\x02 \x01(\t\x12\x10\n\x08owner_id\x18\x03 \x01(\t\"0\n\x11ListFlowsResponse\x12\x1b\n\x05\x66lows\x18\x01 \x03(\x0b\x32\x0c.dop.v1.Flow\">\n\x0eGetFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\n\n\x02id\x18\x02 \x01(\t\"j\n\x11\x43reateFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x1a\n\x04\x66low\x18\x02 \x01(\x0b\x32\x0c.dop.v1.Flow\x12\x17\n\x0fidempotency_key\x18\x03 \x01(\t\"Q\n\x11UpdateFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x1a\n\x04\x66low\x18\x02 \x01(\x0b\x32\x0c.dop.v1.Flow\"S\n\x13ValidateFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x1a\n\x04\x66low\x18\x02 \x01(\x0b\x32\x0c.dop.v1.Flow\"G\n\x14ValidateFlowResponse\x12\r\n\x05valid\x18\x01 \x01(\x08\x12\x0e\n\x06\x65rrors\x18\x02 \x03(\t\x12\x10\n\x08warnings\x18\x03 \x03(\t\"W\n\x12ResolveFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\r\n\x05scope\x18\x02 \x01(\t\x12\x10\n\x08scope_id\x18\x03 \x01(\t\"p\n\x12PromoteFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x0f\n\x07\x66low_id\x18\x02 \x01(\t\x12\x14\n\x0ctarget_scope\x18\x03 \x01(\t\x12\x11\n\ttarget_id\x18\x04 \x01(\t*\xf3\x01\n\tStageType\x12\x1a\n\x16STAGE_TYPE_UNSPECIFIED\x10\x00\x12\x16\n\x12STAGE_TYPE_CONTEXT\x10\x01\x12\x13\n\x0fSTAGE_TYPE_SPEC\x10\x02\x12\x13\n\x0fSTAGE_TYPE_PLAN\x10\x03\x12\x1d\n\x19STAGE_TYPE_IMPLEMENTATION\x10\x04\x12\x13\n\x0fSTAGE_TYPE_TEST\x10\x05\x12\x1f\n\x1bSTAGE_TYPE_HUMAN_VALIDATION\x10\x06\x12\x1b\n\x17STAGE_TYPE_FINALIZATION\x10\x07\x12\x16\n\x12STAGE_TYPE_GENERIC\x10\x08*\xcb\x01\n\x0c\x41rtifactKind\x12\x1d\n\x19\x41RTIFACT_KIND_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x41RTIFACT_KIND_DOCUMENT\x10\x01\x12\x16\n\x12\x41RTIFACT_KIND_SPEC\x10\x02\x12\x16\n\x12\x41RTIFACT_KIND_PLAN\x10\x03\x12\x1b\n\x17\x41RTIFACT_KIND_TEST_PLAN\x10\x04\x12\x19\n\x15\x41RTIFACT_KIND_DIAGRAM\x10\x05\x12\x18\n\x14\x41RTIFACT_KIND_REPORT\x10\x06*;\n\x04Gate\x12\x14\n\x10GATE_UNSPECIFIED\x10\x00\x12\r\n\tGATE_NONE\x10\x01\x12\x0e\n\nGATE_HUMAN\x10\x02\x32\xb8\x03\n\x0fWorkflowService\x12@\n\tListFlows\x12\x18.dop.v1.ListFlowsRequest\x1a\x19.dop.v1.ListFlowsResponse\x12/\n\x07GetFlow\x12\x16.dop.v1.GetFlowRequest\x1a\x0c.dop.v1.Flow\x12\x35\n\nCreateFlow\x12\x19.dop.v1.CreateFlowRequest\x1a\x0c.dop.v1.Flow\x12\x35\n\nUpdateFlow\x12\x19.dop.v1.UpdateFlowRequest\x1a\x0c.dop.v1.Flow\x12I\n\x0cValidateFlow\x12\x1b.dop.v1.ValidateFlowRequest\x1a\x1c.dop.v1.ValidateFlowResponse\x12@\n\x0bResolveFlow\x12\x1a.dop.v1.ResolveFlowRequest\x1a\x15.dop.v1.EffectiveFlow\x12\x37\n\x0bPromoteFlow\x12\x1a.dop.v1.PromoteFlowRequest\x1a\x0c.dop.v1.Flowb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15\x64op/v1/workflow.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\"\x9e\x01\n\tStageSpec\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x1f\n\x04type\x18\x03 \x01(\x0e\x32\x11.dop.v1.StageType\x12\'\n\tartifacts\x18\x04 \x03(\x0e\x32\x14.dop.v1.ArtifactKind\x12\x1a\n\x04gate\x18\x05 \x01(\x0e\x32\x0c.dop.v1.Gate\x12\x10\n\x08subtypes\x18\x06 \x03(\t\"\xb3\x01\n\x04\x46low\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x05\x12\x13\n\x0bowner_scope\x18\x05 \x01(\t\x12\x10\n\x08owner_id\x18\x06 \x01(\t\x12!\n\x06stages\x18\x07 \x03(\x0b\x32\x11.dop.v1.StageSpec\x12!\n\x05\x61udit\x18\x08 \x01(\x0b\x32\x12.dop.v1.AuditStamp\";\n\x0bStageOrigin\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05scope\x18\x02 \x01(\t\x12\x10\n\x08scope_id\x18\x03 \x01(\t\"\x90\x01\n\rEffectiveFlow\x12\x1a\n\x04\x66low\x18\x01 \x01(\x0b\x32\x0c.dop.v1.Flow\x12\x15\n\rresolved_from\x18\x02 \x01(\t\x12&\n\x0c\x63ontributors\x18\x03 \x03(\x0b\x32\x10.dop.v1.ScopeRef\x12$\n\x07origins\x18\x04 \x03(\x0b\x32\x13.dop.v1.StageOrigin\"%\n\x08ScopeRef\x12\r\n\x05scope\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\t\"[\n\x10ListFlowsRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x13\n\x0bowner_scope\x18\x02 \x01(\t\x12\x10\n\x08owner_id\x18\x03 \x01(\t\"0\n\x11ListFlowsResponse\x12\x1b\n\x05\x66lows\x18\x01 \x03(\x0b\x32\x0c.dop.v1.Flow\">\n\x0eGetFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\n\n\x02id\x18\x02 \x01(\t\"j\n\x11\x43reateFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x1a\n\x04\x66low\x18\x02 \x01(\x0b\x32\x0c.dop.v1.Flow\x12\x17\n\x0fidempotency_key\x18\x03 \x01(\t\"Q\n\x11UpdateFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x1a\n\x04\x66low\x18\x02 \x01(\x0b\x32\x0c.dop.v1.Flow\"S\n\x13ValidateFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x1a\n\x04\x66low\x18\x02 \x01(\x0b\x32\x0c.dop.v1.Flow\"G\n\x14ValidateFlowResponse\x12\r\n\x05valid\x18\x01 \x01(\x08\x12\x0e\n\x06\x65rrors\x18\x02 \x03(\t\x12\x10\n\x08warnings\x18\x03 \x03(\t\"W\n\x12ResolveFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\r\n\x05scope\x18\x02 \x01(\t\x12\x10\n\x08scope_id\x18\x03 \x01(\t\"p\n\x12PromoteFlowRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x0f\n\x07\x66low_id\x18\x02 \x01(\t\x12\x14\n\x0ctarget_scope\x18\x03 \x01(\t\x12\x11\n\ttarget_id\x18\x04 \x01(\t*\xf3\x01\n\tStageType\x12\x1a\n\x16STAGE_TYPE_UNSPECIFIED\x10\x00\x12\x16\n\x12STAGE_TYPE_CONTEXT\x10\x01\x12\x13\n\x0fSTAGE_TYPE_SPEC\x10\x02\x12\x13\n\x0fSTAGE_TYPE_PLAN\x10\x03\x12\x1d\n\x19STAGE_TYPE_IMPLEMENTATION\x10\x04\x12\x13\n\x0fSTAGE_TYPE_TEST\x10\x05\x12\x1f\n\x1bSTAGE_TYPE_HUMAN_VALIDATION\x10\x06\x12\x1b\n\x17STAGE_TYPE_FINALIZATION\x10\x07\x12\x16\n\x12STAGE_TYPE_GENERIC\x10\x08*\xcb\x01\n\x0c\x41rtifactKind\x12\x1d\n\x19\x41RTIFACT_KIND_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x41RTIFACT_KIND_DOCUMENT\x10\x01\x12\x16\n\x12\x41RTIFACT_KIND_SPEC\x10\x02\x12\x16\n\x12\x41RTIFACT_KIND_PLAN\x10\x03\x12\x1b\n\x17\x41RTIFACT_KIND_TEST_PLAN\x10\x04\x12\x19\n\x15\x41RTIFACT_KIND_DIAGRAM\x10\x05\x12\x18\n\x14\x41RTIFACT_KIND_REPORT\x10\x06*;\n\x04Gate\x12\x14\n\x10GATE_UNSPECIFIED\x10\x00\x12\r\n\tGATE_NONE\x10\x01\x12\x0e\n\nGATE_HUMAN\x10\x02\x32\xb8\x03\n\x0fWorkflowService\x12@\n\tListFlows\x12\x18.dop.v1.ListFlowsRequest\x1a\x19.dop.v1.ListFlowsResponse\x12/\n\x07GetFlow\x12\x16.dop.v1.GetFlowRequest\x1a\x0c.dop.v1.Flow\x12\x35\n\nCreateFlow\x12\x19.dop.v1.CreateFlowRequest\x1a\x0c.dop.v1.Flow\x12\x35\n\nUpdateFlow\x12\x19.dop.v1.UpdateFlowRequest\x1a\x0c.dop.v1.Flow\x12I\n\x0cValidateFlow\x12\x1b.dop.v1.ValidateFlowRequest\x1a\x1c.dop.v1.ValidateFlowResponse\x12@\n\x0bResolveFlow\x12\x1a.dop.v1.ResolveFlowRequest\x1a\x15.dop.v1.EffectiveFlow\x12\x37\n\x0bPromoteFlow\x12\x1a.dop.v1.PromoteFlowRequest\x1a\x0c.dop.v1.Flowb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'dop.v1.workflow_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_STAGETYPE']._serialized_start=1225
-  _globals['_STAGETYPE']._serialized_end=1468
-  _globals['_ARTIFACTKIND']._serialized_start=1471
-  _globals['_ARTIFACTKIND']._serialized_end=1674
-  _globals['_GATE']._serialized_start=1676
-  _globals['_GATE']._serialized_end=1735
+  _globals['_STAGETYPE']._serialized_start=1404
+  _globals['_STAGETYPE']._serialized_end=1647
+  _globals['_ARTIFACTKIND']._serialized_start=1650
+  _globals['_ARTIFACTKIND']._serialized_end=1853
+  _globals['_GATE']._serialized_start=1855
+  _globals['_GATE']._serialized_end=1914
   _globals['_STAGESPEC']._serialized_start=55
   _globals['_STAGESPEC']._serialized_end=213
   _globals['_FLOW']._serialized_start=216
   _globals['_FLOW']._serialized_end=395
-  _globals['_EFFECTIVEFLOW']._serialized_start=397
-  _globals['_EFFECTIVEFLOW']._serialized_end=463
-  _globals['_LISTFLOWSREQUEST']._serialized_start=465
-  _globals['_LISTFLOWSREQUEST']._serialized_end=556
-  _globals['_LISTFLOWSRESPONSE']._serialized_start=558
-  _globals['_LISTFLOWSRESPONSE']._serialized_end=606
-  _globals['_GETFLOWREQUEST']._serialized_start=608
-  _globals['_GETFLOWREQUEST']._serialized_end=670
-  _globals['_CREATEFLOWREQUEST']._serialized_start=672
-  _globals['_CREATEFLOWREQUEST']._serialized_end=778
-  _globals['_UPDATEFLOWREQUEST']._serialized_start=780
-  _globals['_UPDATEFLOWREQUEST']._serialized_end=861
-  _globals['_VALIDATEFLOWREQUEST']._serialized_start=863
-  _globals['_VALIDATEFLOWREQUEST']._serialized_end=946
-  _globals['_VALIDATEFLOWRESPONSE']._serialized_start=948
-  _globals['_VALIDATEFLOWRESPONSE']._serialized_end=1019
-  _globals['_RESOLVEFLOWREQUEST']._serialized_start=1021
-  _globals['_RESOLVEFLOWREQUEST']._serialized_end=1108
-  _globals['_PROMOTEFLOWREQUEST']._serialized_start=1110
-  _globals['_PROMOTEFLOWREQUEST']._serialized_end=1222
-  _globals['_WORKFLOWSERVICE']._serialized_start=1738
-  _globals['_WORKFLOWSERVICE']._serialized_end=2178
+  _globals['_STAGEORIGIN']._serialized_start=397
+  _globals['_STAGEORIGIN']._serialized_end=456
+  _globals['_EFFECTIVEFLOW']._serialized_start=459
+  _globals['_EFFECTIVEFLOW']._serialized_end=603
+  _globals['_SCOPEREF']._serialized_start=605
+  _globals['_SCOPEREF']._serialized_end=642
+  _globals['_LISTFLOWSREQUEST']._serialized_start=644
+  _globals['_LISTFLOWSREQUEST']._serialized_end=735
+  _globals['_LISTFLOWSRESPONSE']._serialized_start=737
+  _globals['_LISTFLOWSRESPONSE']._serialized_end=785
+  _globals['_GETFLOWREQUEST']._serialized_start=787
+  _globals['_GETFLOWREQUEST']._serialized_end=849
+  _globals['_CREATEFLOWREQUEST']._serialized_start=851
+  _globals['_CREATEFLOWREQUEST']._serialized_end=957
+  _globals['_UPDATEFLOWREQUEST']._serialized_start=959
+  _globals['_UPDATEFLOWREQUEST']._serialized_end=1040
+  _globals['_VALIDATEFLOWREQUEST']._serialized_start=1042
+  _globals['_VALIDATEFLOWREQUEST']._serialized_end=1125
+  _globals['_VALIDATEFLOWRESPONSE']._serialized_start=1127
+  _globals['_VALIDATEFLOWRESPONSE']._serialized_end=1198
+  _globals['_RESOLVEFLOWREQUEST']._serialized_start=1200
+  _globals['_RESOLVEFLOWREQUEST']._serialized_end=1287
+  _globals['_PROMOTEFLOWREQUEST']._serialized_start=1289
+  _globals['_PROMOTEFLOWREQUEST']._serialized_end=1401
+  _globals['_WORKFLOWSERVICE']._serialized_start=1917
+  _globals['_WORKFLOWSERVICE']._serialized_end=2357
 # @@protoc_insertion_point(module_scope)

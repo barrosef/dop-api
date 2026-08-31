@@ -8,9 +8,9 @@ no adaptador — ver o docstring de `app/usecases/identity.py`.
 Duas coisas este módulo faz que o núcleo não faz, e é por elas que a borda
 existe:
 
-1. **O cockpit numa chamada.** `get_cockpit` pede demanda e threads em
-   PARALELO e devolve as duas juntas. Em série, a tela montaria em dois tempos;
-   pedidas por RPCs separadas pelo cliente, o cockpit, o dop-cli e o agente
+1. **O cockpit numa chamada.** `get_cockpit` pede demanda, threads e achados em
+   PARALELO e devolve os três juntos. Em série, a tela montaria em três tempos;
+   pedidos por RPCs separadas pelo cliente, o cockpit, o dop-cli e o agente
    fariam cada um a sua orquestração.
 
 2. **Os derivados de "onde a demanda está".** `current_stage_key`, `blocked` e
@@ -180,10 +180,9 @@ class Finding(BaseModel):
 class DemandCockpit(BaseModel):
     demand: Demand
     threads: list[Thread] = Field(default_factory=list)
+    # Lista vazia aqui significa "esta demanda não tem achados", e só isso —
+    # ver `get_cockpit` para o porquê de não haver mais uma bandeira ao lado.
     findings: list[Finding] = Field(default_factory=list)
-    # Ver `get_cockpit`: o núcleo ainda não expõe leitura de achados. "Nenhum
-    # achado" e "não dá para saber" são fatos diferentes.
-    findings_available: bool = False
 
 
 class NewDemand(BaseModel):
@@ -358,26 +357,57 @@ async def list_threads(demand_id: str) -> list[Thread]:
 
 @log
 @account_scoped
+async def list_findings(demand_id: str, thread_id: str = "") -> list[Finding]:
+    """O quadro de achados da demanda; com `thread_id`, os de uma thread só.
+
+    É o registro durável de cada investigação concluída (ADR-0009) — e é ele
+    que impede um agente, ou um humano, de refazer o que outro já terminou.
+
+    Lê por `DemandService.ListFindings`, e NÃO pelo `BuildContextPackage` do
+    KnowledgeService: aquele pacote é SELECIONADO por orçamento de tokens
+    (mostraria parte dos achados como se fossem todos) e a montagem grava um
+    evento de medição — abrir uma tela viraria linha de custo de contexto.
+
+    Sem paginação na borda: a página é a do núcleo. Quadro de achados é para
+    LER, não para navegar; se uma demanda tiver mais achados do que a página do
+    núcleo comporta, o problema a resolver não é a paginação da tela.
+    """
+    ctx = auth_ctx.get()
+    resp = await stubs.demand_stub().ListFindings(
+        demand_pb2.ListFindingsRequest(
+            ctx=call_context_from(ctx), demand_id=demand_id, thread_id=thread_id
+        ),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return [_finding(f) for f in resp.findings]
+
+
+@log
+@account_scoped
 async def get_cockpit(demand_id: str) -> DemandCockpit:
     """A tela da demanda inteira: etapas, threads e achados.
 
-    Em PARALELO, não em série: as duas chamadas não dependem uma da outra, e
+    Em PARALELO, não em série: as três chamadas não dependem umas das outras, e
     somar as latências seria transformar a agregação num custo em vez de um
     ganho. `gather` propaga a primeira falha — resposta pela metade sem dizer
     que está pela metade é pior que erro.
 
-    Os ACHADOS ainda não vêm: `dop.v1.DemandService` só tem `PublishFinding`, e
-    a consulta que existe no domínio do núcleo (`Service.Findings`) não está no
-    contrato. Enquanto não estiver, a lista vem vazia e `findings_available`
-    vem falso — porque "esta demanda não tem achados" e "a borda não consegue
-    saber" são fatos diferentes, e a tela precisa dizer qual dos dois mostra.
-    Buscá-los pelo `BuildContextPackage` do KnowledgeService seria pior que
-    não ter: aquele pacote é SELECIONADO por orçamento de tokens (mostraria
-    parte dos achados como se fossem todos) e a montagem registra um evento de
-    medição — abrir uma tela viraria uma linha de custo de contexto.
+    **Por que não existe mais `findings_available`.** O campo nasceu quando o
+    contrato do núcleo só tinha `PublishFinding`: a lista vinha vazia e a
+    bandeira dizia "não dá para saber", porque "esta demanda não tem achados" e
+    "a borda não consegue ler achados" são fatos diferentes e a tela precisava
+    distinguir. Com `ListFindings` no contrato (P-19) o segundo fato deixou de
+    existir: ou a leitura funciona, e a lista é a resposta, ou ela falha, e o
+    `gather` faz a chamada inteira falhar com o status do núcleo. Não sobrou
+    estado para a bandeira descrever — ela seria `true` constante, e campo que
+    só sabe dizer uma coisa vira ruído que alguém um dia interpreta ao
+    contrário.
     """
-    demanda, threads = await asyncio.gather(get_demand(demand_id), list_threads(demand_id))
-    return DemandCockpit(demand=demanda, threads=threads, findings=[], findings_available=False)
+    demanda, threads, achados = await asyncio.gather(
+        get_demand(demand_id), list_threads(demand_id), list_findings(demand_id)
+    )
+    return DemandCockpit(demand=demanda, threads=threads, findings=achados)
 
 
 @log
@@ -486,17 +516,34 @@ async def create_thread(demand_id: str, body: NewThread, idempotency_key: str = 
 @log
 @account_scoped
 @require_role("owner", "admin", "developer")
-async def post_message(thread_id: str, body: NewMessage, idempotency_key: str = "") -> Message:
-    """Mensagem do humano na thread. Toda mensagem é evento (ADR-0006)."""
+async def post_message(
+    thread_id: str,
+    body: NewMessage,
+    idempotency_key: str = "",
+    actor_kind: str = "user",
+) -> Message:
+    """Mensagem na thread. Toda mensagem é evento (ADR-0006).
+
+    `actor_kind` decide a AUTORIA no log. O padrão é humano porque a rota REST
+    e o servicer só são chamados por gente; o runtime declara `agent` quando é
+    a resposta do modelo. Gravar a fala do agente como fala do humano faria o
+    log — que é a verdade da demanda — mentir sobre quem fez o quê, numa
+    plataforma cuja premissa inteira é distinguir os dois.
+    """
     ctx = auth_ctx.get()
     m = await stubs.demand_stub().PostMessage(
         demand_pb2.PostMessageRequest(
-            ctx=call_context_from(ctx),
+            ctx=call_context_from(ctx, actor_kind),
             thread_id=thread_id,
             text=body.text,
             idempotency_key=_idempotency(idempotency_key),
         ),
-        metadata=core.metadata(),
+        metadata=core.metadata_for(
+            user_id=ctx.user_id,
+            account_id=ctx.account_id,
+            actor_name=ctx.principal.name or ctx.principal.email,
+            actor_kind=actor_kind,
+        ),
         timeout=_deadline(),
     )
     return _message(m)

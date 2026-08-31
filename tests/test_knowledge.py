@@ -3,9 +3,10 @@
 Dois testes carregam o arquivo:
 
   - o de DESCARTE: o pacote de contexto é selecionado por orçamento (ADR-0012),
-    e a borda tem de conseguir dizer "não coube tudo". Hoje o núcleo não informa
-    o descarte, e a resposta honesta é `null` — não zeros, que AFIRMARIAM que
-    nada ficou de fora;
+    e a borda tem de conseguir dizer "não coube tudo". O núcleo informa o
+    descarte num `map<string,int32>` por camada, e o preenche sempre — mapa
+    VAZIO é o núcleo calado, e vira `null`, não zeros, que AFIRMARIAM que nada
+    ficou de fora;
   - o de vazamento de convenção interna: as chaves `dop.body`/`dop.scope` do
     núcleo não podem atravessar para a tela. Ele é escrito procurando a chave no
     corpo serializado INTEIRO, e não campo por campo — do jeito que
@@ -17,7 +18,6 @@ escrevendo neste repositório agora.
 """
 
 import base64
-from types import SimpleNamespace
 
 import grpc
 import pytest
@@ -106,6 +106,10 @@ class ConhecimentoFalso:
                 )
             ],
             estimated_tokens=12_345,
+            # O núcleo preenche SEMPRE o mapa, inclusive com zeros: "nada
+            # descartado" e "não sei dizer" são fatos diferentes, e é o mapa
+            # vazio que significa o segundo.
+            dropped={"rules": 0, "findings": 2, "index": 1, "memories": 5},
         )
         self.BuildContextPackage = ChamadaFalsa(self.pacote)
         # Listas PARALELAS, como o núcleo devolve.
@@ -121,28 +125,21 @@ class ConhecimentoFalso:
         )
 
 
-class PacoteComDescarte:
-    """O `ContextPackage` do núcleo NO DIA em que ele publicar `dropped`.
+def pacote_com_descarte(base, **contagens) -> knowledge_pb2.ContextPackage:
+    """O mesmo pacote, com outro mapa de descarte.
 
-    Existe porque o campo ainda não está em `dop.v1` (o núcleo calcula o
-    descarte e o grava como métrica, mas não o devolve). A borda faz a detecção
-    pelo DESCRITOR justamente para passar a mostrá-lo sem mudança de código —
-    e este duplo é o que prova que a detecção funciona, em vez de deixá-la como
-    promessa não exercida.
+    Existe para que cada teste declare o descarte que está exercitando sem
+    montar um `ContextPackage` inteiro — e para que o caso "o núcleo não
+    informou" seja um mapa VAZIO de verdade, e não um duplo que imita presença
+    de campo. O duplo que morava aqui (`PacoteComDescarte`) fingia o campo pelo
+    descritor e por `HasField`; o campo chegou como MAPA, que não tem presença,
+    e a imitação escondia que o caminho de produção levantaria `ValueError`.
     """
-
-    def __init__(self, base, **contagens):
-        self._base = base
-        self.dropped = SimpleNamespace(**contagens)
-        self.DESCRIPTOR = SimpleNamespace(
-            fields_by_name={**base.DESCRIPTOR.fields_by_name, "dropped": object()}
-        )
-
-    def __getattr__(self, nome):
-        return getattr(self._base, nome)
-
-    def HasField(self, nome: str) -> bool:
-        return True if nome == "dropped" else self._base.HasField(nome)
+    p = knowledge_pb2.ContextPackage()
+    p.CopyFrom(base)
+    p.ClearField("dropped")
+    p.dropped.update(contagens)
+    return p
 
 
 # ── fixtures ────────────────────────────────────────────────────────────────
@@ -209,39 +206,50 @@ async def stub_know(conhecimento):
 class TestDescarteDeContexto:
     """O que não coube tem de aparecer. Ausente ≠ zerado."""
 
-    def test_sem_informacao_do_nucleo_o_descarte_vem_nulo(self, cliente_know):
-        """`null` é "não dá para saber"; zero seria "nada foi descartado".
+    def test_o_descarte_vem_do_campo_do_nucleo(self, cliente_know):
+        """`ContextPackage.dropped` existe (P-19) e a borda o LÊ.
 
-        Preencher com zeros faria a tela afirmar que o contexto coube inteiro —
-        exatamente a mentira que a ADR-0012 quer impedir.
+        Antes a borda procurava o campo no DESCRITOR do protobuf, porque ele
+        não estava no contrato. O contorno apostava que ele chegaria como
+        mensagem; chegou como `map<string,int32>`, que não tem presença — e o
+        `HasField` do contorno passou a levantar `ValueError` no primeiro
+        pacote pedido. Este teste é o caminho novo, sem descritor no meio.
         """
         r = cliente_know.get(
             "/api/v1/demands/dem-1/context-package", headers=CABECALHOS_REST
         )
         assert r.status_code == 200
-        assert r.json()["dropped"] is None
-        assert r.json()["estimated_tokens"] == 12_345
-
-    def test_quando_o_nucleo_informar_a_borda_mostra(self, cliente_know, conhecimento):
-        conhecimento.BuildContextPackage.devolve(
-            PacoteComDescarte(
-                conhecimento.pacote, rules=0, findings=2, index=1, memories=5
-            )
-        )
-        descarte = cliente_know.get(
-            "/api/v1/demands/dem-1/context-package", headers=CABECALHOS_REST
-        ).json()["dropped"]
-        assert descarte == {
+        assert r.json()["dropped"] == {
             "rules": 0,
             "findings": 2,
             "index": 1,
             "memories": 5,
             "truncated": True,
         }
+        assert r.json()["estimated_tokens"] == 12_345
+
+    def test_mapa_vazio_e_nulo_nao_zeros(self, cliente_know, conhecimento):
+        """`null` é "não dá para saber"; zeros seriam "nada foi descartado".
+
+        O núcleo preenche o mapa sempre, com as quatro chaves. Mapa vazio é o
+        núcleo anterior ao campo — e preencher com zeros faria a tela afirmar
+        que o contexto coube inteiro, que é justamente a mentira que a ADR-0012
+        quer impedir.
+        """
+        conhecimento.BuildContextPackage.devolve(
+            pacote_com_descarte(conhecimento.pacote)
+        )
+        assert (
+            cliente_know.get(
+                "/api/v1/demands/dem-1/context-package", headers=CABECALHOS_REST
+            ).json()["dropped"]
+            is None
+        )
 
     def test_descarte_zerado_nao_e_truncado(self, cliente_know, conhecimento):
+        """Zerado é AFIRMAÇÃO: coube tudo. Diferente de mapa vazio."""
         conhecimento.BuildContextPackage.devolve(
-            PacoteComDescarte(
+            pacote_com_descarte(
                 conhecimento.pacote, rules=0, findings=0, index=0, memories=0
             )
         )
@@ -249,12 +257,49 @@ class TestDescarteDeContexto:
             "/api/v1/demands/dem-1/context-package", headers=CABECALHOS_REST
         ).json()["dropped"]
         assert descarte["truncated"] is False
+        assert descarte["findings"] == 0
 
-    async def test_descarte_ausente_tambem_no_grpc(self, stub_know):
+    def test_camada_que_a_borda_nao_conhece_ainda_trunca(
+        self, cliente_know, conhecimento
+    ):
+        """Camada nova no núcleo não tem campo aqui — mas trunca do mesmo jeito.
+
+        O número dela se perde (a borda só publica as quatro camadas da
+        ADR-0009 §1), e isso é aceitável. O que NÃO é aceitável é a tela dizer
+        "coube tudo" por causa de uma chave que a borda não sabia ler.
+        """
+        conhecimento.BuildContextPackage.devolve(
+            pacote_com_descarte(
+                conhecimento.pacote,
+                rules=0,
+                findings=0,
+                index=0,
+                memories=0,
+                diagramas=3,
+            )
+        )
+        descarte = cliente_know.get(
+            "/api/v1/demands/dem-1/context-package", headers=CABECALHOS_REST
+        ).json()["dropped"]
+        assert descarte["truncated"] is True
+        assert "diagramas" not in descarte
+
+    async def test_descarte_ausente_tambem_no_grpc(self, stub_know, conhecimento):
+        conhecimento.BuildContextPackage.devolve(
+            pacote_com_descarte(conhecimento.pacote)
+        )
         resp = await stub_know.GetContextPackage(
             bff.GetContextPackageRequest(demand_id="dem-1"), metadata=CONTA
         )
         assert not resp.HasField("dropped")
+
+    async def test_descarte_presente_no_grpc(self, stub_know):
+        resp = await stub_know.GetContextPackage(
+            bff.GetContextPackageRequest(demand_id="dem-1"), metadata=CONTA
+        )
+        assert resp.HasField("dropped")
+        assert resp.dropped.findings == 2
+        assert resp.dropped.truncated is True
 
 
 class TestConvencaoInternaNaoVaza:

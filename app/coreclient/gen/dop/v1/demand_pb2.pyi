@@ -269,6 +269,26 @@ class PostMessageRequest(_message.Message):
     idempotency_key: str
     def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., thread_id: _Optional[str] = ..., text: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
+class ListFindingsRequest(_message.Message):
+    __slots__ = ("ctx", "demand_id", "thread_id", "page")
+    CTX_FIELD_NUMBER: _ClassVar[int]
+    DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
+    THREAD_ID_FIELD_NUMBER: _ClassVar[int]
+    PAGE_FIELD_NUMBER: _ClassVar[int]
+    ctx: _common_pb2.CallContext
+    demand_id: str
+    thread_id: str
+    page: _common_pb2.PageRequest
+    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
+
+class ListFindingsResponse(_message.Message):
+    __slots__ = ("findings", "page")
+    FINDINGS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_FIELD_NUMBER: _ClassVar[int]
+    findings: _containers.RepeatedCompositeFieldContainer[Finding]
+    page: _common_pb2.PageResponse
+    def __init__(self, findings: _Optional[_Iterable[_Union[Finding, _Mapping]]] = ..., page: _Optional[_Union[_common_pb2.PageResponse, _Mapping]] = ...) -> None: ...
+
 class PublishFindingRequest(_message.Message):
     __slots__ = ("ctx", "demand_id", "thread_id", "title", "payload", "idempotency_key")
     CTX_FIELD_NUMBER: _ClassVar[int]

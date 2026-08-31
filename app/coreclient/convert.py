@@ -45,21 +45,41 @@ def invite_status_name(status: int) -> str:
     return INVITE_STATUS_TO_NAME.get(status, "")
 
 
+# Espécie do ator ↔ enum. O núcleo lê a espécie da METADATA (`x-actor-kind`),
+# não daqui — mas manter os dois coerentes evita que alguém leia o corpo e
+# conclua a coisa errada sobre quem agiu.
+ACTOR_KIND_POR_NOME = {
+    "user": common_pb2.ActorRef.KIND_USER,
+    "agent": common_pb2.ActorRef.KIND_AGENT,
+    "subagent": common_pb2.ActorRef.KIND_SUBAGENT,
+    "system": common_pb2.ActorRef.KIND_SYSTEM,
+}
+
+
 def call_context(
-    *, user_id: str, account_id: str = "", actor_name: str = ""
+    *, user_id: str, account_id: str = "", actor_name: str = "", actor_kind: str = "user"
 ) -> common_pb2.CallContext:
-    """Contexto obrigatório de toda chamada: quem, em qual conta (ADR-0016)."""
+    """Contexto obrigatório de toda chamada: quem, em qual conta (ADR-0016).
+
+    `actor_kind` existe porque nem todo ator é gente: a resposta do agente
+    gravada como fala do humano transforma o log de eventos — que é a verdade
+    da demanda (ADR-0006) — numa mentira sobre quem fez o quê. Numa plataforma
+    cuja premissa é "o dev é gerente de agentes", é o pior lugar para errar.
+    """
     return common_pb2.CallContext(
         account=common_pb2.AccountRef(id=account_id),
         actor=common_pb2.ActorRef(
-            kind=common_pb2.ActorRef.KIND_USER, id=user_id, name=actor_name
+            kind=ACTOR_KIND_POR_NOME.get(actor_kind, common_pb2.ActorRef.KIND_USER),
+            id=user_id,
+            name=actor_name,
         ),
     )
 
 
-def call_context_from(ctx: AuthContext) -> common_pb2.CallContext:
+def call_context_from(ctx: AuthContext, actor_kind: str = "user") -> common_pb2.CallContext:
     return call_context(
         user_id=ctx.user_id,
         account_id=ctx.account_id,
         actor_name=ctx.principal.name or ctx.principal.email,
+        actor_kind=actor_kind,
     )

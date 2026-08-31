@@ -41,20 +41,29 @@ class KnowledgeArtifact(_message.Message):
     def __init__(self, id: _Optional[str] = ..., project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ..., kind: _Optional[_Union[KnowledgeArtifact.Kind, str]] = ..., name: _Optional[str] = ..., version: _Optional[int] = ..., object_ref: _Optional[str] = ..., meta: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., audit: _Optional[_Union[_common_pb2.AuditStamp, _Mapping]] = ...) -> None: ...
 
 class ContextPackage(_message.Message):
-    __slots__ = ("demand", "rules", "index", "memories", "findings", "estimated_tokens")
+    __slots__ = ("demand", "rules", "index", "memories", "findings", "estimated_tokens", "dropped")
+    class DroppedEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: int
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[int] = ...) -> None: ...
     DEMAND_FIELD_NUMBER: _ClassVar[int]
     RULES_FIELD_NUMBER: _ClassVar[int]
     INDEX_FIELD_NUMBER: _ClassVar[int]
     MEMORIES_FIELD_NUMBER: _ClassVar[int]
     FINDINGS_FIELD_NUMBER: _ClassVar[int]
     ESTIMATED_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    DROPPED_FIELD_NUMBER: _ClassVar[int]
     demand: _common_pb2.DemandRef
     rules: _containers.RepeatedScalarFieldContainer[str]
     index: _containers.RepeatedCompositeFieldContainer[KnowledgeArtifact]
     memories: _containers.RepeatedCompositeFieldContainer[KnowledgeArtifact]
     findings: _containers.RepeatedCompositeFieldContainer[_demand_pb2.Finding]
     estimated_tokens: int
-    def __init__(self, demand: _Optional[_Union[_common_pb2.DemandRef, _Mapping]] = ..., rules: _Optional[_Iterable[str]] = ..., index: _Optional[_Iterable[_Union[KnowledgeArtifact, _Mapping]]] = ..., memories: _Optional[_Iterable[_Union[KnowledgeArtifact, _Mapping]]] = ..., findings: _Optional[_Iterable[_Union[_demand_pb2.Finding, _Mapping]]] = ..., estimated_tokens: _Optional[int] = ...) -> None: ...
+    dropped: _containers.ScalarMap[str, int]
+    def __init__(self, demand: _Optional[_Union[_common_pb2.DemandRef, _Mapping]] = ..., rules: _Optional[_Iterable[str]] = ..., index: _Optional[_Iterable[_Union[KnowledgeArtifact, _Mapping]]] = ..., memories: _Optional[_Iterable[_Union[KnowledgeArtifact, _Mapping]]] = ..., findings: _Optional[_Iterable[_Union[_demand_pb2.Finding, _Mapping]]] = ..., estimated_tokens: _Optional[int] = ..., dropped: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
 class BuildContextPackageRequest(_message.Message):
     __slots__ = ("ctx", "demand_id")

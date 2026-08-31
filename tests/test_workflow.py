@@ -4,9 +4,10 @@ Dois grupos de teste carregam o peso:
 
 - **paridade** REST × gRPC, que impede alguém de reimplementar um caso de uso
   num adaptador sem ninguém notar na revisão;
-- **procedência**, que é o que a borda ACRESCENTA aqui: o núcleo achata o
-  rastro da cadeia numa frase, e desmontá-la é a diferença entre a tela poder
-  dizer "esta etapa veio da conta" e o cliente ter de fazer parsing sozinho.
+- **procedência**, que é o que a borda entrega aqui: de onde veio cada etapa,
+  lido dos CAMPOS `contributors`/`origins` do núcleo. Um dos testes existe
+  justamente para provar que a borda NÃO depende mais do formato da frase
+  `resolved_from` — ela é repassada inteira, e nada mais.
 
 Os duplos e as fixtures vivem NESTE arquivo (conftest é território
 compartilhado); o que já existe lá é importado.
@@ -82,9 +83,28 @@ class FluxosFalsos:
                 warnings=["fluxo sem etapa de teste"],
             )
         )
-        self.ResolveFlow = ChamadaFalsa(
-            workflow_pb2.EffectiveFlow(flow=self.fluxo, resolved_from=RASTRO)
-        )
+        self.ResolveFlow = ChamadaFalsa(self.efetivo())
+
+    def efetivo(self, **campos) -> workflow_pb2.EffectiveFlow:
+        """O fluxo efetivo como o núcleo o devolve: campos E frase.
+
+        Os dois juntos porque é assim que ele responde — e é a única forma de o
+        teste conseguir provar que a borda lê os CAMPOS: se o duplo só mandasse
+        a frase, ler dela passaria despercebido.
+        """
+        padrao = {
+            "flow": self.fluxo,
+            "resolved_from": RASTRO,
+            "contributors": [
+                workflow_pb2.ScopeRef(scope="account", id="acct-1"),
+                workflow_pb2.ScopeRef(scope="platform"),
+            ],
+            "origins": [
+                workflow_pb2.StageOrigin(key="contexto", scope="platform"),
+                workflow_pb2.StageOrigin(key="spec", scope="account", scope_id="acct-1"),
+            ],
+        }
+        return workflow_pb2.EffectiveFlow(**{**padrao, **campos})
 
 
 @pytest.fixture
@@ -136,7 +156,7 @@ async def stub_flow(fluxos):
 
 
 class TestProcedencia:
-    """O rastro deixa de ser frase e vira dado — sem deixar de ser frase."""
+    """De onde veio cada etapa — lido dos campos, não da frase."""
 
     def test_cadeia_e_origem_por_etapa(self, cliente_flow):
         eff = cliente_flow.get(
@@ -145,7 +165,7 @@ class TestProcedencia:
         ).json()
         p = eff["provenance"]
         # Do mais específico ao mais genérico, no MESMO vocabulário de
-        # owner_scope — e não nos rótulos em português da frase.
+        # owner_scope — que é o que o núcleo já manda no campo.
         assert p["contributors"] == ["account", "platform"]
         assert p["origins"] == [
             {"stage_key": "contexto", "scope": "platform"},
@@ -155,6 +175,29 @@ class TestProcedencia:
         assert [o["stage_key"] for o in p["origins"]] == [
             s["key"] for s in eff["flow"]["stages"]
         ]
+        assert p["truncated"] is False
+
+    def test_a_borda_nao_depende_do_formato_da_frase(self, cliente_flow, fluxos):
+        """O teste que existe para provar que o parser MORREU.
+
+        A frase vem irreconhecível — outra pontuação, outro idioma, sem os
+        separadores e sem os parênteses que o parser antigo procurava. A
+        procedência tem de sair idêntica mesmo assim, porque ela vem dos
+        campos. Se alguém reintroduzir leitura da frase, é aqui que quebra.
+        """
+        fluxos.ResolveFlow.devolve(
+            fluxos.efetivo(resolved_from="resolved from account, then platform")
+        )
+        p = cliente_flow.get(
+            "/api/v1/flows/effective?scope=project", headers=CABECALHOS_REST
+        ).json()["provenance"]
+        assert p["contributors"] == ["account", "platform"]
+        assert [(o["stage_key"], o["scope"]) for o in p["origins"]] == [
+            ("contexto", "platform"),
+            ("spec", "account"),
+        ]
+        # E a frase, seja ela qual for, atravessa inteira e sem interpretação.
+        assert p["sentence"] == "resolved from account, then platform"
 
     def test_a_frase_original_nao_se_perde(self, cliente_flow):
         """Quem só quer imprimir continua imprimindo — e quem desconfiar da
@@ -163,30 +206,44 @@ class TestProcedencia:
             "/api/v1/flows/effective?scope=project", headers=CABECALHOS_REST
         ).json()
         assert eff["provenance"]["sentence"] == RASTRO
-        assert eff["provenance"]["truncated"] is False
 
-    def test_um_nivel_so_nao_tem_detalhe_por_etapa(self, cliente_flow, fluxos):
-        """Quando só um nível declarou, o núcleo não escreve o detalhe: não há
-        divergência para explicar."""
+    def test_um_nivel_so_tambem_tem_origem_por_etapa(self, cliente_flow, fluxos):
+        """Quando só um nível declarou, a FRASE não traz o detalhe por etapa —
+        não há divergência para explicar. Os campos trazem.
+
+        É a diferença que a P-20 comprou: antes, a borda lia a frase e concluía
+        "não há origens"; agora ela responde de onde veio cada etapa mesmo no
+        caso em que o núcleo não achou que valia a pena escrever.
+        """
         fluxos.ResolveFlow.devolve(
-            workflow_pb2.EffectiveFlow(flow=fluxos.fluxo, resolved_from="projeto")
+            fluxos.efetivo(
+                resolved_from="projeto",
+                contributors=[workflow_pb2.ScopeRef(scope="project", id="prj-1")],
+                origins=[
+                    workflow_pb2.StageOrigin(key="contexto", scope="project", scope_id="prj-1"),
+                    workflow_pb2.StageOrigin(key="spec", scope="project", scope_id="prj-1"),
+                ],
+            )
         )
         p = cliente_flow.get(
             "/api/v1/flows/effective?scope=project", headers=CABECALHOS_REST
         ).json()["provenance"]
         assert p["contributors"] == ["project"]
-        assert p["origins"] == []
+        assert [o["scope"] for o in p["origins"]] == ["project", "project"]
+        assert p["truncated"] is False
 
-    def test_corte_do_nucleo_e_declarado(self, cliente_flow, fluxos):
-        """O núcleo corta o detalhe em 12 etapas.
+    def test_etapa_sem_origem_informada_marca_truncado(self, cliente_flow, fluxos):
+        """`truncated` é MEDIDO: origens que não cobrem as etapas.
 
-        Quando corta, dizer que cortou é o ponto: sem isso o cliente concluiria
-        que as etapas restantes não têm origem.
+        Antes ele era deduzido do "…" com que o núcleo corta a frase em 12
+        etapas. O corte é da frase; a lista estruturada vem inteira. Medir
+        mantém o campo correto se o núcleo passar a cortar a lista também — e
+        o que ele promete ao cliente é o mesmo: há etapa cuja origem ninguém
+        sabe informar, o que é diferente de ela não ter origem.
         """
         fluxos.ResolveFlow.devolve(
-            workflow_pb2.EffectiveFlow(
-                flow=fluxos.fluxo,
-                resolved_from="conta ◂ plataforma — etapas: contexto (plataforma), …",
+            fluxos.efetivo(
+                origins=[workflow_pb2.StageOrigin(key="contexto", scope="platform")]
             )
         )
         p = cliente_flow.get(
@@ -195,28 +252,12 @@ class TestProcedencia:
         assert p["truncated"] is True
         assert [o["stage_key"] for o in p["origins"]] == ["contexto"]
 
-    def test_pedaco_fora_do_formato_e_ignorado_nao_adivinhado(self, cliente_flow, fluxos):
-        """Origem inventada é pior que origem nenhuma: a pergunta que estamos
-        respondendo é justamente 'de onde veio isto?'."""
-        fluxos.ResolveFlow.devolve(
-            workflow_pb2.EffectiveFlow(
-                flow=fluxos.fluxo,
-                resolved_from=(
-                    "conta ◂ plataforma — etapas: contexto (plataforma), lixo sem parenteses"
-                ),
-            )
-        )
-        p = cliente_flow.get(
-            "/api/v1/flows/effective?scope=project", headers=CABECALHOS_REST
-        ).json()["provenance"]
-        assert [o["stage_key"] for o in p["origins"]] == ["contexto"]
-        # E nada se perde: a frase inteira continua lá.
-        assert "lixo sem parenteses" in p["sentence"]
+    def test_sem_procedencia_nao_se_inventa_procedencia(self, cliente_flow, fluxos):
+        """Núcleo calado: nada se deduz, e `truncated` não vira alarme falso.
 
-    def test_rastro_vazio_nao_inventa_procedencia(self, cliente_flow, fluxos):
-        fluxos.ResolveFlow.devolve(
-            workflow_pb2.EffectiveFlow(flow=fluxos.fluxo, resolved_from="")
-        )
+        Sem fluxo não há etapa para explicar — então não há origem faltando.
+        """
+        fluxos.ResolveFlow.devolve(workflow_pb2.EffectiveFlow())
         p = cliente_flow.get(
             "/api/v1/flows/effective?scope=project", headers=CABECALHOS_REST
         ).json()["provenance"]

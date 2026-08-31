@@ -148,12 +148,17 @@ def _money(m: common_pb2.Money) -> Money:
 def _budget_view(b: cost_pb2.Budget) -> BudgetView:
     """Orçamento do núcleo → visão da tela.
 
-    A moeda é lida com `getattr` de propósito: `dop.v1.Budget` ainda NÃO carrega
-    moeda (só `Money` carrega), e a borda não inventa "USD" para preencher o
-    buraco — moeda vazia significa "o núcleo não disse". No dia em que o
-    contrato do núcleo ganhar o campo, esta linha passa a mostrá-lo sozinha.
+    A moeda vem do CAMPO `dop.v1.Budget.currency`, que o núcleo passou a
+    carregar (P-19). Antes ela era lida com `getattr` porque o campo não
+    existia; o contorno servia, mas contorno que fica vira exemplo copiado —
+    e `getattr` sobre protobuf esconde erro de digitação em nome de campo, que
+    é justamente o que a leitura direta denuncia na hora.
+
+    O que NÃO mudou é a disciplina: moeda vazia continua significando "o núcleo
+    não disse", e a borda segue sem inventar "USD" para preencher o buraco —
+    a afirmação ficaria certa até a primeira conta em BRL.
     """
-    moeda = getattr(b, "currency", "")
+    moeda = b.currency
     limite = Money(currency=moeda, amount_micros=b.limit_micros)
     gasto = Money(currency=moeda, amount_micros=b.spent_micros)
 

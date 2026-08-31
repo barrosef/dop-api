@@ -161,16 +161,14 @@ class Finding(_message.Message):
     def __init__(self, id: _Optional[str] = ..., thread_id: _Optional[str] = ..., title: _Optional[str] = ..., payload: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...) -> None: ...
 
 class DemandCockpit(_message.Message):
-    __slots__ = ("demand", "threads", "findings", "findings_available")
+    __slots__ = ("demand", "threads", "findings")
     DEMAND_FIELD_NUMBER: _ClassVar[int]
     THREADS_FIELD_NUMBER: _ClassVar[int]
     FINDINGS_FIELD_NUMBER: _ClassVar[int]
-    FINDINGS_AVAILABLE_FIELD_NUMBER: _ClassVar[int]
     demand: Demand
     threads: _containers.RepeatedCompositeFieldContainer[Thread]
     findings: _containers.RepeatedCompositeFieldContainer[Finding]
-    findings_available: bool
-    def __init__(self, demand: _Optional[_Union[Demand, _Mapping]] = ..., threads: _Optional[_Iterable[_Union[Thread, _Mapping]]] = ..., findings: _Optional[_Iterable[_Union[Finding, _Mapping]]] = ..., findings_available: _Optional[bool] = ...) -> None: ...
+    def __init__(self, demand: _Optional[_Union[Demand, _Mapping]] = ..., threads: _Optional[_Iterable[_Union[Thread, _Mapping]]] = ..., findings: _Optional[_Iterable[_Union[Finding, _Mapping]]] = ...) -> None: ...
 
 class ListDemandsRequest(_message.Message):
     __slots__ = ("project_id", "page_size", "page_token")

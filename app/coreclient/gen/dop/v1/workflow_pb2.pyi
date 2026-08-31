@@ -91,13 +91,35 @@ class Flow(_message.Message):
     audit: _common_pb2.AuditStamp
     def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., version: _Optional[int] = ..., owner_scope: _Optional[str] = ..., owner_id: _Optional[str] = ..., stages: _Optional[_Iterable[_Union[StageSpec, _Mapping]]] = ..., audit: _Optional[_Union[_common_pb2.AuditStamp, _Mapping]] = ...) -> None: ...
 
+class StageOrigin(_message.Message):
+    __slots__ = ("key", "scope", "scope_id")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    SCOPE_FIELD_NUMBER: _ClassVar[int]
+    SCOPE_ID_FIELD_NUMBER: _ClassVar[int]
+    key: str
+    scope: str
+    scope_id: str
+    def __init__(self, key: _Optional[str] = ..., scope: _Optional[str] = ..., scope_id: _Optional[str] = ...) -> None: ...
+
 class EffectiveFlow(_message.Message):
-    __slots__ = ("flow", "resolved_from")
+    __slots__ = ("flow", "resolved_from", "contributors", "origins")
     FLOW_FIELD_NUMBER: _ClassVar[int]
     RESOLVED_FROM_FIELD_NUMBER: _ClassVar[int]
+    CONTRIBUTORS_FIELD_NUMBER: _ClassVar[int]
+    ORIGINS_FIELD_NUMBER: _ClassVar[int]
     flow: Flow
     resolved_from: str
-    def __init__(self, flow: _Optional[_Union[Flow, _Mapping]] = ..., resolved_from: _Optional[str] = ...) -> None: ...
+    contributors: _containers.RepeatedCompositeFieldContainer[ScopeRef]
+    origins: _containers.RepeatedCompositeFieldContainer[StageOrigin]
+    def __init__(self, flow: _Optional[_Union[Flow, _Mapping]] = ..., resolved_from: _Optional[str] = ..., contributors: _Optional[_Iterable[_Union[ScopeRef, _Mapping]]] = ..., origins: _Optional[_Iterable[_Union[StageOrigin, _Mapping]]] = ...) -> None: ...
+
+class ScopeRef(_message.Message):
+    __slots__ = ("scope", "id")
+    SCOPE_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    scope: str
+    id: str
+    def __init__(self, scope: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
 
 class ListFlowsRequest(_message.Message):
     __slots__ = ("ctx", "owner_scope", "owner_id")

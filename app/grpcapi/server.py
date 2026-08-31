@@ -16,10 +16,13 @@ antes dele, com encerramento gracioso.
 import grpc
 from grpc_reflection.v1alpha import reflection
 
+from app.grpcapi.attention import AttentionServicer
 from app.grpcapi.cost import CostServicer
 from app.grpcapi.delivery import DeliveryServicer
 from app.grpcapi.demand import DemandServicer
 from app.grpcapi.execution import ExecutionServicer
+from app.grpcapi.gen.dop.bff.v1 import attention_pb2 as bff_attention_pb2
+from app.grpcapi.gen.dop.bff.v1 import attention_pb2_grpc as bff_attention_grpc
 from app.grpcapi.gen.dop.bff.v1 import cost_pb2 as bff_cost_pb2
 from app.grpcapi.gen.dop.bff.v1 import cost_pb2_grpc as bff_cost_grpc
 from app.grpcapi.gen.dop.bff.v1 import delivery_pb2 as bff_delivery_pb2
@@ -36,6 +39,8 @@ from app.grpcapi.gen.dop.bff.v1 import knowledge_pb2 as bff_knowledge_pb2
 from app.grpcapi.gen.dop.bff.v1 import knowledge_pb2_grpc as bff_knowledge_grpc
 from app.grpcapi.gen.dop.bff.v1 import resource_pb2 as bff_res_pb2
 from app.grpcapi.gen.dop.bff.v1 import resource_pb2_grpc as bff_res_grpc
+from app.grpcapi.gen.dop.bff.v1 import runtime_pb2 as bff_runtime_pb2
+from app.grpcapi.gen.dop.bff.v1 import runtime_pb2_grpc as bff_runtime_grpc
 from app.grpcapi.gen.dop.bff.v1 import stream_pb2 as bff_stream_pb2
 from app.grpcapi.gen.dop.bff.v1 import stream_pb2_grpc as bff_stream_grpc
 from app.grpcapi.gen.dop.bff.v1 import workflow_pb2 as bff_workflow_pb2
@@ -45,6 +50,7 @@ from app.grpcapi.identity import IdentityServicer
 from app.grpcapi.interceptors import AuthInterceptor, ErrorInterceptor, LoggingInterceptor
 from app.grpcapi.knowledge import KnowledgeServicer
 from app.grpcapi.resource import ResourceServicer
+from app.grpcapi.runtime import RuntimeServicer
 from app.grpcapi.stream import StreamServicer
 from app.grpcapi.workflow import WorkflowServicer
 from app.platform.logging.config import get_logger
@@ -89,6 +95,8 @@ class GrpcServer:
         bff_grpc.add_IdentityServiceServicer_to_server(IdentityServicer(), self._server)
         bff_hier_grpc.add_HierarchyServiceServicer_to_server(HierarchyServicer(), self._server)
         bff_res_grpc.add_ResourceServiceServicer_to_server(ResourceServicer(), self._server)
+        bff_runtime_grpc.add_RuntimeServiceServicer_to_server(RuntimeServicer(), self._server)
+        bff_attention_grpc.add_AttentionServiceServicer_to_server(AttentionServicer(), self._server)
         bff_cost_grpc.add_CostServiceServicer_to_server(CostServicer(), self._server)
         bff_delivery_grpc.add_DeliveryServiceServicer_to_server(DeliveryServicer(), self._server)
         bff_demand_grpc.add_DemandServiceServicer_to_server(DemandServicer(), self._server)
@@ -105,6 +113,8 @@ class GrpcServer:
                 bff_pb2.DESCRIPTOR.services_by_name["IdentityService"].full_name,
                 bff_hier_pb2.DESCRIPTOR.services_by_name["HierarchyService"].full_name,
                 bff_res_pb2.DESCRIPTOR.services_by_name["ResourceService"].full_name,
+                bff_runtime_pb2.DESCRIPTOR.services_by_name["RuntimeService"].full_name,
+                bff_attention_pb2.DESCRIPTOR.services_by_name["AttentionService"].full_name,
                 bff_cost_pb2.DESCRIPTOR.services_by_name["CostService"].full_name,
                 bff_delivery_pb2.DESCRIPTOR.services_by_name["DeliveryService"].full_name,
                 bff_demand_pb2.DESCRIPTOR.services_by_name["DemandService"].full_name,

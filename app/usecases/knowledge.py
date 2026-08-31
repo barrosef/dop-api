@@ -48,6 +48,12 @@ _NOME_POR_KIND = {v: k for k, v in _KIND_POR_NOME.items()}
 _META_BODY = "dop.body"
 _META_SCOPE = "dop.scope"
 
+# As camadas do pacote de contexto (ADR-0009 §1), na ordem em que o orçamento
+# de tokens as corta. São as chaves do `map<string,int32> dropped` do núcleo —
+# escritas aqui uma vez, para que a tradução não dependa de ordem de iteração
+# de mapa nem repita literal em quatro lugares.
+_CAMADAS = ("rules", "findings", "index", "memories")
+
 
 def _deadline() -> float:
     return settings.core_deadline_s
@@ -180,30 +186,31 @@ def _finding(f) -> FindingSummary:
 
 
 def _descartes(pacote: knowledge_pb2.ContextPackage) -> DroppedCounts | None:
-    """Contadores de descarte, quando o núcleo os informa.
+    """Contadores de descarte, lidos do campo `dropped` do núcleo.
 
-    Hoje `dop.v1.ContextPackage` NÃO carrega esse campo: o núcleo calcula o
-    descarte (knowledge.Package.Dropped) e o grava como métrica de montagem,
-    mas não o devolve na resposta. Enquanto for assim, esta função devolve
-    `None` — que é a resposta honesta ("não dá para saber") e é diferente de
-    zero ("nada foi descartado").
+    `dop.v1.ContextPackage.dropped` é um `map<string,int32>` por camada, e o
+    núcleo o preenche SEMPRE — com as quatro chaves, inclusive zeradas. Um mapa
+    VAZIO é, portanto, o núcleo que não informou (um núcleo anterior ao campo),
+    e vira `None`: "não dá para saber" continua sendo diferente de zero, que é
+    a AFIRMAÇÃO de que nada ficou de fora.
 
-    A checagem é feita no DESCRITOR, e não com um `try`, para que no dia em que
-    o núcleo publicar o campo a borda passe a mostrá-lo sem nenhuma mudança
-    aqui. É três linhas para não ter de lembrar de voltar neste arquivo.
+    Nota sobre o contorno que estava aqui antes: ele checava
+    `DESCRIPTOR.fields_by_name` e depois `HasField("dropped")`, apostando que o
+    campo chegaria como MENSAGEM. Chegou como mapa — e mapa não tem presença,
+    então o `HasField` passou a levantar `ValueError` no primeiro pacote de
+    contexto pedido. Contorno que se adianta ao formato do contrato não
+    envelhece: quebra.
+
+    `truncated` deriva de TODOS os valores do mapa, não só das quatro camadas
+    conhecidas: se o núcleo passar a descartar numa camada nova, o número dela
+    ainda não tem campo aqui, mas "o contexto foi truncado" continua verdade — e
+    é essa a frase que a tela precisa dizer (ADR-0012).
     """
-    if "dropped" not in pacote.DESCRIPTOR.fields_by_name:
-        return None
-    if not pacote.HasField("dropped"):
-        return None
     d = pacote.dropped
-    contagens = {
-        "rules": getattr(d, "rules", 0),
-        "findings": getattr(d, "findings", 0),
-        "index": getattr(d, "index", 0),
-        "memories": getattr(d, "memories", 0),
-    }
-    return DroppedCounts(**contagens, truncated=any(v > 0 for v in contagens.values()))
+    if not d:
+        return None
+    contagens = {camada: d.get(camada, 0) for camada in _CAMADAS}
+    return DroppedCounts(**contagens, truncated=any(v > 0 for v in d.values()))
 
 
 # ── casos de uso ────────────────────────────────────────────────────────────

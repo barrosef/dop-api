@@ -79,13 +79,24 @@ class OrcamentoPorEscopo(ChamadaFalsa):
 class CustoFalso:
     """Núcleo falso de custo.
 
-    O `Budget` que ele devolve NÃO tem moeda — igual ao núcleo de verdade, cujo
-    `dop.v1.Budget` só carrega scope, scope_id e os dois inteiros. Um duplo com
-    moeda faria o teste de "a borda não inventa USD" passar por acidente.
+    O `Budget` que ele devolve TEM moeda, igual ao núcleo de verdade desde que
+    `dop.v1.Budget.currency` passou a existir (P-19). O caso do núcleo que não
+    informa a moeda continua coberto — mas por um orçamento SEPARADO
+    (`orcamento_sem_moeda`), e não pelo duplo padrão: um duplo mudo faria o
+    teste de "a borda não inventa USD" passar por acidente, e nenhum teste
+    provaria que ela mostra a moeda quando ela vem.
     """
 
     def __init__(self):
         self.orcamento = cost_pb2.Budget(
+            scope="demand",
+            scope_id="dem-1",
+            limit_micros=50_000_000,
+            spent_micros=CUSTO_MICROS,
+            currency="USD",
+        )
+        # Sem moeda: o núcleo antigo, ou o escopo que ainda não a tem.
+        self.orcamento_sem_moeda = cost_pb2.Budget(
             scope="demand", scope_id="dem-1", limit_micros=50_000_000, spent_micros=CUSTO_MICROS
         )
         self.uso = cost_pb2.UsageEvent(
@@ -235,13 +246,31 @@ class TestDinheiroNaoViraFloat:
         assert resp.total.amount_micros == CUSTO_MICROS
         assert CUSTO_EM_DECIMAL.encode() not in resp.SerializeToString()
 
-    def test_a_borda_nao_inventa_moeda_no_orcamento(self, cliente_cost):
-        """`dop.v1.Budget` ainda não carrega moeda — e "USD" não se chuta.
+    def test_a_moeda_do_orcamento_vem_do_campo_do_nucleo(self, cliente_cost):
+        """`dop.v1.Budget.currency` existe (P-19) e a borda o LÊ.
 
-        Moeda vazia diz "o núcleo não informou". Preencher com o padrão do
-        núcleo seria a borda afirmando algo que ela não sabe, e a afirmação
-        ficaria certa até a primeira conta em BRL.
+        Antes ela lia com `getattr`, porque o campo não estava no contrato. O
+        que este teste garante é que a moeda chega junto dos três valores —
+        limite, gasto e sobra —, e não só de um deles: micros sem moeda é
+        número sem unidade em qualquer um dos três.
         """
+        b = cliente_cost.get(
+            "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=CABECALHOS_REST
+        ).json()
+        assert b["limit"] == {"currency": "USD", "amount_micros": 50_000_000}
+        assert b["spent"]["currency"] == "USD"
+        assert b["remaining"]["currency"] == "USD"
+
+    def test_a_borda_nao_inventa_moeda_quando_o_nucleo_cala(
+        self, cliente_cost, custo
+    ):
+        """Moeda vazia diz "o núcleo não informou" — e continua dizendo isso.
+
+        O campo passar a existir não autoriza preencher o silêncio: chutar o
+        padrão do núcleo seria a borda afirmando algo que ela não sabe, e a
+        afirmação ficaria certa até a primeira conta em BRL.
+        """
+        custo.GetBudget.devolve(custo.orcamento_sem_moeda)
         b = cliente_cost.get(
             "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=CABECALHOS_REST
         ).json()

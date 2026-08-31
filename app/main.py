@@ -26,6 +26,7 @@ from app.platform.security.decorator import register_public_routes
 from app.platform.security.firebase import FirebaseVerifier
 from app.platform.security.middleware import AuthMiddleware
 from app.routers import (
+    attention,
     cost,
     delivery,
     demand,
@@ -35,6 +36,7 @@ from app.routers import (
     identity,
     knowledge,
     resource,
+    runtime,
     stream,
     workflow,
 )
@@ -116,6 +118,9 @@ def create_app() -> FastAPI:
     app.include_router(knowledge.router)
     app.include_router(cost.router)
     app.include_router(execution.router)
+    app.include_router(runtime.router)
+    # A caixa de atenção: a fila única de "onde eu sou necessário".
+    app.include_router(attention.router)
     # SSE por último: é o único que abre conexão longa, e deixá-lo no fim
     # mantém a leitura da montagem na ordem em que o cockpit consome.
     app.include_router(stream.router)

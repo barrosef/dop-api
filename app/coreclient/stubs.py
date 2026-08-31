@@ -11,6 +11,7 @@ exatamente qual nome trocar.
 
 from app.coreclient.client import core
 from app.coreclient.gen.dop.v1 import (
+    attention_pb2_grpc,
     cost_pb2_grpc,
     delivery_pb2_grpc,
     demand_pb2_grpc,
@@ -63,3 +64,8 @@ def execution_stub() -> execution_pb2_grpc.ExecutionServiceStub:
 def event_stub() -> event_pb2_grpc.EventServiceStub:
     """Streaming de eventos ao vivo — a origem do SSE que o cockpit consome."""
     return event_pb2_grpc.EventServiceStub(core.channel)
+
+
+def attention_stub() -> attention_pb2_grpc.AttentionServiceStub:
+    """A caixa de atenção: lista e stream da fila única de pendências."""
+    return attention_pb2_grpc.AttentionServiceStub(core.channel)

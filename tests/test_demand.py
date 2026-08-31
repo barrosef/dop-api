@@ -162,7 +162,13 @@ class DemandasFalsas:
             id="fnd-1", thread_id="th-2", title="índice ausente em pedidos"
         )
         achado.payload.update({"tabela": "pedidos", "linhas": 4200})
+        self.achado = achado
         self.PublishFinding = ChamadaFalsa(achado)
+        # A leitura que o núcleo passou a expor (P-19). Antes dela o cockpit
+        # devolvia lista vazia com uma bandeira dizendo "não dá para saber".
+        self.ListFindings = ChamadaFalsa(
+            demand_pb2.ListFindingsResponse(findings=[achado])
+        )
 
 
 @pytest.fixture
@@ -217,28 +223,53 @@ async def stub_dem(demandas):
 
 
 class TestREST:
-    def test_cockpit_traz_demanda_e_threads_numa_resposta(self, cliente_dem, demandas):
+    def test_cockpit_traz_demanda_threads_e_achados_numa_resposta(
+        self, cliente_dem, demandas
+    ):
         r = cliente_dem.get("/api/v1/demands/dem-1/cockpit", headers=CABECALHOS_REST)
         assert r.status_code == 200
         corpo = r.json()
         assert corpo["demand"]["external_key"] == "SUOPT-1315"
         assert [t["key"] for t in corpo["threads"]] == ["principal", "forense-db"]
-        # Duas chamadas ao núcleo, uma resposta ao cliente.
+        assert [f["title"] for f in corpo["findings"]] == ["índice ausente em pedidos"]
+        assert corpo["findings"][0]["payload"] == {"tabela": "pedidos", "linhas": 4200}
+        # TRÊS chamadas ao núcleo, uma resposta ao cliente.
         assert len(demandas.GetDemand.chamadas) == 1
         assert len(demandas.ListThreads.chamadas) == 1
+        assert len(demandas.ListFindings.chamadas) == 1
+        assert demandas.ListFindings.pedidos[0].demand_id == "dem-1"
+        # Sem thread: o quadro é o da demanda inteira.
+        assert demandas.ListFindings.pedidos[0].thread_id == ""
 
-    def test_achado_indisponivel_nao_e_achado_nenhum(self, cliente_dem):
-        """`dop.v1` não expõe leitura de achados.
+    def test_lista_vazia_de_achados_agora_significa_lista_vazia(
+        self, cliente_dem, demandas
+    ):
+        """O fim de `findings_available`.
 
-        Enquanto não expuser, a lista vem vazia COM a bandeira dizendo que não
-        dá para saber — "esta demanda não tem achados" seria uma afirmação que
-        a borda não pode fazer.
+        Ele existia porque o contrato do núcleo não tinha leitura de achados: a
+        lista vinha vazia e a bandeira separava "não tem achados" de "não dá
+        para saber". Com `ListFindings` só resta o primeiro caso — e uma
+        bandeira constante seria ruído que um dia alguém lê ao contrário.
         """
+        demandas.ListFindings.devolve(demand_pb2.ListFindingsResponse())
         corpo = cliente_dem.get(
             "/api/v1/demands/dem-1/cockpit", headers=CABECALHOS_REST
         ).json()
         assert corpo["findings"] == []
-        assert corpo["findings_available"] is False
+        assert "findings_available" not in corpo
+
+    def test_falha_ao_ler_achados_derruba_o_cockpit_inteiro(
+        self, cliente_dem, demandas
+    ):
+        """Resposta pela metade sem dizer que está pela metade é pior que erro.
+
+        É o outro lado da mesma decisão: sem bandeira para dizer "não deu",
+        quem não consegue ler os achados devolve o status do núcleo, e não um
+        cockpit que parece completo com um pedaço faltando.
+        """
+        demandas.ListFindings.falha_com(grpc.StatusCode.PERMISSION_DENIED)
+        r = cliente_dem.get("/api/v1/demands/dem-1/cockpit", headers=CABECALHOS_REST)
+        assert r.status_code == 403
 
     def test_etapa_que_nao_comecou_vem_nula_nao_zerada(self, cliente_dem):
         """Ausente e zerado são coisas diferentes.
@@ -321,7 +352,17 @@ class TestGRPC:
         )
         assert resp.demand.external_key == "SUOPT-1315"
         assert [t.key for t in resp.threads] == ["principal", "forense-db"]
-        assert resp.findings_available is False
+        assert [f.title for f in resp.findings] == ["índice ausente em pedidos"]
+
+    async def test_o_campo_findings_available_nao_existe_mais(self, stub_dem):
+        """Removido do contrato da borda, com o número 4 reservado.
+
+        Reservar impede que um campo novo herde o número da bandeira e seja
+        lido por um cliente antigo como se ainda fosse ela — em silêncio.
+        """
+        campos = bff.DemandCockpit.DESCRIPTOR.fields_by_name
+        assert "findings_available" not in campos
+        assert all(f.number != 4 for f in campos.values())
 
     async def test_etapa_sem_data_nao_tem_campo(self, stub_dem):
         d = await stub_dem.GetDemand(bff.GetDemandRequest(id="dem-1"), metadata=CONTA)
@@ -394,7 +435,8 @@ class TestParidadeEntreTransportes:
         assert grpc_resp.demand.awaiting_decision == rest["demand"]["awaiting_decision"]
         assert grpc_resp.demand.blocked == rest["demand"]["blocked"]
         assert [t.key for t in grpc_resp.threads] == [t["key"] for t in rest["threads"]]
-        assert grpc_resp.findings_available == rest["findings_available"]
+        assert [f.id for f in grpc_resp.findings] == [f["id"] for f in rest["findings"]]
+        assert dict(grpc_resp.findings[0].payload) == rest["findings"][0]["payload"]
 
         # E o que é opcional, que é onde ausente≠zerado pode divergir entre pontas.
         for e_grpc, e_rest in zip(grpc_resp.demand.stages, rest["demand"]["stages"], strict=True):

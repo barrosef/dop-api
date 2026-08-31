@@ -35,16 +35,18 @@ class UsageEvent(_message.Message):
     def __init__(self, id: _Optional[str] = ..., demand: _Optional[_Union[_common_pb2.DemandRef, _Mapping]] = ..., thread_id: _Optional[str] = ..., model: _Optional[str] = ..., input_tokens: _Optional[int] = ..., output_tokens: _Optional[int] = ..., cache_read_tokens: _Optional[int] = ..., cache_creation_tokens: _Optional[int] = ..., cost: _Optional[_Union[_common_pb2.Money, _Mapping]] = ..., at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class Budget(_message.Message):
-    __slots__ = ("scope", "scope_id", "limit_micros", "spent_micros")
+    __slots__ = ("scope", "scope_id", "limit_micros", "spent_micros", "currency")
     SCOPE_FIELD_NUMBER: _ClassVar[int]
     SCOPE_ID_FIELD_NUMBER: _ClassVar[int]
     LIMIT_MICROS_FIELD_NUMBER: _ClassVar[int]
     SPENT_MICROS_FIELD_NUMBER: _ClassVar[int]
+    CURRENCY_FIELD_NUMBER: _ClassVar[int]
     scope: str
     scope_id: str
     limit_micros: int
     spent_micros: int
-    def __init__(self, scope: _Optional[str] = ..., scope_id: _Optional[str] = ..., limit_micros: _Optional[int] = ..., spent_micros: _Optional[int] = ...) -> None: ...
+    currency: str
+    def __init__(self, scope: _Optional[str] = ..., scope_id: _Optional[str] = ..., limit_micros: _Optional[int] = ..., spent_micros: _Optional[int] = ..., currency: _Optional[str] = ...) -> None: ...
 
 class RoutingDecision(_message.Message):
     __slots__ = ("task_kind", "model", "effort", "reason")

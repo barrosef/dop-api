@@ -6,18 +6,23 @@ protobuf, ambos chamando estas MESMAS funções. Ver o docstring de
 `app/usecases/identity.py` para o porquê de os decorators morarem no caso de uso
 — autorização presa ao router deixaria a porta gRPC aberta.
 
-O que este módulo acrescenta ao núcleo é a **procedência estruturada**. O fluxo
-efetivo é o resultado da cadeia `plataforma ◁ conta ◁ workspace ◁ projeto ◁
-demanda` (ADR-0014 §3), e o núcleo devolve o rastro dessa cadeia como UMA FRASE:
+O que este módulo entrega ao cliente é a **procedência**: o fluxo efetivo é o
+resultado da cadeia `plataforma ◁ conta ◁ workspace ◁ projeto ◁ demanda`
+(ADR-0014 §3), e "por que esta demanda seguiu este fluxo?" é a pergunta que
+chega ao suporte.
+
+O núcleo devolve isso de duas formas, e a borda usa a certa. `resolved_from` é
+uma FRASE, boa para imprimir e péssima para usar:
 
     "conta ◂ plataforma — etapas: contexto (plataforma), spec (conta), …"
 
-A frase é ótima para imprimir e péssima para usar. Quem precisa marcar "herdado
-de conta" na LINHA da etapa — que é a pergunta que chega ao suporte, "por que
-esta demanda seguiu este fluxo?" — teria de separar a frase no cliente, com uma
-tabela de rótulos em português por dentro. Cada cliente faria a sua. Aqui ela é
-lida uma vez, normalizada para o mesmo vocabulário de `owner_scope`, e a frase
-original segue junto para conferência.
+`contributors` e `origins` são os MESMOS fatos, estruturados (P-19). A borda lê
+os campos e repassa a frase inteira em `sentence`, para log, mensagem de erro e
+conferência. Até a P-20 ela fazia parsing da frase, porque os campos não
+existiam — e um contrato que obriga o consumidor a interpretar texto quebra no
+dia em que alguém melhora a redação. O parser saiu inteiro, junto com a tabela
+de rótulos em português que ele precisava carregar: o vocabulário de escopo já
+vem do núcleo igual ao de `owner_scope`, sem tradução no meio.
 
 Este módulo também é o dono do vocabulário de ETAPA (tipo, artefato, portão),
 importado por `demand`: em dop.v1 a etapa da demanda usa os enums declarados em
@@ -67,23 +72,6 @@ _PORTAO_POR_ENUM: dict[int, str] = {
     workflow_pb2.GATE_HUMAN: "human",
 }
 _ENUM_POR_PORTAO = {nome: valor for valor, nome in _PORTAO_POR_ENUM.items()}
-
-# Rótulo em português do rastro ↔ escopo canônico (o mesmo de `owner_scope`).
-# O núcleo escreve "conta" na frase da tela e "account" no campo do fluxo; a
-# borda entrega UM vocabulário, senão o cliente precisa dos dois.
-_ESCOPO_POR_ROTULO: dict[str, str] = {
-    "plataforma": "platform",
-    "conta": "account",
-    "workspace": "workspace",
-    "projeto": "project",
-    "demanda": "demand",
-}
-
-# Separadores da frase do núcleo (internal/domain/workflow/entity.go:renderTrail).
-_SEP_CADEIA = " ◂ "
-_SEP_DETALHE = " — etapas: "
-_SEP_ITEM = ", "
-_CORTE = "…"
 
 
 def tipo_nome(valor: int) -> str:
@@ -235,46 +223,37 @@ def _flow_para_o_nucleo(body: NewFlow, flow_id: str = "") -> workflow_pb2.Flow:
     )
 
 
-def _procedencia(resolved_from: str) -> Provenance:
-    """Devolve à estrutura o que o núcleo achatou numa frase.
+def _procedencia(eff: workflow_pb2.EffectiveFlow) -> Provenance:
+    """A procedência, lida dos CAMPOS do núcleo — não da frase.
 
-    Formato de origem (`renderTrail`, no dop-core):
+    `contributors` chega como `ScopeRef{scope, id}` e `origins` como
+    `StageOrigin{key, scope, scope_id}`, na mesma ordem de `flow.stages`. A
+    borda só troca os nomes para os do seu contrato; o vocabulário de escopo já
+    é o mesmo de `owner_scope`, então não há tabela de tradução aqui — e é
+    justamente essa tabela (com os rótulos em português da frase) que sumiu
+    quando o parsing saiu.
 
-        "conta ◂ plataforma"                              # um nível só
-        "conta ◂ plataforma — etapas: ctx (plataforma), spec (conta), …"
+    O `id` do contribuinte e o `scope_id` da origem NÃO são repassados: o
+    contrato da borda ainda os expõe como escopo nu (`contributors` é uma lista
+    de strings). Publicá-los é uma decisão de contrato, não de dívida — está
+    registrada no relatório da P-20 como o próximo passo, e o dado já está aqui
+    quando ela for tomada.
 
-    Tolerante de propósito: pedaço que não casa com o formato é IGNORADO, nunca
-    adivinhado. Uma origem inventada seria pior que origem nenhuma — é
-    exatamente a pergunta ("de onde veio isto?") que estamos respondendo. A
-    frase inteira segue em `sentence`, então nada se perde no caminho.
+    `truncated` continua significando o que o contrato promete — "as origens não
+    cobrem todas as etapas" —, mas agora é MEDIDO, e não deduzido de um "…" no
+    fim da frase. O corte de 12 etapas do núcleo é da frase, e só dela; a lista
+    estruturada vem inteira. Medir em vez de deduzir é o que faz este campo
+    continuar correto se o núcleo um dia passar a cortar (ou parar de cortar).
     """
-    frase = resolved_from.strip()
-    if not frase:
-        return Provenance()
-
-    cadeia, _, detalhe = frase.partition(_SEP_DETALHE)
-    contribuintes = [
-        _ESCOPO_POR_ROTULO.get(p.strip(), p.strip()) for p in cadeia.split(_SEP_CADEIA) if p.strip()
+    etapas = len(eff.flow.stages) if eff.HasField("flow") else 0
+    origens = [
+        StageOrigin(stage_key=o.key, scope=o.scope) for o in eff.origins
     ]
-
-    origens: list[StageOrigin] = []
-    truncado = False
-    for item in (i.strip() for i in detalhe.split(_SEP_ITEM) if i.strip()):
-        if item == _CORTE:
-            # O núcleo corta o detalhe em 12 etapas: daqui para a frente a
-            # origem não foi informada — e dizer isso é o ponto.
-            truncado = True
-            continue
-        chave, sep, rotulo = item.rpartition(" (")
-        if not sep or not rotulo.endswith(")"):
-            continue
-        rotulo = rotulo[:-1].strip()
-        origens.append(
-            StageOrigin(stage_key=chave.strip(), scope=_ESCOPO_POR_ROTULO.get(rotulo, rotulo))
-        )
-
     return Provenance(
-        contributors=contribuintes, origins=origens, sentence=frase, truncated=truncado
+        contributors=[c.scope for c in eff.contributors],
+        origins=origens,
+        sentence=eff.resolved_from.strip(),
+        truncated=len(origens) < etapas,
     )
 
 
@@ -314,8 +293,8 @@ async def resolve_flow(scope: str, scope_id: str = "") -> EffectiveFlow:
     """O fluxo efetivo de um nível E o rastro de como se chegou nele.
 
     A resolução é do NÚCLEO — ele conhece a cadeia inteira e a ordem de
-    sobreposição. O que a borda faz é transformar o rastro de frase em dado:
-    ver `_procedencia` e o docstring do módulo.
+    sobreposição. O que a borda faz é vestir a procedência com o vocabulário do
+    contrato de borda: ver `_procedencia` e o docstring do módulo.
     """
     ctx = auth_ctx.get()
     eff = await stubs.workflow_stub().ResolveFlow(
@@ -328,7 +307,7 @@ async def resolve_flow(scope: str, scope_id: str = "") -> EffectiveFlow:
     # HasField: fluxo ausente e fluxo zerado são coisas diferentes — nenhum
     # nível declarou nada, versus um fluxo sem nome e sem etapas.
     fluxo = _flow(eff.flow) if eff.HasField("flow") else None
-    return EffectiveFlow(flow=fluxo, provenance=_procedencia(eff.resolved_from))
+    return EffectiveFlow(flow=fluxo, provenance=_procedencia(eff))
 
 
 @log

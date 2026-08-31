@@ -12,14 +12,18 @@ package dop.bff.v1;
 // importado por demand.proto, exatamente como dop.v1 faz. Repetir os enums lá
 // seria um dicionário paralelo dentro do mesmo pacote — e nem compilaria.
 //
-// **Onde a borda ganha o sustento aqui: PROCEDÊNCIA ESTRUTURADA.** O núcleo
-// devolve o rastro achatado numa frase (`resolved_from`), porque é o que a tela
-// imprime: "conta ◂ plataforma — etapas: contexto (plataforma), spec (conta)".
-// Quem precisa marcar "herdado de conta" NA LINHA da etapa teria de fazer
-// parsing de frase no cliente, e cada cliente faria o seu — com um dicionário
-// de rótulos em português por dentro. A borda faz isso UMA vez e entrega
-// `Provenance`; a frase original vem junto, inteira, para conferência e para
-// quem só quer imprimir.
+// **Onde a borda ganha o sustento aqui: PROCEDÊNCIA numa forma só.** O núcleo
+// devolve os mesmos fatos de duas maneiras — a frase `resolved_from` ("conta ◂
+// plataforma — etapas: contexto (plataforma), spec (conta)"), que é o que a
+// tela imprime, e os campos `contributors`/`origins`, que é o que dá para usar.
+// A borda entrega UMA `Provenance`, montada dos campos, com a frase inteira
+// junto em `sentence` para conferência e para quem só quer imprimir. Assim o
+// cliente não escolhe entre duas fontes nem decide qual das duas obedecer.
+//
+// (Até a P-20 a borda montava `Provenance` fazendo PARSING da frase, porque os
+// campos não existiam no contrato do núcleo. Existem desde a P-19, e o parser
+// saiu: contrato que obriga o consumidor a interpretar texto quebra no dia em
+// que alguém melhora a redação.)
 
 // ── vocabulário compartilhado com dop.v1 (workflow.proto) ───────────────────
 
@@ -102,9 +106,14 @@ message Provenance {
   // A frase do núcleo, preservada inteira. É o que a tela imprime hoje e o que
   // permite conferir a leitura estruturada acima.
   string sentence  = 3;
-  // O núcleo corta o detalhe por etapa em 12 (o rastro é frase de tela, não
-  // relatório). Quando cortou, `origins` não cobre todas as etapas — e dizer
-  // isso é diferente de deixar o cliente concluir que as demais não têm origem.
+  // Verdadeiro quando `origins` NÃO cobre todas as etapas de `flow.stages` —
+  // ou seja, há etapa cuja origem a borda não sabe informar. Dizer isso é
+  // diferente de deixar o cliente concluir que as demais não têm origem.
+  //
+  // Medido comparando os dois tamanhos, e não deduzido de um "…" no fim da
+  // frase: o corte de 12 etapas do núcleo é da FRASE, e a lista estruturada
+  // vem inteira. Contra um núcleo atual isto é sempre falso; ele continua
+  // existindo porque a promessa é sobre a lista, não sobre o corte de hoje.
   bool   truncated = 4;
 }
 

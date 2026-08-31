@@ -1,0 +1,146 @@
+syntax = "proto3";
+package dop.bff.v1;
+
+import "dop/bff/v1/cost.proto";
+
+// O AgentRuntime na BORDA: executar UM turno de conversa numa thread.
+//
+// Mesma disciplina de identity.proto: identidade vem do token em
+// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
+// Não existe CallContext aqui.
+//
+// Quatro decisões estruturam este contrato:
+//
+// 1. **UM turno por chamada, não uma sessão.** O RPC é unário e devolve o
+//    resultado de uma volta: contexto → roteamento → modelo → medição →
+//    mensagens → achado. O laço de N turnos é de quem chama, e é justamente
+//    por isso que o orçamento consegue interromper entre uma volta e outra —
+//    a demanda PAUSA (ADR-0011 §2) em vez de ser cortada no meio de uma.
+//
+// 2. **Não há streaming aqui, de propósito.** O acompanhamento ao vivo é o SSE
+//    que já existe (StreamService.WatchDemand): toda mensagem publicada vira
+//    evento no núcleo (ADR-0006) e chega ao cockpit sozinha. Um segundo
+//    caminho de streaming seria uma segunda fonte da verdade para a MESMA
+//    timeline, e as duas divergiriam no primeiro reconnect.
+//
+// 3. **Provedor de agente é escolha de REQUISIÇÃO.** Provedor é recurso de
+//    categoria `agent` (ADR-0013), por conta e por projeto — vários convivem
+//    no mesmo processo. Por isso `provider` é campo do pedido e não
+//    configuração de boot. Vazio = o padrão da instalação.
+//
+// 4. **Ausente ≠ zerado, aqui mais que em qualquer lugar.** Dois campos deste
+//    contrato existem só para impedir que uma AUSÊNCIA de informação seja lida
+//    como uma AFIRMAÇÃO de zero: `cache_creation_known` e `cost_known`. Ver
+//    TurnUsage — é a diferença entre "nada foi escrito no cache" e "este
+//    provedor não conta isso", e entre "a chamada foi de graça" e "não há
+//    tabela de preço". Um orçamento alimentado com zeros de consolo é a ficção
+//    que a ADR-0011 existe para impedir.
+
+service RuntimeService {
+  rpc RunTurn (RunTurnRequest) returns (TurnOutcome);
+}
+
+message RunTurnRequest {
+  string demand_id = 1;
+  string thread_id = 2;
+  // A mensagem do turno. Entra na thread como evento antes da chamada ao
+  // modelo: se o fornecedor cair, a conversa mostra o que foi perguntado.
+  string text = 3;
+  // mechanical | investigation | implementation | critic — e o que mais o
+  // núcleo aceitar. Vocabulário ABERTO (tipo desconhecido cai no fallback caro
+  // e diz que caiu), então string e não enum. Vazio = "implementation".
+  string task_kind = 4;
+  // Vazio = provedor padrão da instalação. Ver decisão 3 do cabeçalho.
+  string provider = 5;
+  // Instrução do OPERADOR, vinda da caixa de atenção. Entra pelo canal de
+  // autoridade do fornecedor (mensagem `system`/`developer` DEPOIS da
+  // história), nunca como texto de usuário: é a diferença entre uma instrução
+  // que autoriza e um texto que qualquer um pode escrever. Preserva também o
+  // prefixo cacheado, em vez de reescrever o topo do prompt (ADR-0012 §1).
+  string operator_note = 6;
+  // 0 = padrão do BFF.
+  int32 max_output_tokens = 7;
+  // Vazio = o BFF gera uma. TODAS as escritas do turno derivam desta chave
+  // (mensagem de entrada, aviso de truncamento, medição, resposta, achado), de
+  // modo que reenviar a MESMA requisição repete zero efeitos. É a garantia que
+  // impede o consumo de contar duas vezes — e sem ela o orçamento vira ficção.
+  string idempotency_key = 10;
+}
+
+// A decisão tarefa → (modelo, effort), com a justificativa INTEIRA.
+message RoutingView {
+  string task_kind = 1;
+  // Nome CONCRETO do modelo no fornecedor ativo. O núcleo decide a CLASSE
+  // (ADR-0011 §3); o catálogo que traduz classe → nome é por fornecedor, e é
+  // do lado da borda que ele vive — a mesma separação política × catálogo de
+  // internal/domain/cost/router.go.
+  string model = 2;
+  // O effort PEDIDO (vocabulário do núcleo: low|medium|high|xhigh|max).
+  string effort = 3;
+  // O effort REALMENTE aplicado. Pode ser menor: nem todo fornecedor tem os
+  // cinco níveis, e fingir que aplicou `max` numa tarefa crítica (ADR-0007)
+  // seria esconder uma decisão de produto dentro de um adaptador.
+  string effort_applied = 4;
+  // A justificativa com a proveniência na frente, inteira. Ver cost.proto.
+  string reason = 5;
+  // Verdadeiro quando a FICHA da thread (ADR-0010 §2) venceu o roteador: ficha
+  // é o contrato congelado daquela thread, e trocar o modelo dela no meio
+  // invalidaria o prefixo cacheado de todos os turnos anteriores.
+  bool from_agent_card = 6;
+}
+
+message TurnUsage {
+  // As quatro parcelas são DISJUNTAS: input NÃO inclui o que veio do cache.
+  // É a semântica de dop.v1.UsageEvent, e nem todo fornecedor conta assim —
+  // quem conta de forma inclusiva é normalizado no adaptador, porque somar as
+  // parcelas de lá como se fossem disjuntas inflaria a medição em silêncio.
+  int64 input_tokens          = 1;
+  int64 output_tokens         = 2;
+  int64 cache_read_tokens     = 3;
+  int64 cache_creation_tokens = 4;
+  Money cost = 5;
+  // FALSO = este provedor não reporta criação de cache. O zero acima é
+  // ausência de informação, não afirmação de que nada foi escrito no cache.
+  bool cache_creation_known = 6;
+  // FALSO = não há tabela de preço para este modelo. O custo acima é zero por
+  // falta de tabela, não porque a chamada foi de graça.
+  bool cost_known = 7;
+}
+
+message FindingRef {
+  string id    = 1;
+  string title = 2;
+}
+
+message TurnOutcome {
+  string demand_id = 1;
+  string thread_id = 2;
+  string provider  = 3;
+  RoutingView routing = 4;
+  // O que o agente respondeu, como foi publicado na thread.
+  string reply = 5;
+  // Ids das mensagens publicadas, na ordem em que entraram na thread.
+  repeated string message_ids = 6;
+  // Concluir EXIGE achado (spec de conversação §1): quando `concluded` é
+  // verdadeiro, `finding` está preenchido. Uma conclusão sem achado é RECUSADA
+  // pelo runtime e vira aviso — thread não morre em silêncio.
+  bool concluded = 7;
+  FindingRef finding = 8;
+  TurnUsage usage = 9;
+  // O pacote de contexto veio TRUNCADO por orçamento de tokens (ADR-0012).
+  // Não é só sinalizado aqui: vira mensagem na thread, porque o humano precisa
+  // saber que a resposta foi produzida sem parte do material.
+  bool context_truncated = 10;
+  // Orçamento estourado: a demanda PAUSA e vira item de decisão (ADR-0011 §2).
+  // NÃO é erro, e o turno que já rodou vem inteiro — a resposta foi publicada
+  // e o achado também. O que não sai é o PRÓXIMO turno.
+  bool paused = 11;
+  // Frase pronta para a caixa de atenção; vazia quando não pausou.
+  string notice = 12;
+  // Os orçamentos estourados — os números com que o humano decide.
+  repeated BudgetView budgets = 13;
+  // Avisos legíveis: effort rebaixado pelo fornecedor, resposta cortada no
+  // limite de tokens, conclusão recusada por falta de achado, provedor sem
+  // contabilidade de cache. Vazio no caso feliz.
+  repeated string warnings = 14;
+}
