@@ -146,6 +146,17 @@ class AttentionUpdate(BaseModel):
     """
 
     change: str = ""
+    # O id do EVENTO que gerou o aviso — a POSIÇÃO no log, não o id do item.
+    #
+    # É o cursor de retomada: o emissor SSE usa este campo como `id:`, e o
+    # cliente o devolve em `since_event_id` ao reconectar. O id do ITEM não
+    # serviria: ele não é posição no log, e mandá-lo de volta pediria ao núcleo
+    # uma coisa que não existe.
+    #
+    # O núcleo passou a mandá-lo depois que esta borda foi escrita; enquanto
+    # não mandava, o fluxo não emitia `id:` nenhum, o que era o certo — cursor
+    # inventado é pior que cursor ausente.
+    id: str = ""
     item: AttentionItem
 
 
@@ -274,4 +285,6 @@ def _update(u: attention_pb2.AttentionUpdate) -> AttentionUpdate:
     # deveria acontecer, e se acontecer o cliente vê um item vazio em vez de
     # receber um KeyError vindo de dentro do stream.
     item = _item(u.item) if u.HasField("item") else AttentionItem()
-    return AttentionUpdate(change=_CHANGE_POR_ENUM.get(u.change, ""), item=item)
+    return AttentionUpdate(
+        change=_CHANGE_POR_ENUM.get(u.change, ""), item=item, id=u.event_id
+    )
