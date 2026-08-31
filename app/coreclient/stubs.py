@@ -6,7 +6,11 @@ importações espalhadas.
 """
 
 from app.coreclient.client import core
-from app.coreclient.gen.dop.v1 import identity_pb2_grpc, resource_pb2_grpc
+from app.coreclient.gen.dop.v1 import (
+    hierarchy_pb2_grpc,
+    identity_pb2_grpc,
+    resource_pb2_grpc,
+)
 
 
 def identity_stub() -> identity_pb2_grpc.IdentityServiceStub:
@@ -15,3 +19,7 @@ def identity_stub() -> identity_pb2_grpc.IdentityServiceStub:
 
 def resource_stub() -> resource_pb2_grpc.ResourceServiceStub:
     return resource_pb2_grpc.ResourceServiceStub(core.channel)
+
+
+def hierarchy_stub() -> hierarchy_pb2_grpc.HierarchyServiceStub:
+    return hierarchy_pb2_grpc.HierarchyServiceStub(core.channel)

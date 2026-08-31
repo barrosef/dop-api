@@ -1,0 +1,95 @@
+syntax = "proto3";
+package dop.bff.v1;
+
+// Hierarquia na BORDA: workspaces (nível 1) e projetos (nível 2) da conta ativa.
+//
+// Mesma disciplina de identity.proto: identidade NÃO viaja no corpo — vem do
+// token em `authorization: Bearer <token>`, e a conta ativa do metadado
+// `x-account-id`. Não existe CallContext aqui.
+//
+// Vocabulário, porque confundir custa caro: **workspace é conceito NOSSO**. O
+// "espaço" do provedor de tarefas (Jira, ClickUp) é outra coisa e aparece como
+// `external_space_id` — nunca a palavra workspace nua para os dois.
+
+message Workspace {
+  string id          = 1;
+  string name        = 2;
+  // Chave curta e maiúscula: é ela que prefixa identificador de demanda.
+  string key         = 3;
+  string description = 4;
+  repeated string tags = 5;
+}
+
+// TaskManagerBinding é o vínculo do projeto com o quadro do provedor.
+message TaskManagerBinding {
+  string integration_id      = 1;
+  string external_space_id   = 2;
+  string external_project_id = 3;
+  // Dinâmicos: quem manda no vocabulário de card é o provedor (ADR-0013).
+  repeated string card_types = 4;
+}
+
+message Project {
+  string id           = 1;
+  string workspace_id = 2;
+  string name         = 3;
+  string description  = 4;
+  repeated string rules = 5;
+  // Opcional: nem todo projeto tem quadro. Ausente ≠ zerado.
+  TaskManagerBinding task_manager = 6;
+}
+
+// TreeNode é um workspace com os projetos dele. Existe para que a barra lateral
+// do cockpit venha em UMA resposta — buscar workspaces e depois um
+// ListProjects por workspace faria a navegação piscar em N requisições.
+message TreeNode {
+  Workspace workspace = 1;
+  repeated Project projects = 2;
+}
+
+message GetTreeRequest {}
+message GetTreeResponse { repeated TreeNode nodes = 1; }
+
+message ListWorkspacesRequest {}
+message ListWorkspacesResponse { repeated Workspace workspaces = 1; }
+
+message CreateWorkspaceRequest {
+  string name        = 1;
+  string key         = 2;
+  string description = 3;
+  repeated string tags = 4;
+  string idempotency_key = 5;
+}
+
+message ListProjectsRequest {
+  // Vazio = todos os projetos da conta ativa.
+  string workspace_id = 1;
+}
+message ListProjectsResponse { repeated Project projects = 1; }
+
+message GetProjectRequest { string id = 1; }
+
+message CreateProjectRequest {
+  // A conta NÃO é informada: é herdada do workspace. Deixar o chamador
+  // informá-la abriria caminho para projeto nascer em conta alheia.
+  string workspace_id = 1;
+  string name         = 2;
+  string description  = 3;
+  string idempotency_key = 4;
+}
+
+message BindTaskManagerRequest {
+  string project_id = 1;
+  TaskManagerBinding binding = 2;
+}
+
+service HierarchyService {
+  rpc GetTree         (GetTreeRequest)         returns (GetTreeResponse);
+  rpc ListWorkspaces  (ListWorkspacesRequest)  returns (ListWorkspacesResponse);
+  rpc CreateWorkspace (CreateWorkspaceRequest) returns (Workspace);
+  rpc ListProjects    (ListProjectsRequest)    returns (ListProjectsResponse);
+  rpc GetProject      (GetProjectRequest)      returns (Project);
+  rpc CreateProject   (CreateProjectRequest)   returns (Project);
+  // Substituição do vínculo; o BFF preserva o resto do projeto por dentro.
+  rpc BindTaskManager (BindTaskManagerRequest) returns (Project);
+}
