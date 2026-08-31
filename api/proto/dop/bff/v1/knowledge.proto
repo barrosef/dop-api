@@ -1,0 +1,160 @@
+syntax = "proto3";
+package dop.bff.v1;
+
+import "google/protobuf/struct.proto";
+// `Finding` já existe no contrato da borda, em demand.proto, com exatamente
+// estes campos. Redeclarar aqui (mesmo pacote!) além de não compilar seria o
+// dicionário paralelo que este contrato existe para evitar: o achado que entra
+// no pacote de contexto e o achado que aparece no cockpit da demanda são a
+// MESMA coisa vista de dois lugares.
+import "dop/bff/v1/demand.proto";
+
+// Conhecimento na BORDA: regras, índice e memória do projeto (ADR-0009).
+//
+// Mesma disciplina de identity.proto: identidade vem do token em
+// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
+// Não existe CallContext aqui.
+//
+// **A decisão que estrutura este contrato: o DESCARTE é informação de primeira
+// classe.** O pacote de contexto é SELECIONADO por orçamento de tokens
+// (ADR-0012), e um pacote truncado que se apresenta como completo faz a tela
+// mentir para o dev: ele lê "o agente tem o índice" quando metade do índice
+// ficou de fora. Por isso `ContextPackage.dropped` existe — e por isso ele é
+// uma MENSAGEM e não quatro contadores soltos: ausente significa "o núcleo não
+// informou", zerado significa "nada foi descartado". Confundir os dois é
+// exatamente a mentira que este campo existe para impedir.
+//
+// O outro trabalho de borda aqui é desfazer duas formas do núcleo que servem ao
+// banco e não à tela:
+//   - `dop.v1.SearchMemoryResponse` devolve artefatos e scores em listas
+//     PARALELAS; aqui eles vêm PAREADOS (MemoryHit), porque índice cruzado é
+//     erro esperando cliente distraído;
+//   - o conteúdo pequeno do artefato viaja no `meta` do núcleo, sob a chave
+//     interna `dop.body`; aqui ele é campo (`body`), e o `meta` que sobra é o
+//     do AUTOR. Vazar convenção interna para a tela cria acoplamento que
+//     ninguém consegue desfazer depois.
+
+// As três camadas da ADR-0009 §1. Mesmos sufixos e mesmos NÚMEROS de
+// dop.v1.KnowledgeArtifact.Kind — a conversão entre as pontas é identidade.
+enum KnowledgeKind {
+  KNOWLEDGE_KIND_UNSPECIFIED = 0;
+  KNOWLEDGE_KIND_RULE        = 1;  // convenções que o agente obedece
+  KNOWLEDGE_KIND_INDEX       = 2;  // mapa do código
+  KNOWLEDGE_KIND_MEMORY      = 3;  // achados e lições de demandas passadas
+}
+
+message KnowledgeArtifact {
+  string        id         = 1;
+  KnowledgeKind kind       = 2;
+  // Vazio em artefato de escopo de conta ou de workspace — e vazio mesmo, sem
+  // um id inventado para "preencher".
+  string        project_id = 3;
+  string        name       = 4;
+  int32         version    = 5;
+  // Ponteiro no ObjectStore. Preenchido só no artefato GRANDE, que o sandbox lê
+  // direto do storage; nesse caso `body` vem vazio.
+  string        object_ref = 6;
+  // Meta do AUTOR. As chaves internas do núcleo (`dop.body`, `dop.scope`) não
+  // chegam aqui: viraram `body` e `scope`.
+  google.protobuf.Struct meta = 7;
+  // Conteúdo inline do artefato pequeno — poupa uma segunda ida ao servidor
+  // para desenhar uma regra de três linhas.
+  string body  = 8;
+  // account | workspace | project — o nível em que o artefato vale.
+  string scope = 9;
+}
+
+// O que FICOU DE FORA do pacote, por camada.
+//
+// Existe porque "coube" e "coube porque jogamos metade da memória fora" são
+// fatos diferentes, e só o segundo explica um agente que ignorou uma lição
+// que a plataforma tinha guardado.
+message DroppedCounts {
+  int32 rules    = 1;
+  int32 findings = 2;
+  int32 index    = 3;
+  int32 memories = 4;
+  // Derivado: qualquer contador acima maior que zero. É o único campo que a
+  // tela precisa consultar para dizer "o contexto foi truncado".
+  bool  truncated = 5;
+}
+
+// A bagagem de bordo do agente para uma demanda (ADR-0009 §3).
+message ContextPackage {
+  string demand_id = 1;
+  repeated string rules = 2;
+  repeated KnowledgeArtifact index    = 3;
+  repeated KnowledgeArtifact memories = 4;
+  repeated Finding findings = 5;
+  // Medido por token counting na montagem, no núcleo. A borda repassa; contar
+  // de novo aqui daria um segundo número, e dois números discordando sobre o
+  // mesmo pacote é pior que nenhum.
+  int32 estimated_tokens = 6;
+  // AUSENTE = o núcleo não informou o descarte (ver o cabeçalho deste arquivo).
+  // Nunca preencher com zeros para "ficar bonito": zero é uma AFIRMAÇÃO de que
+  // nada foi descartado.
+  DroppedCounts dropped = 7;
+}
+
+// Artefato + relevância, PAREADOS. O núcleo devolve duas listas paralelas; o
+// pareamento é trabalho de borda porque é a tela que sofre com o desalinhamento.
+message MemoryHit {
+  KnowledgeArtifact artifact = 1;
+  // `optional` de propósito: score 0 é "nenhuma semelhança"; score ausente é
+  // "o núcleo não pontuou este resultado". A busca lexical e a semântica não
+  // respondem a mesma coisa, e a tela precisa poder dizer isso.
+  optional float score = 2;
+}
+
+service KnowledgeService {
+  rpc GetContextPackage(GetContextPackageRequest) returns (ContextPackage);
+  rpc SearchMemory     (SearchMemoryRequest)      returns (SearchMemoryResponse);
+  rpc ReadIndex        (ReadIndexRequest)         returns (KnowledgeArtifact);
+  rpc PutArtifact      (PutArtifactRequest)       returns (KnowledgeArtifact);
+  rpc ListRules        (ListRulesRequest)         returns (ListRulesResponse);
+}
+
+// Não recebe orçamento de tokens, de propósito: o teto do pacote é política de
+// custo (ADR-0011), e deixar o cliente escolher o próprio teto tornaria a
+// governança uma sugestão. O núcleo decide; a borda mostra o resultado E o
+// descarte.
+message GetContextPackageRequest { string demand_id = 1; }
+
+message SearchMemoryRequest {
+  // Vazio busca a memória de escopo de CONTA — a que vale para todo projeto.
+  string project_id = 1;
+  string query      = 2;
+  // Zero = padrão do núcleo. A borda não fixa número próprio: seriam dois
+  // padrões para a mesma pergunta.
+  int32  limit      = 3;
+}
+message SearchMemoryResponse { repeated MemoryHit hits = 1; }
+
+// Índice ausente é NOT_FOUND, não lista vazia: o agente precisa SABER que não
+// há mapa. Índice silenciosamente vazio mente com a mesma confiança de um
+// índice desatualizado.
+message ReadIndexRequest { string project_id = 1; string repo = 2; }
+
+// A escrita de volta do ciclo (ADR-0009 §4): o achado de hoje é o contexto da
+// demanda de amanhã.
+message PutArtifactRequest {
+  KnowledgeKind kind       = 1;
+  // Vazio grava no escopo da CONTA — regra que vale em todo projeto.
+  string        project_id = 2;
+  string        name       = 3;
+  // Bytes, não string: o conteúdo é arbitrário (markdown, JSON, mapa gerado) e
+  // o núcleo o trata como bytes. No REST equivalente ele viaja em base64.
+  bytes         content    = 4;
+  google.protobuf.Struct meta = 5;
+
+  // Toda escrita leva chave de idempotência (ADR-0017). Aqui ela NÃO é
+  // redundante com uma UNIQUE: regravar o mesmo nome no mesmo escopo é
+  // operação legítima (bumpa a versão), então sem a chave um retry de rede
+  // viraria versão nova em silêncio. Vazio = o BFF gera uma, que é o que o
+  // REST faz.
+  string idempotency_key = 10;
+}
+
+message ListRulesRequest  { string project_id = 1; }
+// Já com a herança conta → workspace → projeto resolvida pelo núcleo.
+message ListRulesResponse { repeated string rules = 1; }

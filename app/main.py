@@ -25,7 +25,19 @@ from app.platform.logging.middleware import LoggingMiddleware
 from app.platform.security.decorator import register_public_routes
 from app.platform.security.firebase import FirebaseVerifier
 from app.platform.security.middleware import AuthMiddleware
-from app.routers import health, hierarchy, identity, resource
+from app.routers import (
+    cost,
+    delivery,
+    demand,
+    execution,
+    health,
+    hierarchy,
+    identity,
+    knowledge,
+    resource,
+    stream,
+    workflow,
+)
 from app.settings import settings
 
 
@@ -96,6 +108,17 @@ def create_app() -> FastAPI:
     app.include_router(identity.router)
     app.include_router(hierarchy.router)
     app.include_router(resource.router)
+    # Ciclo de trabalho.
+    app.include_router(workflow.router)
+    app.include_router(demand.router)
+    app.include_router(delivery.router)
+    # Conhecimento, custo e substrato.
+    app.include_router(knowledge.router)
+    app.include_router(cost.router)
+    app.include_router(execution.router)
+    # SSE por último: é o único que abre conexão longa, e deixá-lo no fim
+    # mantém a leitura da montagem na ordem em que o cockpit consome.
+    app.include_router(stream.router)
 
     verifier = FirebaseVerifier(settings.firebase_project)
     # Ordem importa: logging abre o contexto, auth preenche o principal.

@@ -1,0 +1,97 @@
+syntax = "proto3";
+package dop.bff.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Substrato de execução na BORDA: o sandbox da demanda (spec do substrato).
+//
+// Mesma disciplina de identity.proto: identidade vem do token em
+// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
+// Não existe CallContext aqui.
+//
+// **A regra dura deste contrato: `min_tier` é DECLARADO, nunca presumido.**
+// Sem ele o núcleo RECUSA, e a borda não preenche o vazio para "facilitar" —
+// um default aqui seria a plataforma escolhendo o isolamento de um código que
+// ela não escreveu, e escolhendo para baixo (namespace é o que sempre existe).
+// Quem pede microVM e recebe container não descobre isso pela tela; descobre
+// pelo incidente. Por isso a borda recusa ANTES de gastar a ida ao núcleo, com
+// mensagem, e a recusa é INVALID_ARGUMENT (422 no REST) — pedido incompleto,
+// não falha de servidor.
+//
+// **DestroySandbox é IRREVERSÍVEL e leva o WORKSPACE junto.** Não é o inverso
+// de `Suspend`: suspender mata a execução e preserva o workspace no PVC (é a
+// operação de economia); destruir apaga os dois. Sandbox destruído NÃO retoma —
+// `Resume` recusa, e o caminho é provisionar um novo para a demanda, do zero,
+// sem o worktree, sem o build e sem o que o agente já tinha aprendido no disco.
+
+// Mesmos NOMES e mesmos números de dop.v1.IsolationTier — a conversão entre as
+// pontas é identidade, não tradução (spec do substrato §1).
+enum IsolationTier {
+  ISOLATION_TIER_UNSPECIFIED     = 0;  // pedido INCOMPLETO, nunca um default
+  ISOLATION_TIER_HARDWARE        = 1;  // Kata/Firecracker — microVM
+  ISOLATION_TIER_KERNEL_EMULATED = 2;  // gVisor / Edera
+  ISOLATION_TIER_NAMESPACE       = 3;  // container com securityContext estrito
+}
+
+// Serviço da pilha da demanda, publicado no ingress.
+message SandboxEndpoint {
+  string name  = 1;  // portal-frontend, portal-backend, mysql
+  string url   = 2;
+  int32  port  = 3;
+  string state = 4;  // running | stopped
+}
+
+message Sandbox {
+  // Mesmos nomes e números de dop.v1.Sandbox.State.
+  enum State {
+    STATE_UNSPECIFIED  = 0;
+    STATE_PROVISIONING = 1;  // rastro de uma tentativa que não terminou
+    STATE_ACTIVE       = 2;
+    STATE_SUSPENDED    = 3;  // execução morta, workspace vivo
+    STATE_DESTROYED    = 4;  // terminal: não retoma
+  }
+  string        id        = 1;
+  string        demand_id = 2;
+  State         state     = 3;
+  // O que o substrato ENTREGOU — o cliente vê o que recebeu (spec §2). O núcleo
+  // recusa quando o adaptador entrega um nível diferente do declarado, então
+  // este campo nunca é uma promessa: é o fato.
+  IsolationTier tier      = 4;
+  string        namespace = 5;
+  repeated SandboxEndpoint endpoints = 6;
+  // AUSENTE = sem atividade registrada (sandbox recém-criado). Não vira época
+  // zero: "ocioso desde 1970" mandaria a suspensão automática ler errado.
+  google.protobuf.Timestamp last_active_at = 7;
+}
+
+service ExecutionService {
+  rpc ProvisionSandbox(ProvisionSandboxRequest) returns (Sandbox);
+  rpc DescribeSandbox (DescribeSandboxRequest)  returns (Sandbox);
+  rpc SuspendSandbox  (SuspendSandboxRequest)   returns (Sandbox);
+  rpc ResumeSandbox   (ResumeSandboxRequest)    returns (Sandbox);
+  // IRREVERSÍVEL: apaga a execução E o workspace da demanda. Ver o cabeçalho.
+  rpc DestroySandbox  (DestroySandboxRequest)   returns (DestroySandboxResponse);
+
+  // StreamLogs (dop.v1.ExecutionService) ainda NÃO está nesta porta. O
+  // streaming da borda inteiro (SSE no REST, server-streaming no gRPC) está
+  // sendo desenhado em separado; expor meia solução aqui criaria um segundo
+  // desenho de stream para desfazer depois.
+}
+
+message ProvisionSandboxRequest {
+  string demand_id = 1;
+  // OBRIGATÓRIO. ISOLATION_TIER_UNSPECIFIED é recusado na borda, com mensagem:
+  // "declarado, nunca presumido" morre no dia em que alguém preenche o vazio
+  // por gentileza.
+  IsolationTier min_tier = 2;
+  string idempotency_key = 10;
+}
+
+message DescribeSandboxRequest { string id = 1; }
+message SuspendSandboxRequest  { string id = 1; }
+message ResumeSandboxRequest   { string id = 1; }
+message DestroySandboxRequest  { string id = 1; }
+
+// Devolve confirmação em vez de nada: um ato irreversível merece resposta que o
+// cliente possa mostrar ("destruído"), não um silêncio que ele precise deduzir.
+message DestroySandboxResponse { bool destroyed = 1; }

@@ -1,0 +1,228 @@
+syntax = "proto3";
+package dop.bff.v1;
+
+import "dop/bff/v1/workflow.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// Demanda na BORDA — a unidade de trabalho do cockpit: etapas do fluxo
+// congelado, threads dos agentes e o quadro de achados.
+//
+// Mesma disciplina de identity.proto: identidade vem do token em
+// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`. Não
+// existe CallContext aqui.
+//
+// **Onde a borda ganha o sustento aqui: o COCKPIT numa chamada.** A tela da
+// demanda mostra as etapas, as threads e os achados juntos — no núcleo isso são
+// RPCs separadas, e pedi-las em série faria a tela montar em três tempos. E os
+// derivados (`current_stage_key`, `blocked`, `awaiting_decision`) saem daqui
+// prontos: são a MESMA regrinha que o cockpit, o dop-cli e o agente escreveriam
+// cada um do seu jeito, e três leituras diferentes de "onde a demanda está" é
+// como a lista e a tela passam a discordar.
+//
+// O vocabulário de etapa (StageType, ArtifactKind, Gate) vem de workflow.proto,
+// como em dop.v1: a etapa da demanda é a instância do que a especificação do
+// fluxo descreve.
+
+// Situação da demanda no nosso vocabulário — o do provedor de tarefas viaja
+// separado, em `provider_status`. Mesmos nomes e números de dop.v1.DopStatus.
+enum DopStatus {
+  DOP_STATUS_UNSPECIFIED = 0;
+  DOP_STATUS_NEW         = 1;
+  DOP_STATUS_DOING       = 2;
+  DOP_STATUS_DONE        = 3;
+  DOP_STATUS_DELIVERED   = 4;
+}
+
+// Mesmos nomes e números de dop.v1.StageStatus.
+enum StageStatus {
+  STAGE_STATUS_UNSPECIFIED = 0;
+  STAGE_STATUS_PENDING     = 1;
+  STAGE_STATUS_RUNNING     = 2;
+  STAGE_STATUS_BLOCKED     = 3;
+  STAGE_STATUS_DONE        = 4;
+}
+
+message Artifact {
+  string       id         = 1;
+  ArtifactKind kind       = 2;
+  string       name       = 3;
+  string       object_ref = 4;  // ponteiro no ObjectStore, nunca o conteúdo
+  int32        version    = 5;
+}
+
+message Stage {
+  string      key    = 1;
+  string      name   = 2;
+  StageType   type   = 3;
+  StageStatus status = 4;
+  Gate        gate   = 5;
+  repeated Artifact artifacts = 6;
+  // Opcionais de verdade: etapa que não começou não tem início, e um zero aqui
+  // viraria 1970 na tela. Ausente ≠ zerado — use HasField.
+  google.protobuf.Timestamp started_at  = 7;
+  google.protobuf.Timestamp finished_at = 8;
+  // Derivado na borda: a etapa tem portão humano e está esperando gente
+  // (começou e não terminou). É o item "spec aguardando aprovação" da caixa de
+  // atenção, e a condição exata que o núcleo aceita em DecideGate.
+  bool awaiting_decision = 9;
+}
+
+message Demand {
+  string    id              = 1;
+  string    project_id      = 2;
+  string    external_key    = 3;   // SUOPT-1315
+  string    title           = 4;
+  string    card_type       = 5;   // dinâmico, do provedor
+  string    provider_status = 6;   // cru, do provedor — não é o nosso
+  DopStatus dop_status      = 7;
+  // Versão do fluxo CONGELADA ao iniciar (ADR-0014 §4): a demanda em andamento
+  // não muda de processo no meio do caminho.
+  string    flow_id      = 8;
+  int32     flow_version = 9;
+  repeated Stage stages   = 10;
+  // ── derivados na borda, para a LISTA e para a tela dizerem a mesma coisa ──
+  // A primeira etapa não concluída: "onde a demanda está".
+  string current_stage_key  = 11;
+  // Alguma etapa bloqueada — o vermelho da lista.
+  bool   blocked            = 12;
+  // Alguma etapa esperando decisão humana — o que chama o dev.
+  bool   awaiting_decision  = 13;
+}
+
+// Ficha do agente da thread: propósito, ferramentas, modelo e orçamento.
+message AgentCard {
+  string purpose = 1;
+  repeated string tools = 2;   // MCPs e skills concedidos
+  string model   = 3;
+  string effort  = 4;          // low | medium | high | xhigh | max
+  int64  budget_micros = 5;
+}
+
+// Uma thread por agente — o dev conversa sem misturar timelines (ADR-0010).
+message Thread {
+  string id      = 1;
+  string key     = 2;   // principal, forense-db, logs
+  bool   blocked = 3;   // pergunta pendente → caixa de atenção
+  // Opcional: thread sem ficha é diferente de thread com ficha vazia (uma não
+  // tem agente atrás; a outra teria um agente sem propósito nem orçamento).
+  AgentCard card = 4;
+}
+
+message Message {
+  string id        = 1;
+  string thread_id = 2;
+  // Autor achatado: no núcleo é um ActorRef, mas aqui um wrapper de três campos
+  // custaria mais linhas de cliente do que informa.
+  string author_kind = 3;  // user | agent | subagent | system
+  string author_id   = 4;
+  string author_name = 5;
+  string text        = 6;
+  google.protobuf.Timestamp at = 7;
+}
+
+// Conclusão publicada por um agente — vira contexto dos irmãos e memória.
+message Finding {
+  string id        = 1;
+  string thread_id = 2;
+  string title     = 3;
+  google.protobuf.Struct payload = 4;
+}
+
+// A tela da demanda inteira, numa resposta.
+message DemandCockpit {
+  Demand demand = 1;
+  repeated Thread threads = 2;
+  // O quadro de achados. Vem VAZIO enquanto dop.v1.DemandService não tiver
+  // leitura de achados: o núcleo só expõe PublishFinding (a consulta existe no
+  // domínio, `Service.Findings`, mas não no contrato). Por isso o campo ao
+  // lado: "nenhum achado" e "não dá para saber" são fatos diferentes, e a tela
+  // precisa dizer qual dos dois está mostrando — a mesma disciplina de
+  // ausente ≠ zerado, um nível acima.
+  repeated Finding findings = 3;
+  bool findings_available   = 4;
+}
+
+// ── requisições ─────────────────────────────────────────────────────────────
+
+message ListDemandsRequest {
+  // Vazio = todas as demandas visíveis na conta ativa.
+  string project_id = 1;
+  int32  page_size  = 2;
+  string page_token = 3;
+}
+message ListDemandsResponse {
+  repeated Demand demands = 1;
+  string next_page_token  = 2;  // vazio = acabou
+}
+
+message GetDemandRequest { string id = 1; }
+
+message GetDemandCockpitRequest { string demand_id = 1; }
+
+// A demanda nasce de um card do provedor: a chave externa é a identidade dela
+// lá fora. O fluxo NÃO é escolhido aqui — é resolvido pela cadeia e congelado.
+message StartDemandRequest {
+  string project_id   = 1;
+  string external_key = 2;
+  string idempotency_key = 3;
+}
+
+message AdvanceStageRequest {
+  string      demand_id = 1;
+  string      stage_key = 2;
+  StageStatus status    = 3;
+  string      idempotency_key = 4;
+}
+
+// Portão humano: aprovar conclui a etapa; reprovar a BLOQUEIA com o comentário
+// (o núcleo não a devolve para pendente — reprovação que some da tela é metade
+// do valor da validação humana jogado fora).
+message DecideGateRequest {
+  string demand_id = 1;
+  string stage_key = 2;
+  bool   approved  = 3;
+  string comment   = 4;
+  string idempotency_key = 5;
+}
+
+message ListThreadsRequest  { string demand_id = 1; }
+message ListThreadsResponse { repeated Thread threads = 1; }
+
+message CreateThreadRequest {
+  string    demand_id = 1;
+  string    key       = 2;
+  AgentCard card      = 3;
+  string    idempotency_key = 4;
+}
+
+message PostMessageRequest {
+  string thread_id = 1;
+  string text      = 2;
+  string idempotency_key = 3;
+}
+
+message PublishFindingRequest {
+  string demand_id = 1;
+  string thread_id = 2;
+  string title     = 3;
+  google.protobuf.Struct payload = 4;
+  string idempotency_key = 5;
+}
+
+service DemandService {
+  rpc ListDemands   (ListDemandsRequest)   returns (ListDemandsResponse);
+  rpc GetDemand     (GetDemandRequest)     returns (Demand);
+  // Etapas + threads + achados de uma vez: a tela do cockpit.
+  rpc GetDemandCockpit (GetDemandCockpitRequest) returns (DemandCockpit);
+  rpc StartDemand   (StartDemandRequest)   returns (Demand);
+  rpc AdvanceStage  (AdvanceStageRequest)  returns (Stage);
+  rpc DecideGate    (DecideGateRequest)    returns (Stage);
+  rpc ListThreads   (ListThreadsRequest)   returns (ListThreadsResponse);
+  rpc CreateThread  (CreateThreadRequest)  returns (Thread);
+  rpc PostMessage   (PostMessageRequest)   returns (Message);
+  rpc PublishFinding(PublishFindingRequest) returns (Finding);
+  // WatchDemand (stream) NÃO está aqui: a camada de streaming/SSE da borda é
+  // trabalho à parte e entra quando existir. Um RPC de stream declarado sem
+  // servicer por trás seria UNIMPLEMENTED anunciado na reflection.
+}

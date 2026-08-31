@@ -1,0 +1,168 @@
+syntax = "proto3";
+package dop.bff.v1;
+
+// Fluxo de trabalho na BORDA — o ciclo da demanda, resolvido pela cadeia
+// plataforma ◁ conta ◁ workspace ◁ projeto ◁ demanda (ADR-0014).
+//
+// Mesma disciplina de identity.proto: identidade NÃO viaja no corpo — vem do
+// token em `authorization: Bearer <token>`, e a conta ativa do metadado
+// `x-account-id`. Não existe CallContext aqui.
+//
+// O vocabulário de ETAPA (StageType, ArtifactKind, Gate) mora NESTE arquivo e é
+// importado por demand.proto, exatamente como dop.v1 faz. Repetir os enums lá
+// seria um dicionário paralelo dentro do mesmo pacote — e nem compilaria.
+//
+// **Onde a borda ganha o sustento aqui: PROCEDÊNCIA ESTRUTURADA.** O núcleo
+// devolve o rastro achatado numa frase (`resolved_from`), porque é o que a tela
+// imprime: "conta ◂ plataforma — etapas: contexto (plataforma), spec (conta)".
+// Quem precisa marcar "herdado de conta" NA LINHA da etapa teria de fazer
+// parsing de frase no cliente, e cada cliente faria o seu — com um dicionário
+// de rótulos em português por dentro. A borda faz isso UMA vez e entrega
+// `Provenance`; a frase original vem junto, inteira, para conferência e para
+// quem só quer imprimir.
+
+// ── vocabulário compartilhado com dop.v1 (workflow.proto) ───────────────────
+
+// Tipo semântico da etapa: decide o renderizador na tela e o comportamento do
+// agente. Mesmos nomes e mesmos números de dop.v1.StageType — tipo novo exige
+// evolução da plataforma, composição nova não (ADR-0014 §1).
+enum StageType {
+  STAGE_TYPE_UNSPECIFIED      = 0;
+  STAGE_TYPE_CONTEXT          = 1;
+  STAGE_TYPE_SPEC             = 2;
+  STAGE_TYPE_PLAN             = 3;
+  STAGE_TYPE_IMPLEMENTATION   = 4;
+  STAGE_TYPE_TEST             = 5;
+  STAGE_TYPE_HUMAN_VALIDATION = 6;
+  STAGE_TYPE_FINALIZATION     = 7;
+  STAGE_TYPE_GENERIC          = 8;
+}
+
+enum ArtifactKind {
+  ARTIFACT_KIND_UNSPECIFIED = 0;
+  ARTIFACT_KIND_DOCUMENT    = 1;
+  ARTIFACT_KIND_SPEC        = 2;
+  ARTIFACT_KIND_PLAN        = 3;
+  ARTIFACT_KIND_TEST_PLAN   = 4;
+  ARTIFACT_KIND_DIAGRAM     = 5;
+  ARTIFACT_KIND_REPORT      = 6;
+}
+
+// Portão da etapa: quem fecha. GATE_HUMAN é o que impede a plataforma de
+// aprovar em nome de gente (ADR-0014, e o núcleo recusa agente em DecideGate).
+enum Gate {
+  GATE_UNSPECIFIED = 0;
+  GATE_NONE        = 1;
+  GATE_HUMAN       = 2;
+}
+
+// ── modelos da borda ────────────────────────────────────────────────────────
+
+message StageSpec {
+  string    key  = 1;
+  string    name = 2;   // livre, do autor
+  StageType type = 3;
+  repeated ArtifactKind artifacts = 4;
+  Gate      gate = 5;
+  // Ex.: teste → aaa, e2e, integracao. Dinâmicos: quem compõe é o autor.
+  repeated string subtypes = 6;
+}
+
+message Flow {
+  string id      = 1;
+  string name    = 2;
+  string description = 3;
+  int32  version = 4;
+  // Nível dono na cadeia: platform | account | workspace | project | demand.
+  // String, e não enum, porque em dop.v1 também é string: um enum só da borda
+  // seria o dicionário paralelo que este contrato existe para não ter.
+  string owner_scope = 5;
+  string owner_id    = 6;
+  repeated StageSpec stages = 7;
+}
+
+// De onde veio UMA etapa — a resposta a "por que a demanda seguiu este fluxo".
+message StageOrigin {
+  string stage_key = 1;
+  // Mesmo vocabulário de `Flow.owner_scope` (platform | account | …), e não os
+  // rótulos em português da frase do núcleo: a borda normaliza para que o
+  // cliente compare com `owner_scope` sem tabela de tradução própria.
+  string scope     = 2;
+}
+
+// O rastro de procedência, estruturado.
+message Provenance {
+  // Níveis que de fato declararam algo, do MAIS ESPECÍFICO ao mais genérico —
+  // a mesma ordem em que a frase se lê. Nível que herdou por omissão não
+  // aparece, porque não contribuiu com nada.
+  repeated string contributors = 1;
+  // Origem etapa por etapa, na MESMA ORDEM de `flow.stages`: quando o núcleo
+  // não truncou, `origins[i]` é a origem de `flow.stages[i]`.
+  repeated StageOrigin origins = 2;
+  // A frase do núcleo, preservada inteira. É o que a tela imprime hoje e o que
+  // permite conferir a leitura estruturada acima.
+  string sentence  = 3;
+  // O núcleo corta o detalhe por etapa em 12 (o rastro é frase de tela, não
+  // relatório). Quando cortou, `origins` não cobre todas as etapas — e dizer
+  // isso é diferente de deixar o cliente concluir que as demais não têm origem.
+  bool   truncated = 4;
+}
+
+message EffectiveFlow {
+  Flow       flow       = 1;
+  Provenance provenance = 2;
+}
+
+// ── requisições ─────────────────────────────────────────────────────────────
+
+message ListFlowsRequest {
+  // Vazio = todos os fluxos visíveis na conta ativa.
+  string owner_scope = 1;
+  string owner_id    = 2;
+}
+message ListFlowsResponse { repeated Flow flows = 1; }
+
+message GetFlowRequest { string id = 1; }
+
+// O fluxo entra inteiro: a v1 não tem edição por etapa, e mandar meio fluxo
+// seria substituição parcial disfarçada (a mesma armadilha do UpdateProject).
+message CreateFlowRequest {
+  Flow   flow            = 1;
+  string idempotency_key = 2;
+}
+
+// UpdateFlow no núcleo gera VERSÃO NOVA — o passado não se reescreve, porque
+// demandas em andamento congelaram a versão que estavam seguindo (ADR-0014 §4).
+message UpdateFlowRequest { string id = 1; Flow flow = 2; }
+
+// Ensaio: devolve o relatório, não um erro. A tela precisa da lista para
+// marcar as etapas problemáticas, não de uma mensagem para um toast.
+message ValidateFlowRequest  { Flow flow = 1; }
+message ValidateFlowResponse {
+  bool valid = 1;
+  repeated string errors   = 2;
+  repeated string warnings = 3;  // ex.: fluxo sem etapa spec
+}
+
+message ResolveFlowRequest {
+  // Nível de onde se pergunta: platform | account | workspace | project | demand.
+  string scope    = 1;
+  string scope_id = 2;
+}
+
+message PromoteFlowRequest {
+  string flow_id      = 1;
+  string target_scope = 2;
+  string target_id    = 3;
+}
+
+service WorkflowService {
+  rpc ListFlows    (ListFlowsRequest)    returns (ListFlowsResponse);
+  rpc GetFlow      (GetFlowRequest)      returns (Flow);
+  rpc CreateFlow   (CreateFlowRequest)   returns (Flow);
+  rpc UpdateFlow   (UpdateFlowRequest)   returns (Flow);
+  rpc ValidateFlow (ValidateFlowRequest) returns (ValidateFlowResponse);
+  // O fluxo efetivo E o rastro de como se chegou nele, já estruturado.
+  rpc ResolveFlow  (ResolveFlowRequest)  returns (EffectiveFlow);
+  rpc PromoteFlow  (PromoteFlowRequest)  returns (Flow);
+}

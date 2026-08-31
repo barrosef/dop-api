@@ -1,0 +1,78 @@
+syntax = "proto3";
+package dop.bff.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// Streaming na BORDA — o MESMO fluxo que o cockpit recebe como SSE.
+//
+// A ADR-0017 (convenção 1) manda: streaming server-side para tudo ao vivo, e o
+// BFF converte em SSE para o browser. O browser é UM dos consumidores; o
+// `dop-cli` e os agentes dos sandboxes falam gRPC e não deveriam ser obrigados
+// a implementar `text/event-stream` para acompanhar a mesma coisa. Por isso
+// este serviço existe: mesma função de caso de uso, dois adaptadores — como em
+// hierarchy.proto e identity.proto, só que agora com resposta em stream.
+//
+// Mesma disciplina dos demais contratos da borda: identidade NÃO viaja no
+// corpo — vem do token em `authorization: Bearer <token>` e a conta ativa do
+// metadado `x-account-id`. Não existe CallContext aqui.
+
+// StreamEvent é o evento do log do núcleo (dop.v1.EventEnvelope) na roupa da
+// borda. `account` sai fora porque a conta já é a do metadado: repeti-la seria
+// uma segunda fonte de verdade sobre o tenant.
+message StreamEvent {
+  // Id do evento no LOG do núcleo. É este valor que o SSE emite como `id:` e
+  // que o cliente devolve em `since_event_id` para retomar sem buraco e sem
+  // duplicata. Vazio no fluxo de demanda, que não tem cursor (ver abaixo).
+  string id           = 1;
+  string type         = 2;   // dop.hierarchy.project.created
+  string aggregate    = 3;   // demand, project, workspace, resource...
+  string aggregate_id = 4;
+  google.protobuf.Struct    payload     = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+message WatchEventsRequest {
+  // Filtros opcionais. Vazio = tudo o que a conta produzir. Existem para que a
+  // caixa de atenção não precise receber (e descartar) o log inteiro.
+  repeated string aggregate = 1;
+  repeated string types     = 2;
+
+  // Cursor de retomada: o ÚLTIMO evento que o cliente já processou. Atravessa
+  // intacto para `since_event_id` do núcleo, que drena o log a partir dali e só
+  // então emenda no fluxo ao vivo. No SSE, o equivalente é o cabeçalho
+  // `Last-Event-ID`; aqui é campo, porque gRPC não tem esse cabeçalho.
+  string since_event_id = 3;
+}
+
+// WatchDemand acompanha UMA demanda: mensagem de thread, avanço de etapa,
+// achado publicado. É o que faz o chat da demanda ser ao vivo.
+message WatchDemandRequest { string demand_id = 1; }
+
+message LogLine {
+  string source  = 1;   // app | test | infra
+  string service = 2;
+  string line    = 3;
+  google.protobuf.Timestamp at = 4;
+}
+
+// TailLogs é a cauda de log do sandbox. `source`, `service` e `test_type` são
+// filtros do núcleo e passam adiante sem interpretação.
+message TailLogsRequest {
+  string sandbox_id = 1;
+  string source     = 2;
+  string service    = 3;
+  string test_type  = 4;
+}
+
+service StreamService {
+  // Eventos da conta ativa — alimenta timeline e caixa de atenção.
+  rpc WatchEvents (WatchEventsRequest) returns (stream StreamEvent);
+  // Eventos de uma demanda. NÃO tem cursor de retomada: o contrato do núcleo
+  // (dop.v1.WatchDemandRequest) não oferece um, e inventar um id aqui seria
+  // prometer uma retomada que a origem não sabe cumprir. Quem reconecta relê o
+  // dossiê da demanda e reassina.
+  rpc WatchDemand (WatchDemandRequest) returns (stream StreamEvent);
+  // Cauda de log de um sandbox. Também sem cursor, pela mesma razão.
+  rpc TailLogs    (TailLogsRequest)    returns (stream LogLine);
+}
