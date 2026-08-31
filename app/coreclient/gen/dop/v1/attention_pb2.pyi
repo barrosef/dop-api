@@ -86,7 +86,7 @@ class WatchAttentionRequest(_message.Message):
     def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., since_event_id: _Optional[str] = ...) -> None: ...
 
 class AttentionUpdate(_message.Message):
-    __slots__ = ("change", "item")
+    __slots__ = ("change", "item", "event_id")
     class Change(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         CHANGE_UNSPECIFIED: _ClassVar[AttentionUpdate.Change]
@@ -97,6 +97,8 @@ class AttentionUpdate(_message.Message):
     CHANGE_RESOLVED: AttentionUpdate.Change
     CHANGE_FIELD_NUMBER: _ClassVar[int]
     ITEM_FIELD_NUMBER: _ClassVar[int]
+    EVENT_ID_FIELD_NUMBER: _ClassVar[int]
     change: AttentionUpdate.Change
     item: AttentionItem
-    def __init__(self, change: _Optional[_Union[AttentionUpdate.Change, str]] = ..., item: _Optional[_Union[AttentionItem, _Mapping]] = ...) -> None: ...
+    event_id: str
+    def __init__(self, change: _Optional[_Union[AttentionUpdate.Change, str]] = ..., item: _Optional[_Union[AttentionItem, _Mapping]] = ..., event_id: _Optional[str] = ...) -> None: ...

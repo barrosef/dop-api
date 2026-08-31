@@ -51,7 +51,9 @@ message RunTurnRequest {
   // e diz que caiu), então string e não enum. Vazio = "implementation".
   string task_kind = 4;
   // Vazio = provedor padrão da instalação. Ver decisão 3 do cabeçalho.
-  string provider = 5;
+  // Qual integração de agente usar. Vazio = a única da conta; havendo mais
+  // de uma, o núcleo RECUSA com a lista em vez de escolher (ADR-0013).
+  string resource_id = 5;
   // Instrução do OPERADOR, vinda da caixa de atenção. Entra pelo canal de
   // autoridade do fornecedor (mensagem `system`/`developer` DEPOIS da
   // história), nunca como texto de usuário: é a diferença entre uma instrução
@@ -138,9 +140,8 @@ message TurnOutcome {
   // Frase pronta para a caixa de atenção; vazia quando não pausou.
   string notice = 12;
   // Os orçamentos estourados — os números com que o humano decide.
-  repeated BudgetView budgets = 13;
+  reserved 13, 14;  // budgets/warnings: viviam no runtime do BFF (ADR-0023)
   // Avisos legíveis: effort rebaixado pelo fornecedor, resposta cortada no
   // limite de tokens, conclusão recusada por falta de achado, provedor sem
   // contabilidade de cache. Vazio no caso feliz.
-  repeated string warnings = 14;
 }

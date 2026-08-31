@@ -16,6 +16,9 @@ class Settings(BaseSettings):
 
     core_grpc: str = "dop-core.dop-local.svc:9090"
     core_deadline_s: float = 10.0
+    # Turno de agente é LONGO: chamada a modelo com raciocínio leva minutos, e
+    # o prazo normal do núcleo derrubaria todo turno real.
+    agent_turn_deadline_s: float = 600.0
 
     firebase_project: str = "dop-local"
     firebase_auth_emulator_host: str = ""

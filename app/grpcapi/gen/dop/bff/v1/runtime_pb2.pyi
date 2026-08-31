@@ -8,12 +8,12 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class RunTurnRequest(_message.Message):
-    __slots__ = ("demand_id", "thread_id", "text", "task_kind", "provider", "operator_note", "max_output_tokens", "idempotency_key")
+    __slots__ = ("demand_id", "thread_id", "text", "task_kind", "resource_id", "operator_note", "max_output_tokens", "idempotency_key")
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     THREAD_ID_FIELD_NUMBER: _ClassVar[int]
     TEXT_FIELD_NUMBER: _ClassVar[int]
     TASK_KIND_FIELD_NUMBER: _ClassVar[int]
-    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
     OPERATOR_NOTE_FIELD_NUMBER: _ClassVar[int]
     MAX_OUTPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
@@ -21,11 +21,11 @@ class RunTurnRequest(_message.Message):
     thread_id: str
     text: str
     task_kind: str
-    provider: str
+    resource_id: str
     operator_note: str
     max_output_tokens: int
     idempotency_key: str
-    def __init__(self, demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., text: _Optional[str] = ..., task_kind: _Optional[str] = ..., provider: _Optional[str] = ..., operator_note: _Optional[str] = ..., max_output_tokens: _Optional[int] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., text: _Optional[str] = ..., task_kind: _Optional[str] = ..., resource_id: _Optional[str] = ..., operator_note: _Optional[str] = ..., max_output_tokens: _Optional[int] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class RoutingView(_message.Message):
     __slots__ = ("task_kind", "model", "effort", "effort_applied", "reason", "from_agent_card")
@@ -70,7 +70,7 @@ class FindingRef(_message.Message):
     def __init__(self, id: _Optional[str] = ..., title: _Optional[str] = ...) -> None: ...
 
 class TurnOutcome(_message.Message):
-    __slots__ = ("demand_id", "thread_id", "provider", "routing", "reply", "message_ids", "concluded", "finding", "usage", "context_truncated", "paused", "notice", "budgets", "warnings")
+    __slots__ = ("demand_id", "thread_id", "provider", "routing", "reply", "message_ids", "concluded", "finding", "usage", "context_truncated", "paused", "notice")
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     THREAD_ID_FIELD_NUMBER: _ClassVar[int]
     PROVIDER_FIELD_NUMBER: _ClassVar[int]
@@ -83,8 +83,6 @@ class TurnOutcome(_message.Message):
     CONTEXT_TRUNCATED_FIELD_NUMBER: _ClassVar[int]
     PAUSED_FIELD_NUMBER: _ClassVar[int]
     NOTICE_FIELD_NUMBER: _ClassVar[int]
-    BUDGETS_FIELD_NUMBER: _ClassVar[int]
-    WARNINGS_FIELD_NUMBER: _ClassVar[int]
     demand_id: str
     thread_id: str
     provider: str
@@ -97,6 +95,4 @@ class TurnOutcome(_message.Message):
     context_truncated: bool
     paused: bool
     notice: str
-    budgets: _containers.RepeatedCompositeFieldContainer[_cost_pb2.BudgetView]
-    warnings: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., provider: _Optional[str] = ..., routing: _Optional[_Union[RoutingView, _Mapping]] = ..., reply: _Optional[str] = ..., message_ids: _Optional[_Iterable[str]] = ..., concluded: _Optional[bool] = ..., finding: _Optional[_Union[FindingRef, _Mapping]] = ..., usage: _Optional[_Union[TurnUsage, _Mapping]] = ..., context_truncated: _Optional[bool] = ..., paused: _Optional[bool] = ..., notice: _Optional[str] = ..., budgets: _Optional[_Iterable[_Union[_cost_pb2.BudgetView, _Mapping]]] = ..., warnings: _Optional[_Iterable[str]] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., provider: _Optional[str] = ..., routing: _Optional[_Union[RoutingView, _Mapping]] = ..., reply: _Optional[str] = ..., message_ids: _Optional[_Iterable[str]] = ..., concluded: _Optional[bool] = ..., finding: _Optional[_Union[FindingRef, _Mapping]] = ..., usage: _Optional[_Union[TurnUsage, _Mapping]] = ..., context_truncated: _Optional[bool] = ..., paused: _Optional[bool] = ..., notice: _Optional[str] = ...) -> None: ...

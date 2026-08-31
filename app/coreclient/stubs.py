@@ -11,6 +11,7 @@ exatamente qual nome trocar.
 
 from app.coreclient.client import core
 from app.coreclient.gen.dop.v1 import (
+    agent_pb2_grpc,
     attention_pb2_grpc,
     cost_pb2_grpc,
     delivery_pb2_grpc,
@@ -69,3 +70,13 @@ def event_stub() -> event_pb2_grpc.EventServiceStub:
 def attention_stub() -> attention_pb2_grpc.AttentionServiceStub:
     """A caixa de atenção: lista e stream da fila única de pendências."""
     return attention_pb2_grpc.AttentionServiceStub(core.channel)
+
+
+def agent_stub() -> agent_pb2_grpc.AgentServiceStub:
+    """Runtime de agente — vive no NÚCLEO (ADR-0023).
+
+    O BFF não executa turno e não vê credencial de provedor: ele é a camada
+    exposta à internet, e comprometê-la não pode entregar as credenciais de
+    agente de todas as contas.
+    """
+    return agent_pb2_grpc.AgentServiceStub(core.channel)
