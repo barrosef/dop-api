@@ -47,7 +47,10 @@ COPY app ./app
 RUN chgrp -R 0 /app && chmod -R g=u /app
 
 USER 1001
-EXPOSE 8000
+# Duas portas de entrada, um processo: HTTP para o cockpit, gRPC para o
+# dop-cli e os agentes. A porta gRPC é aberta pelo lifespan do FastAPI, então
+# o comando abaixo sobe as duas.
+EXPOSE 8000 9095
 
 # Um worker por pod: escala é réplica do Deployment, não processo dentro do
 # container — o SSE precisa saber em qual processo a conexão está.

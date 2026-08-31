@@ -1,8 +1,12 @@
 """Duplos do núcleo. Nenhum teste sobe o dop-core de verdade.
 
-O ponto de substituição é UM só: `app.coreclient.stubs.identity_stub`. Router e
-resolver passam por ele, então trocar essa função troca o núcleo inteiro — sem
-patch espalhado por módulo.
+O ponto de substituição é UM só: `app.coreclient.stubs.identity_stub`. Router,
+servicer gRPC e resolver passam por ele, então trocar essa função troca o
+núcleo inteiro — sem patch espalhado por módulo.
+
+As fixtures da porta gRPC (`servidor_grpc`, `stub_grpc`) sobem um servidor de
+verdade em porta efêmera, contra o mesmo núcleo falso das fixtures REST. É o
+que permite pedir a mesma coisa pelas duas portas e comparar o resultado.
 """
 
 import base64
@@ -16,7 +20,12 @@ from grpc.aio import AioRpcError
 
 from app.coreclient import stubs
 from app.coreclient.gen.dop.v1 import common_pb2, identity_pb2
+from app.coreclient.resolver import CoreResolver
+from app.grpcapi.gen.dop.bff.v1 import identity_pb2_grpc as bff_grpc
+from app.grpcapi.server import GrpcServer
 from app.main import create_app
+from app.platform.security.firebase import FirebaseVerifier
+from app.settings import settings
 
 PROJECT = "dop-local"
 
@@ -120,3 +129,56 @@ def nucleo(monkeypatch):
 def cliente(nucleo):
     with TestClient(create_app()) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _porta_grpc_desligada(monkeypatch):
+    """Nenhum teste abre a porta gRPC pelo lifespan.
+
+    Cada `create_app()` num teste tentaria ouvir na MESMA porta fixa da
+    configuração — a segunda falharia, e a suíte ficaria dependente da ordem.
+    Quem testa a porta gRPC a cria explicitamente, em porta efêmera.
+    """
+    monkeypatch.setattr(settings, "grpc_enabled", False)
+
+
+def metadados_de(token: str | None = None, account_id: str = "acct-1", **extra):
+    """Metadados gRPC equivalentes aos cabeçalhos do REST.
+
+    Identidade no `authorization` (não no corpo da mensagem) e conta ativa no
+    `x-account-id`, exatamente como o AuthMiddleware espera no HTTP.
+    """
+    md = []
+    if token is not None:
+        md.append(("authorization", token))
+    if account_id:
+        md.append(("x-account-id", account_id))
+    md += list(extra.items())
+    return md
+
+
+@pytest.fixture
+async def servidor_grpc(nucleo):
+    """Servidor gRPC real, em porta efêmera, contra o núcleo falso.
+
+    Real de propósito: interceptor que só é exercido por chamada direta não
+    prova que o `grpc.aio` o executa na ordem certa nem que o ContextVar
+    sobrevive até o servicer — que é justamente a parte difícil.
+    """
+    servidor = GrpcServer(
+        verifier=FirebaseVerifier(PROJECT),
+        resolver=CoreResolver(),
+        port=0,
+        host="127.0.0.1",
+    )
+    await servidor.start()
+    try:
+        yield servidor
+    finally:
+        await servidor.stop(grace=0)
+
+
+@pytest.fixture
+async def stub_grpc(servidor_grpc):
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{servidor_grpc.port}") as canal:
+        yield bff_grpc.IdentityServiceStub(canal)

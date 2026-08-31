@@ -15,6 +15,45 @@ evento na mesma transação.
 Aqui vivem: tradução de protocolo, resolução de conta ativa, URLs assinadas de
 upload e a conversa com os modelos (`AgentRuntime`).
 
+## Um caso de uso, dois transportes
+
+REST e gRPC são **adaptadores**, não implementações. A regra vive uma vez só,
+em `app/usecases/`, e as duas portas chamam a MESMA função:
+
+```
+app/routers/identity.py   ─┐
+                           ├─→  app/usecases/identity.py  ─→  app/coreclient/
+app/grpcapi/identity.py   ─┘
+```
+
+Os decorators transversais (`@log`, `@account_scoped`, `@require_role`) ficam no
+**caso de uso**, não no adaptador — autorização presa ao router valeria só para
+o REST, e a porta gRPC nasceria aberta.
+
+| ponta | autenticação | conta ativa | erro |
+|---|---|---|---|
+| REST | cabeçalho `authorization` | cabeçalho `x-account-id` | status HTTP |
+| gRPC | metadado `authorization` | metadado `x-account-id` | status gRPC |
+
+Nos dois casos quem preenche o `AuthContext` é o mesmo `CoreResolver`, e quem
+redige detalhe de 5xx é o mesmo `_detail_for`. `tests/test_grpc_identity.py`
+tem uma classe inteira (`TestParidadeEntreTransportes`) que pede a mesma coisa
+pelas duas portas e compara — é o alarme que dispara se alguém reimplementar um
+caso de uso num adaptador.
+
+> **Armadilha resolvida:** em `grpc.aio`, ContextVar definido dentro de
+> `intercept_service` **não** chega ao servicer — o interceptor só devolve o
+> handler, que a biblioteca executa depois, noutro contexto. Por isso os
+> interceptores de `app/grpcapi/interceptors.py` **envolvem**
+> `handler.unary_unary` em vez de preparar o terreno antes da continuação.
+
+A porta gRPC sobe no mesmo processo do FastAPI, controlada pelo lifespan
+(`grpc_port`, `grpc_enabled` em `app/settings.py`), depois do canal com o núcleo
+e antes dele no encerramento — gracioso, para não cortar escrita em voo.
+
+**Streaming ainda não existe nesta porta**, de propósito: o núcleo está
+ganhando os RPCs de stream agora, e a borda os expõe depois.
+
 ## Transversais por decorator
 
 O padrão: **ContextVar preenchido por middleware, decorators que leem o
@@ -55,23 +94,42 @@ qualquer profundidade do evento.
 
 ## Contratos (.proto) e stubs gerados
 
-Os `.proto` são a **fonte da verdade** e vivem no `dop-core` (`api/proto`). Aqui
-só se **gera**:
+São **dois** contratos, e a diferença entre eles é intencional:
+
+| contrato | onde vive | quem consome | forma |
+|---|---|---|---|
+| `dop.v1` | `dop-core/api/proto` | o BFF | normalizado, granular |
+| `dop.bff.v1` | `api/proto/` **deste repo** | app, `dop-cli`, agentes | agregado, por tela |
+
+O núcleo guarda o estado, então o modelo dele reflete o banco. A borda serve
+tela: `Me` responde numa chamada o que no núcleo exigiria `EnsureUser` +
+`ListAccounts` + `ListMemberships`. O **vocabulário**, esse é o mesmo — `Role`,
+`Kind` e `Status` repetem nome e número dos enums de `dop.v1`, porque
+dicionário paralelo é bug de tradução esperando acontecer.
+
+O contrato da borda **não tem `CallContext`**: identidade vem do token, no
+metadado `authorization`, e conta ativa do `x-account-id`. Campo de identidade
+no corpo seria uma segunda fonte de verdade que o servidor teria obrigação de
+ignorar.
 
 ```bash
-make proto                                  # usa ../dop-core/api/proto
+make proto                                  # dop.v1     → app/coreclient/gen/
+make proto-bff                              # dop.bff.v1 → app/grpcapi/gen/
+make proto-all                              # as duas
 DOP_CORE_PROTO=/caminho/api/proto make proto
 ```
 
-A saída vai para `app/coreclient/gen/` e **não se edita à mão**.
+Nenhuma das duas saídas **se edita à mão**.
 
-> **Armadilha resolvida:** `protoc` gera `from dop.v1 import common_pb2`, que só
-> resolveria com `gen/` na raiz do `sys.path`. Em vez de mexer no `sys.path` em
+> **Armadilha resolvida:** `protoc` gera `from dop.v1 import common_pb2` (e
+> `from dop.bff.v1 import identity_pb2`), que só resolveria com `gen/` na raiz
+> do `sys.path`. Em vez de mexer no `sys.path` em
 > tempo de execução — que quebra de formas difíceis de depurar, e de maneira
 > diferente sob pytest e sob uvicorn — o script reescreve o import para
 > `from app.coreclient.gen.dop.v1 import ...`. É determinístico, aparece no
-> diff, e o resto do app importa como qualquer outro módulo. O `ruff` ignora o
-> diretório gerado (`extend-exclude` no `pyproject.toml`).
+> diff, e o resto do app importa como qualquer outro módulo. Os dois scripts
+> fazem o mesmo, cada um para o seu pacote. O `ruff` ignora os diretórios
+> gerados (`extend-exclude` no `pyproject.toml`).
 
 Quem fala com o núcleo passa por `app/coreclient/`:
 
@@ -95,6 +153,9 @@ uv sync
 uv run pytest -q
 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 uv run uvicorn app.main:app --reload
 ```
+
+O `uvicorn` sobe as duas portas: HTTP em 8000 e gRPC em 9095 (`GRPC_PORT` no
+ambiente ou `grpc_port` no `.env`). Para subir só o REST, `GRPC_ENABLED=false`.
 
 Coleções Bruno prontas em `docs/api/` do meta-repositório: pegam o token no
 emulador e já saem chamando o BFF autenticado.

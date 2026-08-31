@@ -49,3 +49,57 @@ def as_http(exc: AioRpcError) -> HTTPException:
     """
     status = http_status_for(exc.code())
     return HTTPException(status_code=status, detail=_detail_for(exc, status))
+
+
+# ── o mesmo mapeamento, na direção do transporte gRPC ────────────────────────
+# A porta gRPC do BFF precisa devolver STATUS gRPC, não código HTTP. Em vez de
+# um segundo dicionário (que envelheceria em separado), reaproveitamos os dois
+# que já existem: `http_status_for` classifica, `_detail_for` redige. A regra de
+# não vazar detalhe de 5xx do núcleo passa a valer nos dois transportes por
+# construção, e não por disciplina.
+
+_HTTP_TO_STATUS: dict[int, StatusCode] = {
+    400: StatusCode.INVALID_ARGUMENT,
+    401: StatusCode.UNAUTHENTICATED,
+    403: StatusCode.PERMISSION_DENIED,
+    404: StatusCode.NOT_FOUND,
+    409: StatusCode.ALREADY_EXISTS,
+    412: StatusCode.FAILED_PRECONDITION,
+    429: StatusCode.RESOURCE_EXHAUSTED,
+    501: StatusCode.UNIMPLEMENTED,
+    503: StatusCode.UNAVAILABLE,
+    504: StatusCode.DEADLINE_EXCEEDED,
+}
+
+
+def grpc_status_for_http(status: int) -> StatusCode:
+    """HTTP → gRPC, para o erro que os decorators levantam como HTTPException.
+
+    Os decorators de segurança falam HTTPException porque nasceram no REST; em
+    vez de reescrevê-los (e arriscar o comportamento HTTP já testado), a porta
+    gRPC traduz na saída. 5xx desconhecido vira INTERNAL.
+    """
+    return _HTTP_TO_STATUS.get(status, StatusCode.INTERNAL)
+
+
+def as_grpc(exc: AioRpcError) -> tuple[StatusCode, str]:
+    """Erro do núcleo → (status, detalhe) para devolver ao cliente gRPC.
+
+    O status do núcleo ATRAVESSA intacto — NOT_FOUND continua NOT_FOUND, sem
+    passar por HTTP e voltar. O que muda é só o detalhe, redigido pelo mesmo
+    `_detail_for` do REST: mensagem de 5xx pode carregar host, query ou
+    credencial e não sai daqui.
+    """
+    return exc.code(), _detail_for(exc, http_status_for(exc.code()))
+
+
+def as_grpc_from_http(exc: HTTPException) -> tuple[StatusCode, str]:
+    """HTTPException dos decorators → (status, detalhe) para o cliente gRPC.
+
+    `as_http` já redigiu o que veio do núcleo; o que sobra aqui são as recusas
+    da própria borda ("Nenhuma conta ativa selecionada", "Sem vínculo com a
+    conta"), que são para o cliente ler mesmo.
+    """
+    status = grpc_status_for_http(exc.status_code)
+    detail = "erro interno" if exc.status_code >= 500 else str(exc.detail)
+    return status, detail

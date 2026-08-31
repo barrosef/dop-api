@@ -17,6 +17,7 @@ from grpc.aio import AioRpcError
 
 from app.coreclient.client import core
 from app.coreclient.resolver import CoreResolver
+from app.grpcapi.server import GrpcServer
 from app.platform.errors import grpc_exception_handler
 from app.platform.logging.config import configure as configure_logging
 from app.platform.logging.config import get_logger
@@ -56,8 +57,26 @@ async def lifespan(app: FastAPI):
         log.info("identidade apontada para o emulador do Firebase Auth")
     app.state.verifier = verifier
 
-    log.info("dop-api pronto", http_port=settings.http_port)
+    # A porta gRPC sobe DEPOIS do canal com o núcleo (todo caso de uso depende
+    # dele) e desce ANTES, para que o encerramento gracioso ainda consiga
+    # terminar as chamadas em voo. Mesmo processo, mesmos casos de uso, mesma
+    # autenticação — só o adaptador muda.
+    grpc_server = None
+    if settings.grpc_enabled:
+        grpc_server = GrpcServer(
+            verifier=verifier, resolver=CoreResolver(), port=settings.grpc_port
+        )
+        await grpc_server.start()
+    app.state.grpc_server = grpc_server
+
+    log.info(
+        "dop-api pronto",
+        http_port=settings.http_port,
+        grpc_port=grpc_server.port if grpc_server else 0,
+    )
     yield
+    if grpc_server is not None:
+        await grpc_server.stop()
     await core.stop()
     log.info("dop-api encerrado")
 

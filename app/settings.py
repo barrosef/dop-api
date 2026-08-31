@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     log_level: str = "info"
     http_port: int = 8000
     grpc_port: int = 9095  # servidor gRPC para CLI e sandbox
+    # Desligar a porta gRPC é para o teste (que cria o servidor por conta
+    # própria, em porta efêmera) e para quem sobe o BFF só como REST.
+    grpc_enabled: bool = True
 
     core_grpc: str = "dop-core.dop-local.svc:9090"
     core_deadline_s: float = 10.0
