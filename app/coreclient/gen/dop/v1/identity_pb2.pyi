@@ -215,14 +215,14 @@ class CreateInviteRequest(_message.Message):
     def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., email: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., grants: _Optional[_Iterable[_Union[ResourceGrantSpec, _Mapping]]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class AcceptInviteRequest(_message.Message):
-    __slots__ = ("ctx", "token", "idempotency_key")
+    __slots__ = ("ctx", "invite_id", "idempotency_key")
     CTX_FIELD_NUMBER: _ClassVar[int]
-    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    INVITE_ID_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
     ctx: _common_pb2.CallContext
-    token: str
+    invite_id: str
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., token: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., invite_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class RevokeInviteRequest(_message.Message):
     __slots__ = ("ctx", "id")
