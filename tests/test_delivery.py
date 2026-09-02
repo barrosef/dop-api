@@ -1,13 +1,13 @@
-"""Entrega nos dois transportes, contra um núcleo fake.
+"""Delivery on both transports, against a fake core.
 
-O centro deste arquivo é a **recusa por falta de verde** (ADR-0007): o núcleo
-recusa a entry na queue dizendo, item por item, o que falta, e essa lista é a
-parte útil da response. Os testes cobrem os três jeitos de estragá-la — engolir
-(virar um "não deu"), achatar (virar uma frase só) e engolir DEMAIS (tratar
-qualquer err do núcleo como recusa).
+This file's centre is the **refusal for want of green** (ADR-0007): the core
+refuses the entry into the queue saying, item by item, what is missing, and that
+list is the useful part of the response. The tests cover the three ways of
+ruining it — losing it (turning it into a "no"), flattening it (turning it into a
+single sentence) and swallowing TOO MUCH (treating any core error as a refusal).
 
-Os doubles e as fixtures vivem NESTE arquivo (conftest é território
-compartilhado); o que já existe lá é importado.
+The doubles and the fixtures live in THIS file (conftest is shared territory);
+what already exists there is imported.
 """
 
 import grpc
@@ -29,20 +29,20 @@ from tests.conftest import PROJECT, FakeCall, metadata_for, token_for
 ACCOUNT = metadata_for(token_for())
 REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
-# A frase exata que o núcleo escreve ao recusar a entry na queue
+# The exact sentence the core writes when refusing an entry into the queue
 # (internal/domain/delivery/service.go + Evidence.Missing).
-RECUSA = (
-    "a queue de merge recusa entry sem evidência de verde do commit abc1234 (ADR-0007): "
-    "nenhuma execução de aceitação aprovada para o commit abc1234 (ADR-0007 §1); "
-    "falta o parecer do crítico para o commit abc1234 (ADR-0007 §3)"
+REFUSAL = (
+    "the merge queue refuses an entry with no evidence of green for commit abc1234 (ADR-0007): "
+    "no passed acceptance run for commit abc1234 (ADR-0007 §1); "
+    "the critic's opinion for commit abc1234 (ADR-0007 §3) is missing"
 )
 
 
 def viewer_role(core) -> None:
-    """Rebaixa o ator a viewer — quem lê a entrega, mas não a empurra.
+    """Demotes the actor to viewer — whoever reads the delivery but does not push it.
 
-    Trocando o que ListMemberships responde, que é de onde o role sai no
-    login; um atalho no context provaria menos do que parece.
+    By changing what ListMemberships answers, which is where the role comes from
+    at login; a shortcut in the context would prove less than it seems.
     """
     core.ListMemberships = FakeCall(
         identity_pb2.ListMembershipsResponse(
@@ -107,12 +107,12 @@ class EntregasFalsas:
         self.DecideDirective = FakeCall(diretriz)
 
     def sem_verde(self) -> None:
-        """O núcleo recusa a entry na queue, listando o que falta."""
-        self.EnqueueMerge.fails_with(grpc.StatusCode.FAILED_PRECONDITION, RECUSA)
+        """The core refuses the entry into the queue, listing what is missing."""
+        self.EnqueueMerge.fails_with(grpc.StatusCode.FAILED_PRECONDITION, REFUSAL)
 
 
 @pytest.fixture
-def entregas(core, monkeypatch):
+def deliveries(core, monkeypatch):
     fake = EntregasFalsas()
     monkeypatch.setattr(stubs, "delivery_stub", lambda: fake)
     return fake
@@ -121,7 +121,8 @@ def entregas(core, monkeypatch):
 def _app_com_rotas():
     """O app com as rotas de entrega.
 
-    `app/main.py` não é deste agente: enquanto o registro não chega lá, o teste
+    `app/main.py` is not this agent's: until the registration lands there, the
+    test
     monta o app e acrescenta o router. O `if` deixa o teste continuar válido
     depois do registro, sem rota duplicada.
     """
@@ -132,16 +133,16 @@ def _app_com_rotas():
 
 
 @pytest.fixture
-def client_del(entregas):
+def client_del(deliveries):
     with TestClient(_app_com_rotas()) as c:
         yield c
 
 
 @pytest.fixture
-async def stub_ent(entregas):
+async def stub_ent(deliveries):
     """Servidor gRPC real, em porta efêmera, com os MESMOS interceptores da
-    porta de produção. Próprio porque `app/grpcapi/server.py` ainda não
-    registra este servicer, e esse arquivo não é deste agente."""
+    production port. Its own because `app/grpcapi/server.py` does not register
+    this servicer yet, and that file is not this agent's."""
     server = grpc.aio.server(
         interceptors=(
             LoggingInterceptor(),
@@ -160,10 +161,10 @@ async def stub_ent(entregas):
 
 
 class TestWithoutGreen:
-    """A recusa da queue — o que o dev precisa ler, inteiro."""
+    """The queue's refusal — what the dev needs to read, whole."""
 
-    def test_rest_returns_a_412_with_the_list_of_what_is_missing(self, client_del, entregas):
-        entregas.sem_verde()
+    def test_rest_returns_a_412_with_the_list_of_what_is_missing(self, client_del, deliveries):
+        deliveries.sem_verde()
         r = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
             headers=REST_HEADERS,
@@ -172,17 +173,19 @@ class TestWithoutGreen:
         assert r.status_code == 412
         detalhe = r.json()["detail"]
         assert detalhe["missing"] == [
-            "nenhuma execução de aceitação aprovada para o commit abc1234 (ADR-0007 §1)",
-            "falta o parecer do crítico para o commit abc1234 (ADR-0007 §3)",
+            "no passed acceptance run for commit abc1234 (ADR-0007 §1)",
+            "the critic's opinion for commit abc1234 (ADR-0007 §3) is missing",
         ]
-        # A razão fica com o commit: sem ele, "falta verde" não diz de QUAL
-        # código se está falando — e o verde é sempre sobre um commit.
+        # The reason keeps the commit: without it, "green is missing" does not
+        # say WHICH code is being talked about — and green is always about a
+        # commit.
         assert "abc1234" in detalhe["reason"]
 
-    async def test_grpc_returns_the_refusal_as_a_response(self, stub_ent, entregas):
-        """Para o agente, 'ainda não, falta isto' é trabalho a fazer, não falha
-        (ADR-0007 §2) — por isso a recusa é campo, e não status de err."""
-        entregas.sem_verde()
+    async def test_grpc_returns_the_refusal_as_a_response(self, stub_ent, deliveries):
+        """For the agent, 'not yet, this is missing' is work to do, not a failure
+        (ADR-0007 §2) — that is why the refusal is a field, and not an error
+        status."""
+        deliveries.sem_verde()
         resp = await stub_ent.EnqueueMerge(
             bff.EnqueueMergeRequest(repo_id="repo-1", demand_id="dem-1"), metadata=ACCOUNT
         )
@@ -190,10 +193,11 @@ class TestWithoutGreen:
         assert not resp.HasField("entry")
         assert len(resp.refusal.missing) == 2
 
-    def test_a_refusal_with_no_list_invents_no_items(self, client_del, entregas):
-        """Nem toda precondição é sobre verde: PR já mergeado tem razão e mais
-        nada. Uma lista de um item repetindo a razão seria ruído."""
-        entregas.EnqueueMerge.fails_with(
+    def test_a_refusal_with_no_list_invents_no_items(self, client_del, deliveries):
+        """Not every precondition is about green: an already merged PR has a
+        reason and nothing else. A one-item list repeating the reason would be
+        noise."""
+        deliveries.EnqueueMerge.fails_with(
             grpc.StatusCode.FAILED_PRECONDITION, "o PR da demand dem-1 já foi mergeado"
         )
         r = client_del.post(
@@ -207,10 +211,10 @@ class TestWithoutGreen:
             "missing": [],
         }
 
-    def test_another_core_error_does_not_become_a_refusal(self, client_del, entregas):
+    def test_another_core_error_does_not_become_a_refusal(self, client_del, deliveries):
         """Um `except` largo transformaria NOT_FOUND em 'falta verde' — e o dev
-        procuraria uma execução de teste para um repositório que não existe."""
-        entregas.EnqueueMerge.fails_with(grpc.StatusCode.NOT_FOUND, "repositório não encontrado")
+        would look for a test run for a repository that does not exist."""
+        deliveries.EnqueueMerge.fails_with(grpc.StatusCode.NOT_FOUND, "repository not found")
         r = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
             headers=REST_HEADERS,
@@ -218,10 +222,11 @@ class TestWithoutGreen:
         )
         assert r.status_code == 404
 
-    def test_a_5xx_detail_from_the_core_does_not_leak(self, client_del, entregas):
-        """Desviar o err do caminho normal não pode desviar o redator: falha
+    def test_a_5xx_detail_from_the_core_does_not_leak(self, client_del, deliveries):
+        """Diverting the error from the normal path must not divert the writer: a
+        failure
         interna do núcleo pode carregar host, query ou credencial."""
-        entregas.EnqueueMerge.fails_with(grpc.StatusCode.INTERNAL, "dsn=postgres://user:senha@db")
+        deliveries.EnqueueMerge.fails_with(grpc.StatusCode.INTERNAL, "dsn=postgres://user:senha@db")
         r = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
             headers=REST_HEADERS,
@@ -230,9 +235,9 @@ class TestWithoutGreen:
         assert r.status_code == 500
         assert r.json()["detail"] == "internal error"
 
-    async def test_the_refusals_parity_between_the_ports(self, client_del, stub_ent, entregas):
-        """A lista é a MESMA nos dois transportes; só o invólucro muda."""
-        entregas.sem_verde()
+    async def test_the_refusals_parity_between_the_ports(self, client_del, stub_ent, deliveries):
+        """The list is the SAME on both transports; only the wrapper changes."""
+        deliveries.sem_verde()
         rest = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
             headers=REST_HEADERS,
@@ -246,7 +251,7 @@ class TestWithoutGreen:
 
 
 class TestREST:
-    def test_the_board_joins_prs_and_directives(self, client_del, entregas):
+    def test_the_board_joins_prs_and_directives(self, client_del, deliveries):
         r = client_del.get(
             "/api/v1/delivery/board?project_id=prj-1", headers=REST_HEADERS
         )
@@ -254,25 +259,25 @@ class TestREST:
         body = r.json()
         assert [p["id"] for p in body["pull_requests"]] == ["pr-1"]
         assert [d["kind"] for d in body["directives"]] == ["cherry_pick"]
-        # Duas calls ao núcleo, uma response ao client.
-        assert len(entregas.ListPullRequests.calls) == 1
-        assert len(entregas.ListDirectives.calls) == 1
+        # Two calls to the core, one response to the client.
+        assert len(deliveries.ListPullRequests.calls) == 1
+        assert len(deliveries.ListDirectives.calls) == 1
 
     def test_pending_reviews_come_counted(self, client_del):
-        """O número que ordena a box de atenção sai pronto — contar em cada
-        client é a mesma regra escrita três vezes."""
+        """The number that orders the attention box comes out ready — counting it
+        in each client is the same rule written three times."""
         prs = client_del.get(
             "/api/v1/pull-requests?demand_id=dem-1", headers=REST_HEADERS
         ).json()
         assert prs[0]["pending_reviews"] == 2
 
-    def test_the_queue_belongs_to_one_repository(self, client_del, entregas):
+    def test_the_queue_belongs_to_one_repository(self, client_del, deliveries):
         r = client_del.get("/api/v1/repos/repo-1/merge-queue", headers=REST_HEADERS)
         assert r.status_code == 200
         assert r.json()[0]["state"] == "queued"
-        assert entregas.GetMergeQueue.requests[0].repo_id == "repo-1"
+        assert deliveries.GetMergeQueue.requests[0].repo_id == "repo-1"
 
-    def test_entering_the_queue_carries_an_idempotency_key(self, client_del, entregas):
+    def test_entering_the_queue_carries_an_idempotency_key(self, client_del, deliveries):
         r = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
             headers=REST_HEADERS,
@@ -280,11 +285,11 @@ class TestREST:
         )
         assert r.status_code == 201
         assert r.json()["position"] == 1
-        assert entregas.EnqueueMerge.requests[0].idempotency_key != ""
+        assert deliveries.EnqueueMerge.requests[0].idempotency_key != ""
 
     def test_the_directives_payload_crosses_whole(self, client_del):
-        """O formato de cada tipo de diretriz é do techlead (ADR-0015): a borda
-        repassa, não interpreta."""
+        """Each directive kind's shape is the techlead's (ADR-0015): the edge
+        passes it on, it does not interpret it."""
         d = client_del.get(
             "/api/v1/directives?project_id=prj-1", headers=REST_HEADERS
         ).json()
@@ -324,14 +329,14 @@ class TestGRPC:
         assert not resp.HasField("refusal")
         assert resp.entry.state == bff.MergeQueueEntry.STATE_QUEUED
 
-    async def test_the_client_may_send_its_own_idempotency_key(self, stub_ent, entregas):
+    async def test_the_client_may_send_its_own_idempotency_key(self, stub_ent, deliveries):
         await stub_ent.EnqueueMerge(
             bff.EnqueueMergeRequest(
                 repo_id="repo-1", demand_id="dem-1", idempotency_key="minha-key"
             ),
             metadata=ACCOUNT,
         )
-        assert entregas.EnqueueMerge.requests[0].idempotency_key == "minha-key"
+        assert deliveries.EnqueueMerge.requests[0].idempotency_key == "minha-key"
 
     async def test_a_viewer_does_not_decide_a_directive(self, stub_ent, core):
         viewer_role(core)
@@ -350,7 +355,7 @@ class TestGRPC:
 
 
 class TestParityBetweenTransports:
-    """Uma função, dois adaptadores — e a prova de que continua assim."""
+    """One function, two adapters — and the proof that it stays that way."""
 
     async def test_the_board_is_the_same_on_both_ports(self, client_del, stub_ent):
         rest = client_del.get(
@@ -363,7 +368,8 @@ class TestParityBetweenTransports:
         assert [p.id for p in grpc_resp.pull_requests] == [
             p["id"] for p in rest["pull_requests"]
         ]
-        # O derivado é o ponto: se um adaptador o recalculasse, seria aqui que
+        # The derived field is the point: if an adapter recomputed it, this is
+        # where
         # a diferença apareceria.
         assert [p.pending_reviews for p in grpc_resp.pull_requests] == [
             p["pending_reviews"] for p in rest["pull_requests"]
