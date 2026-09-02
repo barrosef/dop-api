@@ -1,4 +1,4 @@
-"""Sonda de saúde — pública por definição."""
+"""The health probe — public by definition."""
 
 from fastapi import APIRouter
 

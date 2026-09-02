@@ -1,8 +1,8 @@
-"""Rotas do substrato de execução — tradução HTTP dos casos de uso, nada mais.
+"""The execution substrate's routes — the use cases' HTTP translation, nothing more.
 
-Zero decisão aqui, autorização inclusa: os decorators estão em
-`app/usecases/execution.py`, e é por isso que a porta gRPC nasce com as mesmas
-regras — inclusive a de que o nível de isolamento é declarado, nunca presumido.
+Zero decisions here, authorization included: the decorators are in
+`app/usecases/execution.py`, and that is why the gRPC port is born with the same
+rules — the one that the isolation level is declared, never presumed, included.
 """
 
 from fastapi import APIRouter, Header
@@ -15,7 +15,7 @@ from app.usecases.execution import (
     SandboxSummary,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["execução"])
+router = APIRouter(prefix="/api/v1", tags=["execution"])
 
 __all__ = [
     "DestroyResult",
@@ -31,48 +31,50 @@ async def provision_sandbox(
     body: NewSandbox,
     idempotency_key: str = Header(default="", alias="Idempotency-Key"),
 ) -> SandboxSummary:
-    """Provisiona o sandbox da demanda.
+    """Provisions the demand's sandbox.
 
-    **`min_tier` é OBRIGATÓRIO** — `hardware`, `kernel_emulated` ou
-    `namespace`. Omiti-lo é 422, e é 422 de propósito: a plataforma não escolhe
-    o isolamento de um código que não escreveu, e um default escolheria para
-    baixo. Se o substrato não oferecer o nível pedido, o núcleo RECUSA com
-    mensagem — nunca entrega um nível menor em silêncio.
+    **`min_tier` is MANDATORY** — `hardware`, `kernel_emulated` or `namespace`.
+    Omitting it is a 422, and it is a 422 on purpose: the platform does not
+    choose the isolation of code it did not write, and a default would choose
+    downwards. If the substrate does not offer the requested level, the core
+    REFUSES with a message — it never silently delivers a lower one.
 
-    O `tier` da resposta é o que o substrato ENTREGOU, não o que foi pedido.
+    The response's `tier` is what the substrate DELIVERED, not what was asked
+    for.
     """
     return await uc.provision_sandbox(body, idempotency_key)
 
 
 @router.get("/sandboxes/{sandbox_id}", response_model=SandboxSummary)
 async def describe_sandbox(sandbox_id: str) -> SandboxSummary:
-    """O sandbox como ele está, com o estado corrente de cada endpoint."""
+    """The sandbox as it is, with each endpoint's current state."""
     return await uc.describe_sandbox(sandbox_id)
 
 
 @router.post("/sandboxes/{sandbox_id}/suspend", response_model=SandboxSummary)
 async def suspend_sandbox(sandbox_id: str) -> SandboxSummary:
-    """Suspende: mata a execução e PRESERVA o workspace. É a economia."""
+    """Suspends: it kills the execution and PRESERVES the workspace. It is the saving."""
     return await uc.suspend_sandbox(sandbox_id)
 
 
 @router.post("/sandboxes/{sandbox_id}/resume", response_model=SandboxSummary)
 async def resume_sandbox(sandbox_id: str) -> SandboxSummary:
-    """Retoma sobre o workspace existente. Sandbox destruído não retoma."""
+    """Resumes on top of the existing workspace. A destroyed sandbox does not resume."""
     return await uc.resume_sandbox(sandbox_id)
 
 
 @router.delete("/sandboxes/{sandbox_id}", response_model=DestroyResult)
 async def destroy_sandbox(sandbox_id: str) -> DestroyResult:
-    """**IRREVERSÍVEL: apaga a execução E o workspace da demanda.**
+    """**IRREVERSIBLE: it erases the execution AND the demand's workspace.**
 
-    Não é o inverso de `/suspend`. O que se perde aqui é o worktree das
-    branches, o build já feito e tudo que o agente tinha no disco — e sandbox
-    destruído NÃO retoma: o único caminho passa a ser provisionar outro, do
-    zero. Para economizar recurso sem perder o trabalho, use `/suspend`.
+    It is not the inverse of `/suspend`. What is lost here is the branches'
+    worktree, the build already done and everything the agent had on disk — and a
+    destroyed sandbox does NOT resume: the only way forward becomes provisioning
+    another, from scratch. To save resources without losing the work, use
+    `/suspend`.
 
-    Devolve 200 com `{"destroyed": true}` em vez de 204: um ato sem volta
-    merece uma confirmação que o cliente possa mostrar, não um silêncio que ele
-    precise deduzir.
+    It returns 200 with `{"destroyed": true}` rather than a 204: an act with no
+    way back deserves a confirmation the client can show, not a silence it has to
+    deduce.
     """
     return await uc.destroy_sandbox(sandbox_id)

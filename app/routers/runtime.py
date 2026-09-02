@@ -1,7 +1,8 @@
-"""Rota de execução de turno — tradução HTTP, nada mais.
+"""The turn-running route — an HTTP translation, nothing more.
 
-O runtime NÃO vive no BFF (ADR-0023): esta rota chama o núcleo, que é quem lê
-a credencial do provedor, do cofre, no mesmo processo.
+The runtime does NOT live in the BFF (ADR-0023): this route calls the core,
+which is the one that reads the provider's credential, from the vault, in the
+same process.
 """
 
 from fastapi import APIRouter, Header
@@ -21,26 +22,26 @@ async def run_turn(
     body: RunTurn,
     idempotency_key: str = Header(default="", alias="Idempotency-Key"),
 ) -> TurnOutcome:
-    """Executa um turno do agente nesta thread.
+    """Runs one agent turn on this thread.
 
-    **Responde 200 mesmo quando o orçamento estoura.** O corte da ADR-0011 §2 é
-    suave: a demanda pausa e vira item da caixa de atenção, e o turno que já
-    rodou vem inteiro — a resposta foi publicada na thread e o achado também.
-    `paused` e `notice` trazem o que o humano precisa para decidir.
+    **It answers 200 even when the budget is blown.** ADR-0011 §2's cut is soft:
+    the demand pauses and becomes an item in the attention box, and the turn that
+    already ran comes back whole — the reply was published on the thread and so
+    was the finding. `paused` and `notice` bring what the human needs to decide.
 
-    **O acompanhamento ao vivo não sai por aqui.** As mensagens publicadas são
-    eventos (ADR-0006) e chegam pelo SSE que já existe
-    (`GET /api/v1/stream/demands/{demand_id}`). Esta rota devolve o resultado
-    consolidado; um segundo caminho de streaming seria uma segunda fonte da
-    verdade para a mesma timeline.
+    **Live following does not come out through here.** The published messages
+    are events (ADR-0006) and arrive through the SSE that already exists
+    (`GET /api/v1/stream/demands/{demand_id}`). This route returns the
+    consolidated result; a second streaming path would be a second source of
+    truth for the same timeline.
 
-    **`Idempotency-Key` é obrigatória**, e a borda NÃO gera uma. Turno de
-    agente gasta dinheiro: uma chave inventada aqui transformaria retry de rede
-    em consumo em dobro sem ninguém pedir. É o cliente quem sabe se está
-    retentando ou perguntando de novo.
+    **`Idempotency-Key` is mandatory**, and the edge does NOT generate one. An
+    agent turn spends money: a key invented here would turn a network retry into
+    double consumption with nobody asking. It is the client that knows whether
+    it is retrying or asking again.
 
-    Provedor indisponível, credencial recusada e conta sem integração de agente
-    chegam do núcleo com o status certo, pelo tradutor de sempre — não há
-    tratamento especial aqui, e não deve haver.
+    An unavailable provider, a refused credential and an account with no agent
+    integration arrive from the core with the right status, through the usual
+    translator — there is no special handling here, and there must not be.
     """
     return await uc.run_turn(demand_id, thread_id, body, idempotency_key)

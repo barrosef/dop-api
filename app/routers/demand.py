@@ -1,7 +1,7 @@
-"""Rotas de demanda — tradução HTTP dos casos de uso, nada mais.
+"""Demand routes — the use cases' HTTP translation, nothing more.
 
-Zero decisão aqui: se aparecer um `if` de regra nesta camada, ele pertence a
-`app/usecases/demand.py`, senão a porta gRPC fica sem ele.
+Zero decisions here: if a rule's `if` shows up in this layer, it belongs in
+`app/usecases/demand.py`, or the gRPC port ends up without it.
 """
 
 from fastapi import APIRouter, Header
@@ -23,7 +23,7 @@ from app.usecases.demand import (
     Thread,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["demanda"])
+router = APIRouter(prefix="/api/v1", tags=["demand"])
 
 __all__ = [
     "Demand",
@@ -66,7 +66,7 @@ async def get_demand(demand_id: str) -> Demand:
 
 @router.get("/demands/{demand_id}/cockpit", response_model=DemandCockpit)
 async def get_cockpit(demand_id: str) -> DemandCockpit:
-    """A tela da demanda inteira: etapas, threads e achados numa resposta."""
+    """The demand's whole screen: stages, threads and findings in one response."""
     return await uc.get_cockpit(demand_id)
 
 
@@ -87,7 +87,7 @@ async def decide_gate(
     body: GateDecision,
     idempotency_key: str = Header(default="", alias="Idempotency-Key"),
 ) -> Stage:
-    """Decisão do portão humano — aprovar conclui, reprovar bloqueia."""
+    """The human gate's decision — approving finishes it, rejecting blocks it."""
     return await uc.decide_gate(demand_id, stage_key, body, idempotency_key)
 
 
@@ -114,8 +114,9 @@ async def publish_finding(
     return await uc.publish_finding(demand_id, body, idempotency_key)
 
 
-# A mensagem é da THREAD, não da demanda: a rota segue o dono do recurso, senão
-# o cliente precisa carregar a demanda só para escrever numa conversa.
+# The message belongs to the THREAD, not to the demand: the route follows the
+# resource's owner, or the client has to carry the demand around just to write in
+# a conversation.
 @router.post("/threads/{thread_id}/messages", response_model=Message, status_code=201)
 async def post_message(
     thread_id: str,

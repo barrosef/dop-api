@@ -1,4 +1,4 @@
-"""Rotas de recursos — tradução HTTP dos casos de uso, nada mais."""
+"""Resource routes — the use cases' HTTP translation, nothing more."""
 
 from fastapi import APIRouter, Header
 
@@ -11,7 +11,7 @@ from app.usecases.resource import (
     ResourceSummary,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["recursos"])
+router = APIRouter(prefix="/api/v1", tags=["resources"])
 
 __all__ = [
     "GrantSummary",
@@ -43,7 +43,7 @@ async def get_resource(resource_id: str) -> ResourceSummary:
 
 @router.put("/resources/{resource_id}/credential", response_model=ResourceSummary)
 async def set_credential(resource_id: str, body: NewCredential) -> ResourceSummary:
-    """O corpo carrega o segredo; a resposta, jamais."""
+    """The body carries the secret; the response, never."""
     return await uc.set_credential(resource_id, body)
 
 

@@ -1,9 +1,10 @@
-"""Rotas de entrega — tradução HTTP dos casos de uso, nada mais.
+"""Delivery routes — the use cases' HTTP translation, nothing more.
 
-Zero decisão aqui. A única coisa que esta camada resolve sozinha é o CÓDIGO DE
+Zero decisions here. The only thing this layer settles on its own is the STATUS
 STATUS da recusa da fila de merge: no HTTP o status faz parte da resposta, e é
-o adaptador quem sabe disso. O conteúdo da recusa — a lista do que falta para o
-commit estar verde — vem pronto do caso de uso, igual para as duas portas.
+of the refusal, because the status is part of the HTTP response and it is the
+adapter that knows that. The refusal's content — the list of what is missing for
+the commit to be green — comes ready from the use case, the same for both ports.
 """
 
 from fastapi import APIRouter, Header
@@ -22,7 +23,7 @@ from app.usecases.delivery import (
     Reviewer,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["entrega"])
+router = APIRouter(prefix="/api/v1", tags=["delivery"])
 
 __all__ = [
     "DeliveryBoard",
@@ -40,7 +41,7 @@ __all__ = [
 
 @router.get("/delivery/board", response_model=DeliveryBoard)
 async def get_board(project_id: str) -> DeliveryBoard:
-    """PRs e diretrizes do projeto numa resposta — a tela de entrega."""
+    """The project's PRs and directives in one response — the delivery screen."""
     return await uc.get_board(project_id)
 
 
@@ -51,7 +52,7 @@ async def list_pull_requests(demand_id: str = "", project_id: str = "") -> list[
 
 @router.get("/repos/{repo_id}/merge-queue", response_model=list[MergeQueueEntry])
 async def get_merge_queue(repo_id: str) -> list[MergeQueueEntry]:
-    """A fila de UM repositório — é o repositório que serializa (ADR-0008)."""
+    """ONE repository's queue — it is the repository that serializes (ADR-0008)."""
     return await uc.get_merge_queue(repo_id)
 
 
@@ -60,8 +61,8 @@ async def get_merge_queue(repo_id: str) -> list[MergeQueueEntry]:
     status_code=201,
     response_model=None,
     responses={
-        201: {"description": "entrou na fila"},
-        412: {"description": "recusada por falta de verde, com a lista do que falta"},
+        201: {"description": "it entered the queue"},
+        412: {"description": "refused for want of green, with the list of what is missing"},
     },
 )
 async def enqueue_merge(
@@ -69,19 +70,20 @@ async def enqueue_merge(
     body: NewMergeEntry,
     idempotency_key: str = Header(default="", alias="Idempotency-Key"),
 ) -> JSONResponse:
-    """Pede entrada na fila do repositório.
+    """Asks to enter the repository's queue.
 
-    Recusa por falta de verde sai como 412 — o mesmo que o FAILED_PRECONDITION
-    do núcleo vira em qualquer outra rota (`app/platform/errors.py`) — mas com o
-    corpo carregando `missing` item por item, em vez de uma frase só. É essa
-    lista que diz ao dev o que providenciar para conseguir entrar (ADR-0007).
+    A refusal for want of green comes out as a 412 — the same thing the core's
+    FAILED_PRECONDITION becomes on any other route (`app/platform/errors.py`) —
+    but with the body carrying `missing` item by item, instead of a single
+    sentence. It is that list that tells the dev what to arrange in order to get
+    in (ADR-0007).
     """
-    tentativa = await uc.enqueue_merge(repo_id, body, idempotency_key)
-    if tentativa.refusal is not None:
+    attempt = await uc.enqueue_merge(repo_id, body, idempotency_key)
+    if attempt.refusal is not None:
         return JSONResponse(
-            status_code=412, content={"detail": tentativa.refusal.model_dump()}
+            status_code=412, content={"detail": attempt.refusal.model_dump()}
         )
-    return JSONResponse(status_code=201, content=tentativa.entry.model_dump())
+    return JSONResponse(status_code=201, content=attempt.entry.model_dump())
 
 
 @router.get("/directives", response_model=list[Directive])
@@ -95,5 +97,5 @@ async def decide_directive(
     body: DirectiveDecision,
     idempotency_key: str = Header(default="", alias="Idempotency-Key"),
 ) -> Directive:
-    """A decisão de coordenação é do dev; o techlead recomenda (ADR-0015)."""
+    """The coordination decision is the dev's; the techlead recommends (ADR-0015)."""
     return await uc.decide_directive(directive_id, body, idempotency_key)

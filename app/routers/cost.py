@@ -1,7 +1,7 @@
-"""Rotas de custo — tradução HTTP dos casos de uso, nada mais.
+"""Cost routes — the use cases' HTTP translation, nothing more.
 
-Zero decisão aqui, autorização inclusa: os decorators estão no caso de uso, e é
-por isso que a porta gRPC nasce com as mesmas regras.
+Zero decisions here, authorization included: the decorators are in the use case,
+and that is why the gRPC port is born with the same rules.
 """
 
 from fastapi import APIRouter, Header, Query
@@ -18,7 +18,7 @@ from app.usecases.cost import (
     UsageEventSummary,
 )
 
-router = APIRouter(prefix="/api/v1/cost", tags=["custo"])
+router = APIRouter(prefix="/api/v1/cost", tags=["cost"])
 
 __all__ = [
     "BudgetView",
@@ -37,34 +37,36 @@ __all__ = [
 async def route_model(
     task_kind: str = Query(min_length=1), demand_id: str = ""
 ) -> RoutingDecision:
-    """Qual modelo e qual effort para este tipo de trabalho — e POR QUÊ.
+    """Which model and which effort for this kind of work — and WHY.
 
-    `reason` vem inteiro, com a proveniência da política na frente
-    ("ADR-0011 §3 (rascunho — calibrar com telemetria, P-7): …"). Não é ruído:
-    é o que permite auditar a escolha e recalibrar a tabela. Cliente que
-    truncar essa string está jogando fora a única parte auditável da resposta.
+    `reason` comes whole, with the policy's provenance up front ("ADR-0011 §3
+    (draft — calibrate with telemetry, P-7): …"). It is not noise: it is what
+    makes auditing the choice and recalibrating the table possible. A client that
+    truncates that string is throwing away the only auditable part of the answer.
 
-    É `GET` porque a decisão é PURA — mesma entrada, mesma saída, sem efeito.
+    It is a `GET` because the decision is PURE — the same input, the same output,
+    no effect.
     """
     return await uc.route_model(task_kind, demand_id)
 
 
 @router.get("/budget", response_model=BudgetView)
 async def get_budget(scope: str = "", scope_id: str = "") -> BudgetView:
-    """Orçamento do escopo. Vazio = a conta ativa.
+    """The scope's budget. Empty = the active account.
 
-    `remaining: null` significa escopo SEM TETO — não "acabou o dinheiro".
-    Valores em micros (10⁻⁶ da moeda), inteiros, com a moeda ao lado.
+    `remaining: null` means a scope with NO CEILING — not "the money ran out".
+    Values in micros (10⁻⁶ of the currency), integers, with the currency
+    alongside.
     """
     return await uc.get_budget(scope, scope_id)
 
 
 @router.put("/budget", response_model=BudgetView)
 async def set_budget(body: NewBudget) -> BudgetView:
-    """Define o teto (owner/admin — orçamento é governança).
+    """Sets the ceiling (owner/admin — a budget is governance).
 
-    `PUT` porque grava valor ABSOLUTO: repetir a chamada grava o mesmo teto, e
-    é por isso que esta escrita não carrega `Idempotency-Key`.
+    A `PUT` because it writes an ABSOLUTE value: repeating the call writes the
+    same ceiling, and that is why this write carries no `Idempotency-Key`.
     """
     return await uc.set_budget(body)
 
@@ -74,17 +76,17 @@ async def record_usage(
     body: NewUsage,
     idempotency_key: str = Header(default="", alias="Idempotency-Key"),
 ) -> RecordUsageOutcome:
-    """Registra consumo de modelo.
+    """Records model consumption.
 
-    **Orçamento estourado responde 200, não 4xx.** O corte da ADR-0011 §2 é
-    suave: a demanda pausa e pergunta, e o consumo continua sendo medido. A
-    resposta traz `budget_exceeded`, o `notice` pronto para a caixa de atenção
-    e os orçamentos estourados com os números da decisão.
+    **A blown budget answers 200, not a 4xx.** ADR-0011 §2's cut is soft: the
+    demand pauses and asks, and consumption keeps being measured. The response
+    brings `budget_exceeded`, the `notice` ready for the attention box and the
+    blown budgets with the decision's numbers.
     """
     return await uc.record_usage(body, idempotency_key)
 
 
 @router.get("/summary", response_model=CostSummary)
 async def summarize_cost(scope: str = "", scope_id: str = "") -> CostSummary:
-    """Total do mês corrente, taxa de acerto de cache e os últimos consumos."""
+    """The current month's total, the cache hit ratio and the latest consumption."""
     return await uc.summarize_cost(scope, scope_id)

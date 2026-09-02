@@ -1,8 +1,7 @@
-"""Rotas de hierarquia — tradução HTTP dos casos de uso, nada mais.
+"""Hierarchy routes — the use cases' HTTP translation, nothing more.
 
-Zero decisão aqui: se você sentir vontade de escrever um `if` de regra nesta
-camada, ele pertence a `app/usecases/hierarchy.py`, senão a porta gRPC fica
-sem ele.
+Zero decisions here: if you feel the urge to write a rule's `if` in this layer,
+it belongs in `app/usecases/hierarchy.py`, or the gRPC port ends up without it.
 """
 
 from fastapi import APIRouter, Header
@@ -17,7 +16,7 @@ from app.usecases.hierarchy import (
     WorkspaceSummary,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["hierarquia"])
+router = APIRouter(prefix="/api/v1", tags=["hierarchy"])
 
 __all__ = [
     "NewProject",
@@ -32,7 +31,7 @@ __all__ = [
 
 @router.get("/tree", response_model=list[TreeNode])
 async def get_tree() -> list[TreeNode]:
-    """Árvore da conta ativa — o que a barra lateral do cockpit desenha."""
+    """The active account's tree — what the cockpit's sidebar draws."""
     return await uc.get_tree()
 
 

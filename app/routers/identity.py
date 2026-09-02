@@ -1,13 +1,13 @@
-"""Rotas de identidade — adaptador HTTP sobre os casos de uso.
+"""Identity routes — an HTTP adapter over the use cases.
 
-O que este módulo faz: receber HTTP, chamar `app/usecases/identity.py`,
-devolver JSON. O que ele NÃO faz: decidir nada. A regra, a autorização e a
-conversa com o núcleo vivem no caso de uso, que a porta gRPC chama igualzinho
-(`app/grpcapi/identity.py`) — é assim que os dois transportes não podem
-divergir.
+What this module does: receive HTTP, call `app/usecases/identity.py`, return
+JSON. What it does NOT do: decide anything. The rule, the authorization and the
+conversation with the core live in the use case, which the gRPC port calls in
+exactly the same way (`app/grpcapi/identity.py`) — that is how the two
+transports cannot diverge.
 
-Os decorators (@log, @account_scoped, @require_role) também estão lá, não aqui:
-autorização presa ao router valeria só para o REST.
+The decorators (@log, @account_scoped, @require_role) are there too, not here:
+authorization pinned to the router would hold for REST alone.
 """
 
 from fastapi import APIRouter
@@ -23,8 +23,8 @@ from app.usecases.identity import (
     NewInvite,
 )
 
-# Reexportados para quem já importava os modelos daqui — eles são os DTOs da
-# borda, compartilhados com o gRPC, e agora moram no caso de uso.
+# Re-exported for whoever already imported the models from here — they are the
+# edge's DTOs, shared with gRPC, and now live in the use case.
 __all__ = [
     "AccountSummary",
     "GrantSpec",
@@ -41,33 +41,33 @@ router = APIRouter(prefix="/api/v1", tags=["identity"])
 
 @router.get("/me", response_model=MeResponse)
 async def me() -> MeResponse:
-    """Quem sou eu, na conta ativa."""
+    """Who I am, in the active account."""
     return await uc.me()
 
 
 @router.get("/accounts", response_model=list[AccountSummary])
 async def list_accounts() -> list[AccountSummary]:
-    """Contas do usuário — alimenta o seletor de conta ativa do cockpit."""
+    """The user's accounts — it feeds the cockpit's active-account selector."""
     return await uc.list_accounts()
 
 
 @router.post("/accounts", response_model=AccountSummary, status_code=201)
 async def create_account(body: NewAccount) -> AccountSummary:
-    """Cria uma organização.
+    """Creates an organization.
 
-    O REST não tem onde o cliente carregar a chave de idempotência, então o
-    caso de uso gera uma. No gRPC o cliente pode mandar a sua.
+    REST has nowhere for the client to carry the idempotency key, so the use
+    case generates one. In gRPC the client may send its own.
     """
     return await uc.create_account(body)
 
 
 @router.get("/accounts/current/members", response_model=list[MemberSummary])
 async def list_members() -> list[MemberSummary]:
-    """Membros da conta ativa — exige conta selecionada E papel de gestão."""
+    """The active account's members — it requires a selected account AND a management role."""
     return await uc.list_members()
 
 
 @router.post("/invites", response_model=InviteSummary, status_code=201)
 async def create_invite(body: NewInvite) -> InviteSummary:
-    """Convida alguém para a conta ativa."""
+    """Invites somebody to the active account."""
     return await uc.create_invite(body)
