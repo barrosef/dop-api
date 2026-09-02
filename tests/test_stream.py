@@ -529,8 +529,10 @@ class TestGRPC:
                 pass
         assert exc.value.code() == grpc.StatusCode.INVALID_ARGUMENT
 
-    async def test_an_error_after_the_first_item_becomes_a_status(self, stub_stream, core, monkeypatch):
-        """Aqui o status ainda cabe: em gRPC ele viaja nos trailers.
+    async def test_an_error_after_the_first_item_becomes_a_status(
+        self, stub_stream, core, monkeypatch
+    ):
+        """Here the status still fits: in gRPC it travels in the trailers.
 
         It is the transport difference that justifies SSE needing an `error`
         event and gRPC not.
@@ -589,7 +591,8 @@ class TestADemandHasNoCursor:
         assert body["id"] == ""
 
     def test_the_log_goes_out_with_its_own_event_name(self, client_log):
-        """`log` and `event` are different things on the screen; separating them is the protocol's job."""
+        """`log` and `event` are different things on the screen; separating them
+        is the protocol's job."""
         r = client_log.get("/api/v1/stream/sandboxes/sbx-1/logs", headers=HEADERS)
         board = [q for q in frames(r.text) if q.get("event") == "log"][0]
         assert data(board)["line"] == "subiu"

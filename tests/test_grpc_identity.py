@@ -69,7 +69,8 @@ class TestHappyPath:
     async def test_create_account_uses_the_clients_idempotency_key(
         self, stub_grpc, core
     ):
-        """Over gRPC the one that sends the key is the CLIENT — it is the one that knows whether it is a retry."""
+        """Over gRPC the key comes from the CLIENT — it is the one that knows
+        whether this is a retry."""
         account = await stub_grpc.CreateAccount(
             bff.CreateAccountRequest(
                 handle="acme",
@@ -118,7 +119,9 @@ class TestHappyPath:
 
 
 class TestContextPropagation:
-    async def test_the_metadata_from_bff_to_core_carries_account_actor_and_trace(self, stub_grpc, core):
+    async def test_the_metadata_from_bff_to_core_carries_account_actor_and_trace(
+        self, stub_grpc, core
+    ):
         await stub_grpc.ListAccounts(
             bff.ListAccountsRequest(),
             metadata=metadata_for(token_for(), **{"x-request-id": "trace-grpc"}),

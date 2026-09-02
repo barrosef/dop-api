@@ -320,7 +320,8 @@ class TestREST:
         assert r.status_code == 201
 
     def test_a_developer_does_not_promote_a_flow(self, client_flow, core):
-        """Promoting changes the way of working of people who did not ask — it requires management."""
+        """Promoting changes the way of working of people who did not ask — it
+        requires management."""
         core.demote_to_developer()
         r = client_flow.post(
             "/api/v1/flows/flow-1/promotion",
