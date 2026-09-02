@@ -228,7 +228,7 @@ class TestSemVerde:
             json={"demand_id": "dem-1"},
         )
         assert r.status_code == 500
-        assert r.json()["detail"] == "erro interno"
+        assert r.json()["detail"] == "internal error"
 
     async def test_paridade_da_recusa_entre_as_portas(self, cliente_ent, stub_ent, entregas):
         """A lista é a MESMA nos dois transportes; só o invólucro muda."""

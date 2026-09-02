@@ -376,7 +376,7 @@ class TestGRPC:
             await stub_exec.DescribeSandbox(
                 bff.DescribeSandboxRequest(id="sbx-1"), metadata=CONTA
             )
-        assert e.value.details() == "erro interno"
+        assert e.value.details() == "internal error"
         assert "senha" not in e.value.details()
 
 

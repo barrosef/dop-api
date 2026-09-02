@@ -26,7 +26,7 @@ if _version_not_supported:
 
 
 class IdentityServiceStub:
-    """── serviço ─────────────────────────────────────────────────────
+    """── service ─────────────────────────────────────────────────────
     """
 
     def __init__(self, channel):
@@ -88,7 +88,7 @@ class IdentityServiceStub:
 
 
 class IdentityServiceServicer:
-    """── serviço ─────────────────────────────────────────────────────
+    """── service ─────────────────────────────────────────────────────
     """
 
     def GetUser(self, request, context):
@@ -98,7 +98,7 @@ class IdentityServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def EnsureUser(self, request, context):
-        """idempotente: 1º login
+        """idempotent: the first login
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -214,7 +214,7 @@ def add_IdentityServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class IdentityService:
-    """── serviço ─────────────────────────────────────────────────────
+    """── service ─────────────────────────────────────────────────────
     """
 
     @staticmethod

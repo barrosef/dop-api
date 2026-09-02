@@ -93,7 +93,7 @@ class WorkflowServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def UpdateFlow(self, request, context):
-        """gera versão nova
+        """generates a new version
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

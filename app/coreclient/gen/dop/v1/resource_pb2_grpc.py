@@ -122,7 +122,7 @@ class ResourceServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def SetCredential(self, request, context):
-        """Credencial é escrita no SecretStore; o valor nunca volta numa leitura.
+        """The credential is written to the SecretStore; the value never comes back on a read.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

@@ -1,7 +1,8 @@
-"""Contexto de requisição — preenchido UMA vez por middleware, lido por decorators.
+"""The request context — filled in ONCE by middleware, read by decorators.
 
-O padrão: o handler não recebe parâmetro de auth nem de log; o transversal fica
-invisível no código de negócio. É o que mantém os routers legíveis.
+The pattern: the handler takes no auth or logging parameter; the cross-cutting
+concern stays invisible in the business code. It is what keeps the routers
+readable.
 """
 
 from collections.abc import Mapping
@@ -12,10 +13,10 @@ from types import MappingProxyType
 
 @dataclass(frozen=True)
 class Principal:
-    """Resultado NORMALIZADO da verificação de token.
+    """The NORMALIZED result of verifying a token.
 
-    Claims de Firebase não passam daqui — é o que permite trocar o provedor de
-    identidade sem tocar no resto (ADR-0001).
+    Firebase claims go no further than here — it is what allows the identity
+    provider to be swapped without touching the rest (ADR-0001).
     """
 
     subject: str
@@ -28,32 +29,32 @@ class Principal:
 
 @dataclass(frozen=True)
 class AuthContext:
-    """Quem está chamando, em qual conta, com quais permissões."""
+    """Who is calling, in which account, with which permissions."""
 
     principal: Principal
     user_id: str = ""
     account_id: str = ""
     role: str = ""
-    # recurso -> nível (use | manage), resolvido pelo core
+    # resource -> level (use | manage), resolved by the core
     grants: dict[str, str] = field(default_factory=dict)
 
     def has_role(self, *roles: str) -> bool:
         return self.role in roles
 
     def grant_level(self, resource_id: str) -> str | None:
-        # owner e admin têm manage implícito em todo recurso — sem isso ninguém
-        # consegue consertar uma integração quebrada.
+        # owner and admin have implicit manage over every resource — without it
+        # nobody can fix a broken integration.
         if self.role in ("owner", "admin"):
             return "manage"
         return self.grants.get(resource_id)
 
 
-# Populados por LoggingMiddleware e AuthMiddleware, nessa ordem.
-# Default IMUTÁVEL: um dict vazio compartilhado entre contextos é um bug à
-# espera de acontecer — quem escrevesse nele contaminaria todas as requisições.
-_SEM_CONTEXTO: Mapping[str, str] = MappingProxyType({})
+# Populated by LoggingMiddleware and AuthMiddleware, in that order.
+# An IMMUTABLE default: an empty dict shared between contexts is a bug waiting to
+# happen — whoever wrote into it would contaminate every request.
+_NO_CONTEXT: Mapping[str, str] = MappingProxyType({})
 
-request_ctx: ContextVar[Mapping[str, str]] = ContextVar("request_ctx", default=_SEM_CONTEXTO)
+request_ctx: ContextVar[Mapping[str, str]] = ContextVar("request_ctx", default=_NO_CONTEXT)
 auth_ctx: ContextVar[AuthContext | None] = ContextVar("auth_ctx", default=None)
 
 

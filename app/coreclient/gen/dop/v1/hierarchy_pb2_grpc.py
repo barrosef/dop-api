@@ -133,7 +133,7 @@ class HierarchyServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def GetTree(self, request, context):
-        """Árvore do cockpit em uma chamada.
+        """The cockpit's tree in one call.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

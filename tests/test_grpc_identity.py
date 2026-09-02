@@ -166,7 +166,7 @@ class TestAutorizacao:
         )
         exc = await _erro(stub_grpc.GetMe(bff.GetMeRequest(), metadata=CONTA))
         assert exc.code() == grpc.StatusCode.PERMISSION_DENIED
-        assert "vínculo" in exc.details()
+        assert "membership" in exc.details()
 
     async def test_papel_insuficiente_da_permission_denied(self, stub_grpc, nucleo):
         nucleo.ListMemberships.devolve(
@@ -228,7 +228,7 @@ class TestTraducaoDeErro:
             )
         )
         assert exc.code() == grpc.StatusCode.INTERNAL
-        assert exc.details() == "erro interno"
+        assert exc.details() == "internal error"
         assert "senha" not in exc.details()
 
     async def test_internal_no_resolver_tambem_nao_vaza(self, stub_grpc, nucleo):

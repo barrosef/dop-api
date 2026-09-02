@@ -26,7 +26,7 @@ if _version_not_supported:
 
 
 class EventServiceStub:
-    """── serviço ─────────────────────────────────────────────────────
+    """── service ─────────────────────────────────────────────────────
     """
 
     def __init__(self, channel):
@@ -43,11 +43,11 @@ class EventServiceStub:
 
 
 class EventServiceServicer:
-    """── serviço ─────────────────────────────────────────────────────
+    """── service ─────────────────────────────────────────────────────
     """
 
     def WatchEvents(self, request, context):
-        """Watch entrega os eventos da conta conforme acontecem.
+        """Watch delivers the account's events as they happen.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -70,7 +70,7 @@ def add_EventServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class EventService:
-    """── serviço ─────────────────────────────────────────────────────
+    """── service ─────────────────────────────────────────────────────
     """
 
     @staticmethod

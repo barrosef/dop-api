@@ -107,7 +107,7 @@ class DemandServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def StartDemand(self, request, context):
-        """resolve e congela o fluxo
+        """resolves and freezes the flow
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -132,7 +132,7 @@ class DemandServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def CreateThread(self, request, context):
-        """lançar subagente
+        """launch a subagent
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -151,20 +151,21 @@ class DemandServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def ListFindings(self, request, context):
-        """Os achados JÁ publicados na demanda.
+        """The findings ALREADY published on the demand.
 
-        A leitura existia só no domínio Go, e a borda ficava sem como mostrar o
-        quadro de achados — que é o que impede um agente (ou um humano) de refazer
-        investigação que outro já concluiu (ADR-0009). Ler pelo pacote de contexto
-        não serve: aquele é truncado por orçamento de tokens e a montagem grava um
-        evento de medição, então abrir uma tela viraria linha de custo.
+        The read existed only in the Go domain, and the edge had no way to show the
+        board of findings — which is what stops an agent (or a human) from redoing
+        an investigation another has already concluded (ADR-0009). Reading through
+        the context package does not do: that one is truncated by token budget and
+        its assembly records a measurement event, so opening a screen would become a
+        cost line.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def WatchDemand(self, request, context):
-        """Streaming: o BFF converte em SSE (ADR-0017).
+        """Streaming: the BFF converts it into SSE (ADR-0017).
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

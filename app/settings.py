@@ -1,4 +1,4 @@
-"""Configuração do BFF, resolvida do ambiente."""
+"""The BFF's configuration, resolved from the environment."""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -9,15 +9,16 @@ class Settings(BaseSettings):
     app_name: str = "dop-api"
     log_level: str = "info"
     http_port: int = 8000
-    grpc_port: int = 9095  # servidor gRPC para CLI e sandbox
-    # Desligar a porta gRPC é para o teste (que cria o servidor por conta
-    # própria, em porta efêmera) e para quem sobe o BFF só como REST.
+    grpc_port: int = 9095  # the gRPC server for the CLI and the sandbox
+    # Turning the gRPC port off is for the tests (which create the server
+    # themselves, on an ephemeral port) and for whoever brings the BFF up as
+    # REST only.
     grpc_enabled: bool = True
 
     core_grpc: str = "dop-core.dop-local.svc:9090"
     core_deadline_s: float = 10.0
-    # Turno de agente é LONGO: chamada a modelo com raciocínio leva minutos, e
-    # o prazo normal do núcleo derrubaria todo turno real.
+    # An agent turn is LONG: a call to a reasoning model takes minutes, and the
+    # core's normal deadline would kill every real turn.
     agent_turn_deadline_s: float = 600.0
 
     firebase_project: str = "dop-local"
@@ -28,18 +29,18 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080"]
 
     # ── SSE (app/routers/stream.py) ────────────────────────────────────────
-    # Intervalo do comentário `: ping`. Proxy e balanceador derrubam conexão
-    # ociosa, e um stream de eventos passa a maior parte do tempo ocioso — sem
-    # tráfego nenhum entre dois acontecimentos. 15s é metade do timeout ocioso
-    # mais APERTADO que a plataforma encontra no caminho (30s do balanceador
-    # HTTP(S) do GCP; nginx e o ingress do k3s usam 60s): a metade dá margem
-    # para um ping se perder sem que a conexão caia. Menor que isso só gastaria
-    # bateria de celular à toa.
+    # The interval of the `: ping` comment. A proxy or load balancer drops an
+    # idle connection, and an event stream spends most of its time idle — with
+    # no traffic at all between two happenings. 15s is half of the TIGHTEST idle
+    # timeout the platform meets on the path (30s on GCP's HTTP(S) load
+    # balancer; nginx and k3s' ingress use 60s): half gives room for one ping to
+    # be lost without the connection dropping. Anything smaller would only drain
+    # a phone's battery for nothing.
     sse_ping_s: int = 15
-    # `retry:` enviado UMA vez na abertura — é o intervalo de reconexão que o
-    # EventSource do browser passa a usar (o padrão dele varia por navegador).
-    # 3s: rápido o bastante para o cockpit não parecer travado, lento o
-    # bastante para não virar tempestade de reconexão quando o núcleo cai.
+    # `retry:` sent ONCE on opening — it is the reconnection interval the
+    # browser's EventSource comes to use (its own default varies per browser).
+    # 3s: fast enough for the cockpit not to look frozen, slow enough not to
+    # become a reconnection storm when the core goes down.
     sse_retry_ms: int = 3000
 
 

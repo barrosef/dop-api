@@ -45,8 +45,8 @@ class AgentServiceServicer:
     """Missing associated documentation comment in .proto file."""
 
     def RunTurn(self, request, context):
-        """Executa UM turno. O próximo é decisão de quem chamou — é assim que o
-        orçamento consegue interromper ENTRE turnos, e não no meio de um.
+        """Runs ONE turn. The next one is the caller's decision — it is how the
+        budget manages to interrupt BETWEEN turns, and not in the middle of one.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

@@ -402,7 +402,7 @@ class TestErroDepoisDoPrimeiroByte:
         """Mesmo redator do resto da borda (`_detail_for`), não um segundo."""
         r = cliente_com_falha.get("/api/v1/stream/events", headers=CABECALHOS)
         corpo = dados([q for q in quadros(r.text) if q.get("event") == "error"][0])
-        assert corpo["detail"] == "erro interno"
+        assert corpo["detail"] == "internal error"
         assert corpo["retryable"] is False
         assert "senha" not in r.text and "10.0.0.7" not in r.text
 
@@ -541,7 +541,7 @@ class TestGRPC:
         # O código é o sinal, e ele chega inteiro depois de um item já entregue.
         # O detalhe some pelo mesmo motivo do SSE: 503 do núcleo não se repete.
         assert exc.value.code() == grpc.StatusCode.UNAVAILABLE
-        assert exc.value.details() == "erro interno"
+        assert exc.value.details() == "internal error"
 
     async def test_detalhe_de_5xx_nao_vaza_nem_aqui(self, stub_stream, nucleo, monkeypatch):
         falso = ServicoFalso(
@@ -551,7 +551,7 @@ class TestGRPC:
         with pytest.raises(AioRpcError) as exc:
             async for _ in stub_stream.WatchEvents(bff.WatchEventsRequest(), metadata=CONTA):
                 pass
-        assert exc.value.details() == "erro interno"
+        assert exc.value.details() == "internal error"
 
     async def test_tail_logs(self, stub_stream, execucao):
         linhas = [

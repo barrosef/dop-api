@@ -608,7 +608,7 @@ class TestErroDepoisDoPrimeiroByte:
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=CABECALHOS)
         corpo = dados([q for q in quadros(r.text) if q.get("event") == "error"][0])
-        assert corpo["detail"] == "erro interno"
+        assert corpo["detail"] == "internal error"
         assert "senha" not in r.text and "10.0.0.7" not in r.text
 
 
@@ -741,7 +741,7 @@ class TestGRPC:
         atencao.ListAttention.falha_com(grpc.StatusCode.INTERNAL, "senha=hunter2")
         with pytest.raises(AioRpcError) as e:
             await stub.ListAttention(bff.ListAttentionRequest(), metadata=CONTA)
-        assert e.value.details() == "erro interno"
+        assert e.value.details() == "internal error"
 
 
 class TestParidadeEntreTransportes:

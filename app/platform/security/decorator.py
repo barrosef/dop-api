@@ -1,9 +1,9 @@
-"""Decorators de autorização — leem o ContextVar, não recebem parâmetro.
+"""Authorization decorators — they read the ContextVar, they take no parameter.
 
-    @public                       isenta de autenticação
-    @account_scoped               exige conta ativa (regra do SP-0)
-    @require_role("admin")        papel na conta ativa
-    @require_grant("use")         concessão sobre um recurso (ADR-0013)
+    @public                       exempt from authentication
+    @account_scoped               requires an active account (SP-0's rule)
+    @require_role("admin")        a role in the active account
+    @require_grant("use")         a grant over a resource (ADR-0013)
 """
 
 import asyncio
@@ -19,16 +19,16 @@ _PUBLIC_PATTERNS: list[tuple[str, re.Pattern]] = []
 
 
 def public(func):
-    """Marca o handler como isento de autenticação."""
+    """Marks the handler as exempt from authentication."""
     func.__is_public__ = True
     return func
 
 
 def register_public_routes(routes) -> None:
-    """Varre as rotas e registra os padrões dos handlers marcados @public.
+    """Sweeps the routes and registers the patterns of the @public handlers.
 
-    Converte template de caminho (/{id}/x) em regex, para rota parametrizada
-    ser reconhecida em tempo de requisição. Chamar UMA vez, após registrar tudo.
+    It converts a path template (/{id}/x) into a regex, so a parameterized route
+    is recognized at request time. Call it ONCE, after registering everything.
     """
     _PUBLIC_PATTERNS.clear()
     for route in routes:
@@ -51,12 +51,12 @@ def is_public(request: Request) -> bool:
 def _ctx_or_401():
     ctx = auth_ctx.get()
     if ctx is None:
-        raise HTTPException(status_code=401, detail="Não autenticado")
+        raise HTTPException(status_code=401, detail="Not authenticated")
     return ctx
 
 
 def _wrap(check):
-    """Constrói um decorator que aplica `check` ao AuthContext."""
+    """Builds a decorator that applies `check` to the AuthContext."""
 
     def decorator(func):
         @functools.wraps(func)
@@ -75,35 +75,37 @@ def _wrap(check):
 
 
 def account_scoped(func):
-    """Exige conta ativa.
+    """Requires an active account.
 
-    Materializa a regra do SP-0 — *requisição sem conta ativa é inválida* —
-    como decorator, em vez de checagem espalhada por cada handler.
+    It materializes SP-0's rule — *a request with no active account is
+    invalid* — as a decorator, instead of a check scattered through every
+    handler.
     """
 
     def check(ctx):
         if not ctx.account_id:
-            raise HTTPException(status_code=400, detail="Nenhuma conta ativa selecionada")
+            raise HTTPException(status_code=400, detail="No active account selected")
 
     return _wrap(check)(func)
 
 
 def require_role(*roles: str):
-    """Exige um dos papéis na conta ativa."""
+    """Requires one of the roles in the active account."""
 
     def check(ctx):
         if not ctx.account_id:
-            raise HTTPException(status_code=400, detail="Nenhuma conta ativa selecionada")
+            raise HTTPException(status_code=400, detail="No active account selected")
         if not ctx.has_role(*roles):
-            raise HTTPException(status_code=403, detail="Permissão insuficiente")
+            raise HTTPException(status_code=403, detail="Insufficient permission")
 
     return _wrap(check)
 
 
 def require_grant(level: str = "use", *, param: str = "resource_id"):
-    """Exige concessão sobre o recurso identificado por `param` na chamada.
+    """Requires a grant over the resource `param` identifies in the call.
 
-    `manage` satisfaz um requisito de `use`; owner e admin têm manage implícito.
+    `manage` satisfies a requirement of `use`; owner and admin have implicit
+    manage.
     """
     ranking = {"use": 1, "manage": 2}
     needed = ranking.get(level, 1)
@@ -113,11 +115,11 @@ def require_grant(level: str = "use", *, param: str = "resource_id"):
             ctx = _ctx_or_401()
             resource_id = kwargs.get(param)
             if not resource_id:
-                raise HTTPException(status_code=400, detail=f"Parâmetro {param} ausente")
+                raise HTTPException(status_code=400, detail=f"Missing parameter {param}")
             have = ranking.get(ctx.grant_level(str(resource_id)) or "", 0)
             if have < needed:
                 raise HTTPException(
-                    status_code=403, detail=f"Sem concessão '{level}' sobre o recurso"
+                    status_code=403, detail=f"No '{level}' grant over the resource"
                 )
 
         @functools.wraps(func)

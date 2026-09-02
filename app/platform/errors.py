@@ -1,7 +1,8 @@
-"""Tradução status gRPC → HTTP.
+"""gRPC status → HTTP translation.
 
-O BFF não inventa semântica de erro: ele traduz a do core. Erro que o core
-classificou como NOT_FOUND vira 404 aqui, sem interpretação no meio.
+The BFF does not invent error semantics: it translates the core's. An error the
+core classified as NOT_FOUND becomes a 404 here, with no interpretation in
+between.
 """
 
 from fastapi import HTTPException, Request
@@ -30,10 +31,10 @@ def http_status_for(code: StatusCode) -> int:
 
 
 def _detail_for(exc: AioRpcError, status: int) -> str:
-    # 5xx não expõe detalhe interno ao cliente: mensagem de erro do núcleo pode
-    # carregar host, query ou credencial. A regra vale nos DOIS caminhos —
-    # handler de rota e tradução dentro do middleware.
-    return "erro interno" if status >= 500 else (exc.details() or "erro no núcleo")
+    # A 5xx does not expose an internal detail to the client: the core's error
+    # message may carry a host, a query or a credential. The rule holds on BOTH
+    # paths — the route handler and the translation inside the middleware.
+    return "internal error" if status >= 500 else (exc.details() or "core error")
 
 
 async def grpc_exception_handler(_request: Request, exc: AioRpcError) -> JSONResponse:
@@ -42,21 +43,21 @@ async def grpc_exception_handler(_request: Request, exc: AioRpcError) -> JSONRes
 
 
 def as_http(exc: AioRpcError) -> HTTPException:
-    """Mesma tradução, para quem não pode contar com o handler da aplicação.
+    """The same translation, for whoever cannot rely on the application handler.
 
-    O AuthMiddleware roda ACIMA do ExceptionMiddleware do Starlette: um
-    AioRpcError levantado lá não passaria pelo `grpc_exception_handler`.
+    AuthMiddleware runs ABOVE Starlette's ExceptionMiddleware: an AioRpcError
+    raised there would not pass through `grpc_exception_handler`.
     """
     status = http_status_for(exc.code())
     return HTTPException(status_code=status, detail=_detail_for(exc, status))
 
 
-# ── o mesmo mapeamento, na direção do transporte gRPC ────────────────────────
-# A porta gRPC do BFF precisa devolver STATUS gRPC, não código HTTP. Em vez de
-# um segundo dicionário (que envelheceria em separado), reaproveitamos os dois
-# que já existem: `http_status_for` classifica, `_detail_for` redige. A regra de
-# não vazar detalhe de 5xx do núcleo passa a valer nos dois transportes por
-# construção, e não por disciplina.
+# ── the same mapping, in the gRPC transport's direction ─────────────────────
+# The BFF's gRPC port has to return a gRPC STATUS, not an HTTP code. Rather than
+# a second dictionary (which would age separately), we reuse the two that
+# already exist: `http_status_for` classifies, `_detail_for` writes. The rule of
+# not leaking a 5xx detail from the core comes to hold on both transports by
+# construction, and not by discipline.
 
 _HTTP_TO_STATUS: dict[int, StatusCode] = {
     400: StatusCode.INVALID_ARGUMENT,
@@ -73,33 +74,33 @@ _HTTP_TO_STATUS: dict[int, StatusCode] = {
 
 
 def grpc_status_for_http(status: int) -> StatusCode:
-    """HTTP → gRPC, para o erro que os decorators levantam como HTTPException.
+    """HTTP → gRPC, for the error the decorators raise as an HTTPException.
 
-    Os decorators de segurança falam HTTPException porque nasceram no REST; em
-    vez de reescrevê-los (e arriscar o comportamento HTTP já testado), a porta
-    gRPC traduz na saída. 5xx desconhecido vira INTERNAL.
+    The security decorators speak HTTPException because they were born in REST;
+    rather than rewriting them (and risking the already tested HTTP behaviour),
+    the gRPC port translates on the way out. An unknown 5xx becomes INTERNAL.
     """
     return _HTTP_TO_STATUS.get(status, StatusCode.INTERNAL)
 
 
 def as_grpc(exc: AioRpcError) -> tuple[StatusCode, str]:
-    """Erro do núcleo → (status, detalhe) para devolver ao cliente gRPC.
+    """A core error → (status, detail) to return to the gRPC client.
 
-    O status do núcleo ATRAVESSA intacto — NOT_FOUND continua NOT_FOUND, sem
-    passar por HTTP e voltar. O que muda é só o detalhe, redigido pelo mesmo
-    `_detail_for` do REST: mensagem de 5xx pode carregar host, query ou
-    credencial e não sai daqui.
+    The core's status CROSSES intact — NOT_FOUND stays NOT_FOUND, without going
+    through HTTP and back. What changes is only the detail, written by the same
+    `_detail_for` as REST: a 5xx message may carry a host, a query or a
+    credential and does not leave here.
     """
     return exc.code(), _detail_for(exc, http_status_for(exc.code()))
 
 
 def as_grpc_from_http(exc: HTTPException) -> tuple[StatusCode, str]:
-    """HTTPException dos decorators → (status, detalhe) para o cliente gRPC.
+    """The decorators' HTTPException → (status, detail) for the gRPC client.
 
-    `as_http` já redigiu o que veio do núcleo; o que sobra aqui são as recusas
-    da própria borda ("Nenhuma conta ativa selecionada", "Sem vínculo com a
-    conta"), que são para o cliente ler mesmo.
+    `as_http` has already written what came from the core; what remains here are
+    the edge's own refusals ("No active account selected", "No membership in the
+    account"), which are meant for the client to read.
     """
     status = grpc_status_for_http(exc.status_code)
-    detail = "erro interno" if exc.status_code >= 500 else str(exc.detail)
+    detail = "internal error" if exc.status_code >= 500 else str(exc.detail)
     return status, detail
