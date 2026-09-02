@@ -375,11 +375,11 @@ class TestPublicNoGrpc:
 
         interceptor = AuthInterceptor(verifier=None)
         # Handler público sai do interceptor INTACTO: nem token, nem resolver.
-        assert interceptor._envolve(rpc, None) is rpc
+        assert interceptor._wrap(rpc, None) is rpc
 
     async def test_handler_comum_e_envolvido(self):
         @log
         async def rpc(request, context):
             return "ok"
 
-        assert AuthInterceptor(verifier=None)._envolve(rpc, None) is not rpc
+        assert AuthInterceptor(verifier=None)._wrap(rpc, None) is not rpc
