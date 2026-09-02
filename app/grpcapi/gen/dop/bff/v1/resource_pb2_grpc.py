@@ -88,8 +88,9 @@ class ResourceServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def SetCredential(self, request, context):
-        """Devolve o RECURSO (sem o valor), não a referência nua: o cockpit precisa
-        mostrar "credencial configurada" sem uma segunda ida ao servidor.
+        """It returns the RESOURCE (without the value), not the bare reference: the
+        cockpit needs to show "credential configured" without a second round trip
+        to the server.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

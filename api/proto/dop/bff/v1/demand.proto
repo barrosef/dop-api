@@ -5,27 +5,29 @@ import "dop/bff/v1/workflow.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-// Demanda na BORDA — a unidade de trabalho do cockpit: etapas do fluxo
-// congelado, threads dos agentes e o quadro de achados.
+// A demand at the EDGE — the cockpit's unit of work: the frozen flow's stages,
+// the agents' threads and the board of findings.
 //
-// Mesma disciplina de identity.proto: identidade vem do token em
-// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`. Não
-// existe CallContext aqui.
+// The same discipline as identity.proto: identity comes from the token in
+// `authorization: Bearer <token>`, the active account from the `x-account-id`
+// metadata. There is no CallContext here.
 //
-// **Onde a borda ganha o sustento aqui: o COCKPIT numa chamada.** A tela da
-// demanda mostra as etapas, as threads e os achados juntos — no núcleo isso são
-// RPCs separadas, e pedi-las em série faria a tela montar em três tempos. E os
-// derivados (`current_stage_key`, `blocked`, `awaiting_decision`) saem daqui
-// prontos: são a MESMA regrinha que o cockpit, o dop-cli e o agente escreveriam
-// cada um do seu jeito, e três leituras diferentes de "onde a demanda está" é
-// como a lista e a tela passam a discordar.
+// **Where the edge earns its keep here: the COCKPIT in one call.** The demand's
+// screen shows the stages, the threads and the findings together — in the core
+// those are separate RPCs, and asking for them in series would make the screen
+// assemble in three beats. And the derived fields (`current_stage_key`,
+// `blocked`, `awaiting_decision`) come out of here ready-made: they are the
+// SAME little rule the cockpit, dop-cli and the agent would each write in their
+// own way, and three different readings of "where the demand is" is how the
+// list and the screen start disagreeing.
 //
-// O vocabulário de etapa (StageType, ArtifactKind, Gate) vem de workflow.proto,
-// como em dop.v1: a etapa da demanda é a instância do que a especificação do
-// fluxo descreve.
+// The stage vocabulary (StageType, ArtifactKind, Gate) comes from
+// workflow.proto, as in dop.v1: the demand's stage is the instance of what the
+// flow's specification describes.
 
-// Situação da demanda no nosso vocabulário — o do provedor de tarefas viaja
-// separado, em `provider_status`. Mesmos nomes e números de dop.v1.DopStatus.
+// The demand's situation in our vocabulary — the task provider's travels
+// separately, in `provider_status`. The same names and numbers as
+// dop.v1.DopStatus.
 enum DopStatus {
   DOP_STATUS_UNSPECIFIED = 0;
   DOP_STATUS_NEW         = 1;
@@ -34,7 +36,7 @@ enum DopStatus {
   DOP_STATUS_DELIVERED   = 4;
 }
 
-// Mesmos nomes e números de dop.v1.StageStatus.
+// The same names and numbers as dop.v1.StageStatus.
 enum StageStatus {
   STAGE_STATUS_UNSPECIFIED = 0;
   STAGE_STATUS_PENDING     = 1;
@@ -47,7 +49,7 @@ message Artifact {
   string       id         = 1;
   ArtifactKind kind       = 2;
   string       name       = 3;
-  string       object_ref = 4;  // ponteiro no ObjectStore, nunca o conteúdo
+  string       object_ref = 4;  // an ObjectStore pointer, never the content
   int32        version    = 5;
 }
 
@@ -58,13 +60,13 @@ message Stage {
   StageStatus status = 4;
   Gate        gate   = 5;
   repeated Artifact artifacts = 6;
-  // Opcionais de verdade: etapa que não começou não tem início, e um zero aqui
-  // viraria 1970 na tela. Ausente ≠ zerado — use HasField.
+  // Genuinely optional: a stage that has not started has no start, and a zero
+  // here would become 1970 on the screen. Absent ≠ zeroed — use HasField.
   google.protobuf.Timestamp started_at  = 7;
   google.protobuf.Timestamp finished_at = 8;
-  // Derivado na borda: a etapa tem portão humano e está esperando gente
-  // (começou e não terminou). É o item "spec aguardando aprovação" da caixa de
-  // atenção, e a condição exata que o núcleo aceita em DecideGate.
+  // Derived at the edge: the stage has a human gate and is waiting for somebody
+  // (it started and did not finish). It is the attention box's "a spec awaiting
+  // approval" item, and the exact condition the core accepts in DecideGate.
   bool awaiting_decision = 9;
 }
 
@@ -73,47 +75,48 @@ message Demand {
   string    project_id      = 2;
   string    external_key    = 3;   // SUOPT-1315
   string    title           = 4;
-  string    card_type       = 5;   // dinâmico, do provedor
-  string    provider_status = 6;   // cru, do provedor — não é o nosso
+  string    card_type       = 5;   // dynamic, the provider's
+  string    provider_status = 6;   // raw, the provider's — not ours
   DopStatus dop_status      = 7;
-  // Versão do fluxo CONGELADA ao iniciar (ADR-0014 §4): a demanda em andamento
-  // não muda de processo no meio do caminho.
+  // The flow's version, FROZEN when it started (ADR-0014 §4): a demand under
+  // way does not change process halfway through.
   string    flow_id      = 8;
   int32     flow_version = 9;
   repeated Stage stages   = 10;
-  // ── derivados na borda, para a LISTA e para a tela dizerem a mesma coisa ──
-  // A primeira etapa não concluída: "onde a demanda está".
+  // ── derived at the edge, so the LIST and the screen say the same thing ────
+  // The first stage that is not finished: "where the demand is".
   string current_stage_key  = 11;
-  // Alguma etapa bloqueada — o vermelho da lista.
+  // Some stage is blocked — the list's red.
   bool   blocked            = 12;
-  // Alguma etapa esperando decisão humana — o que chama o dev.
+  // Some stage is waiting for a human decision — what calls the dev.
   bool   awaiting_decision  = 13;
 }
 
-// Ficha do agente da thread: propósito, ferramentas, modelo e orçamento.
+// The thread's agent brief: purpose, tools, model and budget.
 message AgentCard {
   string purpose = 1;
-  repeated string tools = 2;   // MCPs e skills concedidos
+  repeated string tools = 2;   // the MCPs and skills granted
   string model   = 3;
   string effort  = 4;          // low | medium | high | xhigh | max
   int64  budget_micros = 5;
 }
 
-// Uma thread por agente — o dev conversa sem misturar timelines (ADR-0010).
+// One thread per agent — the dev talks without mixing timelines (ADR-0010).
 message Thread {
   string id      = 1;
-  string key     = 2;   // principal, forense-db, logs
-  bool   blocked = 3;   // pergunta pendente → caixa de atenção
-  // Opcional: thread sem ficha é diferente de thread com ficha vazia (uma não
-  // tem agente atrás; a outra teria um agente sem propósito nem orçamento).
+  string key     = 2;   // main, db-forensics, logs
+  bool   blocked = 3;   // a pending question → the attention box
+  // Optional: a thread with no brief is different from a thread with an empty
+  // brief (one has no agent behind it; the other would have an agent with
+  // neither purpose nor budget).
   AgentCard card = 4;
 }
 
 message Message {
   string id        = 1;
   string thread_id = 2;
-  // Autor achatado: no núcleo é um ActorRef, mas aqui um wrapper de três campos
-  // custaria mais linhas de cliente do que informa.
+  // A flattened author: in the core it is an ActorRef, but here a three-field
+  // wrapper would cost more client lines than it conveys.
   string author_kind = 3;  // user | agent | subagent | system
   string author_id   = 4;
   string author_name = 5;
@@ -121,7 +124,8 @@ message Message {
   google.protobuf.Timestamp at = 7;
 }
 
-// Conclusão publicada por um agente — vira contexto dos irmãos e memória.
+// A conclusion published by an agent — it becomes the siblings' context and
+// memory.
 message Finding {
   string id        = 1;
   string thread_id = 2;
@@ -129,48 +133,48 @@ message Finding {
   google.protobuf.Struct payload = 4;
 }
 
-// A tela da demanda inteira, numa resposta.
+// The demand's whole screen, in one response.
 message DemandCockpit {
   Demand demand = 1;
   repeated Thread threads = 2;
-  // O quadro de achados da demanda, lido de dop.v1 ListFindings.
+  // The demand's board of findings, read from dop.v1 ListFindings.
   repeated Finding findings = 3;
 
-  // 4 era `findings_available`, e ele foi REMOVIDO, não renomeado.
+  // 4 was `findings_available`, and it was REMOVED, not renamed.
   //
-  // Existia porque o contrato do núcleo não tinha leitura de achados: a lista
-  // vinha vazia e a bandeira separava "esta demanda não tem achados" de "a
-  // borda não consegue ler achados". Com ListFindings no contrato o segundo
-  // caso deixou de existir — ou a leitura funciona e a lista é a resposta, ou
-  // a chamada falha inteira com o status do núcleo. A bandeira seria `true`
-  // constante, e campo que só sabe dizer uma coisa vira ruído que alguém um
-  // dia interpreta ao contrário. Lista vazia agora significa lista vazia.
+  // It existed because the core's contract had no way to read findings: the
+  // list came back empty and the flag separated "this demand has no findings"
+  // from "the edge cannot read findings". With ListFindings in the contract the
+  // second case stopped existing — either the read works and the list is the
+  // answer, or the whole call fails with the core's status. The flag would be a
+  // constant `true`, and a field that can only say one thing becomes noise
+  // somebody one day reads backwards. An empty list now means an empty list.
   //
-  // O número fica reservado: reaproveitá-lo faria um cliente antigo ler o
-  // campo novo como se fosse a bandeira antiga, em silêncio.
+  // The number stays reserved: reusing it would make an old client read the new
+  // field as if it were the old flag, in silence.
   reserved 4;
   reserved "findings_available";
 }
 
-// ── requisições ─────────────────────────────────────────────────────────────
+// ── requests ────────────────────────────────────────────────────────────────
 
 message ListDemandsRequest {
-  // Vazio = todas as demandas visíveis na conta ativa.
+  // Empty = every demand visible in the active account.
   string project_id = 1;
   int32  page_size  = 2;
   string page_token = 3;
 }
 message ListDemandsResponse {
   repeated Demand demands = 1;
-  string next_page_token  = 2;  // vazio = acabou
+  string next_page_token  = 2;  // empty = that was the last page
 }
 
 message GetDemandRequest { string id = 1; }
 
 message GetDemandCockpitRequest { string demand_id = 1; }
 
-// A demanda nasce de um card do provedor: a chave externa é a identidade dela
-// lá fora. O fluxo NÃO é escolhido aqui — é resolvido pela cadeia e congelado.
+// A demand is born of a provider's card: the external key is its identity out
+// there. The flow is NOT chosen here — it is resolved by the chain and frozen.
 message StartDemandRequest {
   string project_id   = 1;
   string external_key = 2;
@@ -184,9 +188,10 @@ message AdvanceStageRequest {
   string      idempotency_key = 4;
 }
 
-// Portão humano: aprovar conclui a etapa; reprovar a BLOQUEIA com o comentário
-// (o núcleo não a devolve para pendente — reprovação que some da tela é metade
-// do valor da validação humana jogado fora).
+// A human gate: approving finishes the stage; rejecting BLOCKS it with the
+// comment (the core does not send it back to pending — a rejection that
+// disappears from the screen is half the value of human validation thrown
+// away).
 message DecideGateRequest {
   string demand_id = 1;
   string stage_key = 2;
@@ -222,7 +227,7 @@ message PublishFindingRequest {
 service DemandService {
   rpc ListDemands   (ListDemandsRequest)   returns (ListDemandsResponse);
   rpc GetDemand     (GetDemandRequest)     returns (Demand);
-  // Etapas + threads + achados de uma vez: a tela do cockpit.
+  // Stages + threads + findings in one go: the cockpit's screen.
   rpc GetDemandCockpit (GetDemandCockpitRequest) returns (DemandCockpit);
   rpc StartDemand   (StartDemandRequest)   returns (Demand);
   rpc AdvanceStage  (AdvanceStageRequest)  returns (Stage);
@@ -231,7 +236,7 @@ service DemandService {
   rpc CreateThread  (CreateThreadRequest)  returns (Thread);
   rpc PostMessage   (PostMessageRequest)   returns (Message);
   rpc PublishFinding(PublishFindingRequest) returns (Finding);
-  // WatchDemand (stream) NÃO está aqui: a camada de streaming/SSE da borda é
-  // trabalho à parte e entra quando existir. Um RPC de stream declarado sem
-  // servicer por trás seria UNIMPLEMENTED anunciado na reflection.
+  // WatchDemand (a stream) is NOT here: the edge's streaming/SSE layer is
+  // separate work and comes in when it exists. A stream RPC declared with no
+  // servicer behind it would be an UNIMPLEMENTED announced in the reflection.
 }

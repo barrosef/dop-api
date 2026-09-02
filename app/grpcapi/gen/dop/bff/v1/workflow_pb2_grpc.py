@@ -105,7 +105,7 @@ class WorkflowServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def ResolveFlow(self, request, context):
-        """O fluxo efetivo E o rastro de como se chegou nele, já estruturado.
+        """The effective flow AND the trail of how it was reached, already structured.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

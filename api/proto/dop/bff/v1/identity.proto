@@ -1,30 +1,33 @@
 syntax = "proto3";
 package dop.bff.v1;
 
-// Contrato de BORDA da plataforma DOP — o que o cockpit, o dop-cli e os agentes
-// consomem. Deliberadamente DIFERENTE do contrato do núcleo (dop.v1).
+// The DOP platform's EDGE contract — what the cockpit, dop-cli and the agents
+// consume. Deliberately DIFFERENT from the core's contract (dop.v1).
 //
-// Por que dois contratos: o núcleo guarda o estado, então o modelo dele é
-// normalizado e granular — Account, Membership e User são coisas separadas
-// porque no banco elas são separadas. A borda serve TELA: `Me` responde numa
-// chamada o que no núcleo exigiria EnsureUser + ListAccounts + ListMemberships.
-// Agregar aqui é o trabalho do BFF; espelhar dop.v1 seria só um proxy caro.
+// Why two contracts: the core keeps the state, so its model is normalized and
+// granular — Account, Membership and User are separate things because in the
+// database they are separate. The edge serves the SCREEN: `Me` answers in one
+// call what in the core would take EnsureUser + ListAccounts + ListMemberships.
+// Aggregating here is the BFF's job; mirroring dop.v1 would be just an
+// expensive proxy.
 //
-// O vocabulário, esse SIM é o mesmo: Role, Kind e Status repetem nome E número
-// dos enums de dop.v1. Divergir de propósito criaria um dicionário paralelo, e
-// é exatamente daí que nasce bug de tradução entre as duas pontas.
+// The vocabulary, that one IS the same: Role, Kind and Status repeat the name
+// AND the number of dop.v1's enums. Diverging on purpose would create a
+// parallel dictionary, and that is exactly where a translation bug between the
+// two ends is born.
 //
-// Identidade NÃO viaja no corpo. Não existe CallContext aqui: quem chama vem do
-// TOKEN, no metadado `authorization: Bearer <token>`, exatamente como no REST.
-// O interceptor verifica o token, pergunta ao núcleo quem é o usuário e qual o
-// papel dele, e injeta tudo no contexto. Conta ativa vem do metadado
-// `x-account-id` — é o seletor da interface, não um campo que o cliente pode
-// forjar dentro da mensagem.
+// Identity does NOT travel in the body. There is no CallContext here: the
+// caller comes from the TOKEN, in the `authorization: Bearer <token>` metadata,
+// exactly as in REST. The interceptor verifies the token, asks the core who the
+// user is and what their role is, and injects it all into the context. The
+// active account comes from the `x-account-id` metadata — it is the interface's
+// selector, not a field the client can forge inside the message.
 
-// ── vocabulário compartilhado com dop.v1 ────────────────────────────────────
+// ── vocabulary shared with dop.v1 ───────────────────────────────────────────
 
-// Os quatro papéis pré-definidos. Mesmos nomes e mesmos números de
-// dop.v1.Role: a conversão entre as pontas é identidade, não tradução.
+// The four predefined roles. The same names and the same numbers as
+// dop.v1.Role: the conversion between the two ends is the identity, not a
+// translation.
 enum Role {
   ROLE_UNSPECIFIED = 0;
   ROLE_OWNER       = 1;
@@ -33,43 +36,44 @@ enum Role {
   ROLE_VIEWER      = 4;
 }
 
-// Concessão sobre um recurso, composta NO CONVITE — sem defaults (ADR-0013).
-// Aqui o recurso é o id cru, e não um ResourceRef: a borda já sabe de qual
-// conta está falando (vem do metadado), e um wrapper de um campo só custaria
-// mais linhas de cliente do que informa.
+// A grant over a resource, composed IN THE INVITE — with no defaults
+// (ADR-0013). Here the resource is the raw id, and not a ResourceRef: the edge
+// already knows which account it is talking about (it comes from the metadata),
+// and a one-field wrapper would cost more client lines than it conveys.
 message ResourceGrantSpec {
   string resource_id = 1;
   string level       = 2;  // use | manage
 }
 
-// ── modelos da borda ────────────────────────────────────────────────────────
+// ── the edge's models ───────────────────────────────────────────────────────
 
-// Quem sou eu, na conta ativa. Junta o principal do provedor de identidade com
-// o que o núcleo respondeu sobre ele — é a primeira chamada de todo cliente.
+// Who I am, in the active account. It joins the identity provider's principal
+// with what the core answered about them — it is every client's first call.
 message Me {
-  // Sujeito no provedor de identidade (Firebase hoje, ADR-0001). Vem do token.
+  // The subject at the identity provider (Firebase today, ADR-0001). It comes
+  // from the token.
   string subject = 1;
-  // Id do usuário NO NÚCLEO — não é o subject. Resolvido pelo EnsureUser
-  // durante a autenticação. É este que aparece em auditoria e em toda
-  // referência de domínio.
+  // The user's id IN THE CORE — it is not the subject. Resolved by EnsureUser
+  // during authentication. This is the one that shows up in the audit trail and
+  // in every domain reference.
   string user_id = 2;
   string email   = 3;
   string name    = 4;
-  // password, google.com, github.com, linkedin.com — já normalizados.
+  // password, google.com, github.com, linkedin.com — already normalized.
   repeated string providers = 5;
 
-  // Conta ativa e papel nela. Vêm vazios quando o cliente ainda não escolheu
-  // conta: é um estado VÁLIDO, e é assim que o cockpit carrega o seletor logo
-  // após o login.
+  // The active account and the role in it. They come back empty when the client
+  // has not chosen an account yet: that is a VALID state, and it is how the
+  // cockpit loads the selector right after login.
   string account_id = 10;
   Role   role       = 11;
 }
 
-// Conta como a tela precisa dela: os dados da conta MAIS o papel de quem
-// pergunta. No núcleo isso são duas entidades (Account e Membership); juntar
-// as duas é o motivo deste contrato existir.
+// An account as the screen needs it: the account's data PLUS the asker's role.
+// In the core those are two entities (Account and Membership); joining them is
+// the reason this contract exists.
 message AccountSummary {
-  // Mesmos nomes e números de dop.v1.Account.Kind.
+  // The same names and numbers as dop.v1.Account.Kind.
   enum Kind {
     KIND_UNSPECIFIED  = 0;
     KIND_PERSONAL     = 1;
@@ -77,24 +81,25 @@ message AccountSummary {
   }
   string id           = 1;
   Kind   kind         = 2;
-  string handle       = 3;  // único na plataforma; PF e PJ dividem o namespace
+  string handle       = 3;  // unique on the platform; individuals and
+                            // organizations share the namespace
   string display_name = 4;
-  // Papel do chamador NESTA conta. Só é preenchido para a conta ATIVA — foi
-  // ela que o interceptor resolveu contra o núcleo. Inventar papel para as
-  // outras seria mentir barato.
+  // The caller's role IN THIS account. It is only filled in for the ACTIVE
+  // account — that is the one the interceptor resolved against the core.
+  // Inventing a role for the others would be lying cheaply.
   Role   role         = 5;
 }
 
-// Membro da conta ativa. `user_id` é o id no núcleo, o mesmo de Me.user_id —
-// é o que permite o cliente reconhecer a si mesmo na lista.
+// A member of the active account. `user_id` is the id in the core, the same as
+// Me.user_id — it is what lets a client recognize itself in the list.
 message MemberSummary {
-  string id      = 1;  // id do vínculo (Membership), não do usuário
+  string id      = 1;  // the membership's id, not the user's
   string user_id = 2;
   Role   role    = 3;
 }
 
 message InviteSummary {
-  // Mesmos nomes e números de dop.v1.Invite.Status.
+  // The same names and numbers as dop.v1.Invite.Status.
   enum Status {
     STATUS_UNSPECIFIED = 0;
     STATUS_PENDING     = 1;
@@ -106,15 +111,16 @@ message InviteSummary {
   string email  = 2;
   Role   role   = 3;
   Status status = 4;
-  // O token do convite NÃO aparece aqui, de propósito: ele sai pelo canal de
-  // comunicação (P-11). Quem perder o link precisa de convite novo.
+  // The invite's token does NOT appear here, on purpose: it goes out through
+  // the communication channel (P-11). Whoever loses the link needs a new
+  // invite.
 }
 
-// ── serviço ─────────────────────────────────────────────────────────────────
+// ── the service ─────────────────────────────────────────────────────────────
 
-// Espelha, RPC a RPC, os casos de uso que já existem em REST. A lógica é
-// literalmente a mesma função (app/usecases/identity.py): este serviço é uma
-// segunda porta para a mesma sala, não uma segunda implementação.
+// It mirrors, RPC by RPC, the use cases that already exist in REST. The logic
+// is literally the same function (app/usecases/identity.py): this service is a
+// second door into the same room, not a second implementation.
 service IdentityService {
   rpc GetMe        (GetMeRequest)        returns (Me);
   rpc ListAccounts (ListAccountsRequest) returns (ListAccountsResponse);
@@ -123,38 +129,38 @@ service IdentityService {
   rpc CreateInvite (CreateInviteRequest)  returns (InviteSummary);
 }
 
-// Vazia porque tudo que ela precisaria dizer já está no metadado: o token diz
-// quem, o x-account-id diz onde. Uma mensagem vazia é mais honesta do que um
-// campo `user_id` que o servidor teria obrigação de ignorar.
+// Empty because everything it would need to say is already in the metadata: the
+// token says who, x-account-id says where. An empty message is more honest than
+// a `user_id` field the server would be obliged to ignore.
 message GetMeRequest {}
 
-// Sem conta ativa de propósito: é justamente a chamada que o cliente faz ANTES
-// de haver conta escolhida, para poder escolher.
+// With no active account on purpose: it is precisely the call the client makes
+// BEFORE any account has been chosen, so it can choose.
 message ListAccountsRequest {}
 message ListAccountsResponse { repeated AccountSummary accounts = 1; }
 
-// Sempre a conta ATIVA (a do metadado). Não recebe account_id: aceitar um id
-// no corpo abriria uma segunda fonte de verdade sobre escopo, e as duas
-// discordariam no primeiro bug.
+// Always the ACTIVE account (the metadata's). It takes no account_id: accepting
+// an id in the body would open a second source of truth about scope, and the
+// two would disagree on the first bug.
 message ListMembersRequest  {}
 message ListMembersResponse { repeated MemberSummary members = 1; }
 
-// Cria uma organização. Qualquer usuário pode criar a sua — o que se exige é
-// conta ativa (SP-0): a criação acontece a partir de um contexto.
+// It creates an organization. Any user may create their own — what is required
+// is an active account (SP-0): the creation happens from within a context.
 message CreateAccountRequest {
   string handle       = 1;
   string display_name = 2;
-  string legal_id     = 3;  // CNPJ
+  string legal_id     = 3;  // the company's registration number
 
-  // Toda escrita leva chave de idempotência (ADR-0017): repetir a chamada não
-  // pode duplicar efeito. Quem envia é o CLIENTE, porque é ele quem sabe se
-  // está tentando de novo ou pedindo outra coisa. Vazio = o BFF gera uma, que
-  // é o que o REST faz — protege contra o retry do canal, não contra o do
-  // usuário.
+  // Every write carries an idempotency key (ADR-0017): repeating the call must
+  // not duplicate the effect. The one that sends it is the CLIENT, because it is
+  // the one that knows whether it is retrying or asking for something else.
+  // Empty = the BFF generates one, which is what REST does — it protects against
+  // the channel's retry, not against the user's.
   string idempotency_key = 10;
 }
 
-// Convida alguém para a conta ativa.
+// It invites somebody to the active account.
 message CreateInviteRequest {
   string email = 1;
   Role   role  = 2;

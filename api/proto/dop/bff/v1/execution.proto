@@ -3,37 +3,41 @@ package dop.bff.v1;
 
 import "google/protobuf/timestamp.proto";
 
-// Substrato de execução na BORDA: o sandbox da demanda (spec do substrato).
+// The execution substrate at the EDGE: the demand's sandbox (the substrate
+// spec).
 //
-// Mesma disciplina de identity.proto: identidade vem do token em
-// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
-// Não existe CallContext aqui.
+// The same discipline as identity.proto: identity comes from the token in
+// `authorization: Bearer <token>`, the active account from the `x-account-id`
+// metadata. There is no CallContext here.
 //
-// **A regra dura deste contrato: `min_tier` é DECLARADO, nunca presumido.**
-// Sem ele o núcleo RECUSA, e a borda não preenche o vazio para "facilitar" —
-// um default aqui seria a plataforma escolhendo o isolamento de um código que
-// ela não escreveu, e escolhendo para baixo (namespace é o que sempre existe).
-// Quem pede microVM e recebe container não descobre isso pela tela; descobre
-// pelo incidente. Por isso a borda recusa ANTES de gastar a ida ao núcleo, com
-// mensagem, e a recusa é INVALID_ARGUMENT (422 no REST) — pedido incompleto,
-// não falha de servidor.
+// **This contract's hard rule: `min_tier` is DECLARED, never presumed.**
+// Without it the core REFUSES, and the edge does not fill the gap to "make life
+// easier" — a default here would be the platform choosing the isolation of code
+// it did not write, and choosing downwards (a namespace is what always exists).
+// Whoever asks for a microVM and gets a container does not find out from the
+// screen; they find out from the incident. That is why the edge refuses BEFORE
+// spending the round trip to the core, with a message, and the refusal is
+// INVALID_ARGUMENT (a 422 in REST) — an incomplete request, not a server
+// failure.
 //
-// **DestroySandbox é IRREVERSÍVEL e leva o WORKSPACE junto.** Não é o inverso
-// de `Suspend`: suspender mata a execução e preserva o workspace no PVC (é a
-// operação de economia); destruir apaga os dois. Sandbox destruído NÃO retoma —
-// `Resume` recusa, e o caminho é provisionar um novo para a demanda, do zero,
-// sem o worktree, sem o build e sem o que o agente já tinha aprendido no disco.
+// **DestroySandbox is IRREVERSIBLE and takes the WORKSPACE with it.** It is not
+// the inverse of `Suspend`: suspending kills the execution and preserves the
+// workspace on the PVC (it is the saving operation); destroying erases both. A
+// destroyed sandbox does NOT resume — `Resume` refuses, and the way forward is
+// to provision a new one for the demand, from scratch, with no worktree, no
+// build and none of what the agent had already learned on disk.
 
-// Mesmos NOMES e mesmos números de dop.v1.IsolationTier — a conversão entre as
-// pontas é identidade, não tradução (spec do substrato §1).
+// The same NAMES and the same numbers as dop.v1.IsolationTier — the conversion
+// between the two ends is the identity, not a translation (the substrate spec
+// §1).
 enum IsolationTier {
-  ISOLATION_TIER_UNSPECIFIED     = 0;  // pedido INCOMPLETO, nunca um default
+  ISOLATION_TIER_UNSPECIFIED     = 0;  // an INCOMPLETE request, never a default
   ISOLATION_TIER_HARDWARE        = 1;  // Kata/Firecracker — microVM
   ISOLATION_TIER_KERNEL_EMULATED = 2;  // gVisor / Edera
-  ISOLATION_TIER_NAMESPACE       = 3;  // container com securityContext estrito
+  ISOLATION_TIER_NAMESPACE       = 3;  // a container with a strict securityContext
 }
 
-// Serviço da pilha da demanda, publicado no ingress.
+// A service of the demand's stack, published on the ingress.
 message SandboxEndpoint {
   string name  = 1;  // portal-frontend, portal-backend, mysql
   string url   = 2;
@@ -42,25 +46,26 @@ message SandboxEndpoint {
 }
 
 message Sandbox {
-  // Mesmos nomes e números de dop.v1.Sandbox.State.
+  // The same names and numbers as dop.v1.Sandbox.State.
   enum State {
     STATE_UNSPECIFIED  = 0;
-    STATE_PROVISIONING = 1;  // rastro de uma tentativa que não terminou
+    STATE_PROVISIONING = 1;  // the trace of an attempt that did not finish
     STATE_ACTIVE       = 2;
-    STATE_SUSPENDED    = 3;  // execução morta, workspace vivo
-    STATE_DESTROYED    = 4;  // terminal: não retoma
+    STATE_SUSPENDED    = 3;  // the execution dead, the workspace alive
+    STATE_DESTROYED    = 4;  // terminal: it does not resume
   }
   string        id        = 1;
   string        demand_id = 2;
   State         state     = 3;
-  // O que o substrato ENTREGOU — o cliente vê o que recebeu (spec §2). O núcleo
-  // recusa quando o adaptador entrega um nível diferente do declarado, então
-  // este campo nunca é uma promessa: é o fato.
+  // What the substrate DELIVERED — the client sees what it got (spec §2). The
+  // core refuses when the adapter delivers a level different from the declared
+  // one, so this field is never a promise: it is the fact.
   IsolationTier tier      = 4;
   string        namespace = 5;
   repeated SandboxEndpoint endpoints = 6;
-  // AUSENTE = sem atividade registrada (sandbox recém-criado). Não vira época
-  // zero: "ocioso desde 1970" mandaria a suspensão automática ler errado.
+  // ABSENT = no activity recorded (a freshly created sandbox). It does not
+  // become epoch zero: "idle since 1970" would make the automatic suspension
+  // read it wrong.
   google.protobuf.Timestamp last_active_at = 7;
 }
 
@@ -69,20 +74,21 @@ service ExecutionService {
   rpc DescribeSandbox (DescribeSandboxRequest)  returns (Sandbox);
   rpc SuspendSandbox  (SuspendSandboxRequest)   returns (Sandbox);
   rpc ResumeSandbox   (ResumeSandboxRequest)    returns (Sandbox);
-  // IRREVERSÍVEL: apaga a execução E o workspace da demanda. Ver o cabeçalho.
+  // IRREVERSIBLE: it erases the execution AND the demand's workspace. See the
+  // header.
   rpc DestroySandbox  (DestroySandboxRequest)   returns (DestroySandboxResponse);
 
-  // StreamLogs (dop.v1.ExecutionService) ainda NÃO está nesta porta. O
-  // streaming da borda inteiro (SSE no REST, server-streaming no gRPC) está
-  // sendo desenhado em separado; expor meia solução aqui criaria um segundo
-  // desenho de stream para desfazer depois.
+  // StreamLogs (dop.v1.ExecutionService) is NOT on this port yet. The edge's
+  // whole streaming story (SSE in REST, server-streaming in gRPC) is being
+  // designed separately; exposing half a solution here would create a second
+  // stream design to undo later.
 }
 
 message ProvisionSandboxRequest {
   string demand_id = 1;
-  // OBRIGATÓRIO. ISOLATION_TIER_UNSPECIFIED é recusado na borda, com mensagem:
-  // "declarado, nunca presumido" morre no dia em que alguém preenche o vazio
-  // por gentileza.
+  // MANDATORY. ISOLATION_TIER_UNSPECIFIED is refused at the edge, with a
+  // message: "declared, never presumed" dies the day somebody fills the gap out
+  // of politeness.
   IsolationTier min_tier = 2;
   string idempotency_key = 10;
 }
@@ -92,6 +98,6 @@ message SuspendSandboxRequest  { string id = 1; }
 message ResumeSandboxRequest   { string id = 1; }
 message DestroySandboxRequest  { string id = 1; }
 
-// Devolve confirmação em vez de nada: um ato irreversível merece resposta que o
-// cliente possa mostrar ("destruído"), não um silêncio que ele precise deduzir.
+// It returns a confirmation rather than nothing: an irreversible act deserves
+// an answer the client can show ("destroyed"), not a silence it has to deduce.
 message DestroySandboxResponse { bool destroyed = 1; }

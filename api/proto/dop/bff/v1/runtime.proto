@@ -3,38 +3,38 @@ package dop.bff.v1;
 
 import "dop/bff/v1/cost.proto";
 
-// O AgentRuntime na BORDA: executar UM turno de conversa numa thread.
+// The AgentRuntime at the EDGE: running ONE conversation turn on a thread.
 //
-// Mesma disciplina de identity.proto: identidade vem do token em
-// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
-// Não existe CallContext aqui.
+// The same discipline as identity.proto: identity comes from the token in
+// `authorization: Bearer <token>`, the active account from the `x-account-id`
+// metadata. There is no CallContext here.
 //
-// Quatro decisões estruturam este contrato:
+// Four decisions structure this contract:
 //
-// 1. **UM turno por chamada, não uma sessão.** O RPC é unário e devolve o
-//    resultado de uma volta: contexto → roteamento → modelo → medição →
-//    mensagens → achado. O laço de N turnos é de quem chama, e é justamente
-//    por isso que o orçamento consegue interromper entre uma volta e outra —
-//    a demanda PAUSA (ADR-0011 §2) em vez de ser cortada no meio de uma.
+// 1. **ONE turn per call, not a session.** The RPC is unary and returns one
+//    round's result: context → routing → model → measurement → messages →
+//    finding. The loop of N turns belongs to the caller, and that is precisely
+//    why the budget manages to interrupt between one round and the next — the
+//    demand PAUSES (ADR-0011 §2) instead of being cut in the middle of one.
 //
-// 2. **Não há streaming aqui, de propósito.** O acompanhamento ao vivo é o SSE
-//    que já existe (StreamService.WatchDemand): toda mensagem publicada vira
-//    evento no núcleo (ADR-0006) e chega ao cockpit sozinha. Um segundo
-//    caminho de streaming seria uma segunda fonte da verdade para a MESMA
-//    timeline, e as duas divergiriam no primeiro reconnect.
+// 2. **There is no streaming here, on purpose.** Live following is the SSE that
+//    already exists (StreamService.WatchDemand): every published message
+//    becomes an event in the core (ADR-0006) and reaches the cockpit on its
+//    own. A second streaming path would be a second source of truth for the
+//    SAME timeline, and the two would diverge on the first reconnect.
 //
-// 3. **Provedor de agente é escolha de REQUISIÇÃO.** Provedor é recurso de
-//    categoria `agent` (ADR-0013), por conta e por projeto — vários convivem
-//    no mesmo processo. Por isso `provider` é campo do pedido e não
-//    configuração de boot. Vazio = o padrão da instalação.
+// 3. **The agent provider is a per-REQUEST choice.** A provider is a resource
+//    of category `agent` (ADR-0013), per account and per project — several
+//    coexist in the same process. That is why `provider` is a field of the
+//    request and not boot configuration. Empty = the installation's default.
 //
-// 4. **Ausente ≠ zerado, aqui mais que em qualquer lugar.** Dois campos deste
-//    contrato existem só para impedir que uma AUSÊNCIA de informação seja lida
-//    como uma AFIRMAÇÃO de zero: `cache_creation_known` e `cost_known`. Ver
-//    TurnUsage — é a diferença entre "nada foi escrito no cache" e "este
-//    provedor não conta isso", e entre "a chamada foi de graça" e "não há
-//    tabela de preço". Um orçamento alimentado com zeros de consolo é a ficção
-//    que a ADR-0011 existe para impedir.
+// 4. **Absent ≠ zeroed, here more than anywhere.** Two fields of this contract
+//    exist only to stop an ABSENCE of information from being read as an
+//    ASSERTION of zero: `cache_creation_known` and `cost_known`. See TurnUsage
+//    — it is the difference between "nothing was written to the cache" and
+//    "this provider does not count that", and between "the call was free" and
+//    "there is no price table". A budget fed with consolation zeroes is the
+//    fiction ADR-0011 exists to prevent.
 
 service RuntimeService {
   rpc RunTurn (RunTurnRequest) returns (TurnOutcome);
@@ -43,69 +43,75 @@ service RuntimeService {
 message RunTurnRequest {
   string demand_id = 1;
   string thread_id = 2;
-  // A mensagem do turno. Entra na thread como evento antes da chamada ao
-  // modelo: se o fornecedor cair, a conversa mostra o que foi perguntado.
+  // The turn's message. It enters the thread as an event before the call to the
+  // model: if the provider goes down, the conversation shows what was asked.
   string text = 3;
-  // mechanical | investigation | implementation | critic — e o que mais o
-  // núcleo aceitar. Vocabulário ABERTO (tipo desconhecido cai no fallback caro
-  // e diz que caiu), então string e não enum. Vazio = "implementation".
+  // mechanical | investigation | implementation | critic — and whatever else
+  // the core accepts. An OPEN vocabulary (an unknown kind falls back to the
+  // expensive path and says so), hence a string and not an enum. Empty =
+  // "implementation".
   string task_kind = 4;
-  // Vazio = provedor padrão da instalação. Ver decisão 3 do cabeçalho.
-  // Qual integração de agente usar. Vazio = a única da conta; havendo mais
-  // de uma, o núcleo RECUSA com a lista em vez de escolher (ADR-0013).
+  // Empty = the installation's default provider. See the header's decision 3.
+  // Which agent integration to use. Empty = the account's only one; if there is
+  // more than one, the core REFUSES with the list instead of choosing
+  // (ADR-0013).
   string resource_id = 5;
-  // Instrução do OPERADOR, vinda da caixa de atenção. Entra pelo canal de
-  // autoridade do fornecedor (mensagem `system`/`developer` DEPOIS da
-  // história), nunca como texto de usuário: é a diferença entre uma instrução
-  // que autoriza e um texto que qualquer um pode escrever. Preserva também o
-  // prefixo cacheado, em vez de reescrever o topo do prompt (ADR-0012 §1).
+  // The OPERATOR's instruction, coming from the attention box. It goes in
+  // through the provider's authority channel (a `system`/`developer` message
+  // AFTER the history), never as user text: it is the difference between an
+  // instruction that authorizes and a text anybody can write. It also preserves
+  // the cached prefix, instead of rewriting the top of the prompt
+  // (ADR-0012 §1).
   string operator_note = 6;
-  // 0 = padrão do BFF.
+  // 0 = the BFF's default.
   int32 max_output_tokens = 7;
-  // Vazio = o BFF gera uma. TODAS as escritas do turno derivam desta chave
-  // (mensagem de entrada, aviso de truncamento, medição, resposta, achado), de
-  // modo que reenviar a MESMA requisição repete zero efeitos. É a garantia que
-  // impede o consumo de contar duas vezes — e sem ela o orçamento vira ficção.
+  // Empty = the BFF generates one. ALL of the turn's writes derive from this
+  // key (the incoming message, the truncation notice, the measurement, the
+  // reply, the finding), so that resending the SAME request repeats zero
+  // effects. It is the guarantee that stops consumption from counting twice —
+  // and without it the budget becomes fiction.
   string idempotency_key = 10;
 }
 
-// A decisão tarefa → (modelo, effort), com a justificativa INTEIRA.
+// The task → (model, effort) decision, with the WHOLE justification.
 message RoutingView {
   string task_kind = 1;
-  // Nome CONCRETO do modelo no fornecedor ativo. O núcleo decide a CLASSE
-  // (ADR-0011 §3); o catálogo que traduz classe → nome é por fornecedor, e é
-  // do lado da borda que ele vive — a mesma separação política × catálogo de
-  // internal/domain/cost/router.go.
+  // The model's CONCRETE name at the active provider. The core decides the
+  // CLASS (ADR-0011 §3); the catalogue that translates class → name is per
+  // provider, and it lives on the edge's side — the same policy × catalogue
+  // separation as internal/domain/cost/router.go.
   string model = 2;
-  // O effort PEDIDO (vocabulário do núcleo: low|medium|high|xhigh|max).
+  // The effort ASKED FOR (the core's vocabulary: low|medium|high|xhigh|max).
   string effort = 3;
-  // O effort REALMENTE aplicado. Pode ser menor: nem todo fornecedor tem os
-  // cinco níveis, e fingir que aplicou `max` numa tarefa crítica (ADR-0007)
-  // seria esconder uma decisão de produto dentro de um adaptador.
+  // The effort ACTUALLY applied. It may be lower: not every provider has all
+  // five levels, and pretending it applied `max` on a critical task (ADR-0007)
+  // would be hiding a product decision inside an adapter.
   string effort_applied = 4;
-  // A justificativa com a proveniência na frente, inteira. Ver cost.proto.
+  // The justification with the provenance up front, whole. See cost.proto.
   string reason = 5;
-  // Verdadeiro quando a FICHA da thread (ADR-0010 §2) venceu o roteador: ficha
-  // é o contrato congelado daquela thread, e trocar o modelo dela no meio
-  // invalidaria o prefixo cacheado de todos os turnos anteriores.
+  // True when the thread's BRIEF (ADR-0010 §2) beat the router: the brief is
+  // that thread's frozen contract, and changing its model halfway would
+  // invalidate the cached prefix of every previous turn.
   bool from_agent_card = 6;
 }
 
 message TurnUsage {
-  // As quatro parcelas são DISJUNTAS: input NÃO inclui o que veio do cache.
-  // É a semântica de dop.v1.UsageEvent, e nem todo fornecedor conta assim —
-  // quem conta de forma inclusiva é normalizado no adaptador, porque somar as
-  // parcelas de lá como se fossem disjuntas inflaria a medição em silêncio.
+  // The four parts are DISJOINT: input does NOT include what came from the
+  // cache. It is dop.v1.UsageEvent's semantics, and not every provider counts
+  // that way — whoever counts inclusively is normalized in the adapter, because
+  // summing their parts as if they were disjoint would silently inflate the
+  // measurement.
   int64 input_tokens          = 1;
   int64 output_tokens         = 2;
   int64 cache_read_tokens     = 3;
   int64 cache_creation_tokens = 4;
   Money cost = 5;
-  // FALSO = este provedor não reporta criação de cache. O zero acima é
-  // ausência de informação, não afirmação de que nada foi escrito no cache.
+  // FALSE = this provider does not report cache creation. The zero above is an
+  // absence of information, not an assertion that nothing was written to the
+  // cache.
   bool cache_creation_known = 6;
-  // FALSO = não há tabela de preço para este modelo. O custo acima é zero por
-  // falta de tabela, não porque a chamada foi de graça.
+  // FALSE = there is no price table for this model. The cost above is zero for
+  // want of a table, not because the call was free.
   bool cost_known = 7;
 }
 
@@ -119,29 +125,30 @@ message TurnOutcome {
   string thread_id = 2;
   string provider  = 3;
   RoutingView routing = 4;
-  // O que o agente respondeu, como foi publicado na thread.
+  // What the agent answered, as it was published on the thread.
   string reply = 5;
-  // Ids das mensagens publicadas, na ordem em que entraram na thread.
+  // The ids of the published messages, in the order they entered the thread.
   repeated string message_ids = 6;
-  // Concluir EXIGE achado (spec de conversação §1): quando `concluded` é
-  // verdadeiro, `finding` está preenchido. Uma conclusão sem achado é RECUSADA
-  // pelo runtime e vira aviso — thread não morre em silêncio.
+  // Concluding REQUIRES a finding (the conversation spec §1): when `concluded`
+  // is true, `finding` is filled in. A conclusion with no finding is REFUSED by
+  // the runtime and becomes a warning — a thread does not die in silence.
   bool concluded = 7;
   FindingRef finding = 8;
   TurnUsage usage = 9;
-  // O pacote de contexto veio TRUNCADO por orçamento de tokens (ADR-0012).
-  // Não é só sinalizado aqui: vira mensagem na thread, porque o humano precisa
-  // saber que a resposta foi produzida sem parte do material.
+  // The context package came back TRUNCATED by the token budget (ADR-0012). It
+  // is not only signalled here: it becomes a message on the thread, because the
+  // human needs to know the answer was produced without part of the material.
   bool context_truncated = 10;
-  // Orçamento estourado: a demanda PAUSA e vira item de decisão (ADR-0011 §2).
-  // NÃO é erro, e o turno que já rodou vem inteiro — a resposta foi publicada
-  // e o achado também. O que não sai é o PRÓXIMO turno.
+  // The budget was blown: the demand PAUSES and becomes an item for a decision
+  // (ADR-0011 §2). It is NOT an error, and the turn that already ran comes back
+  // whole — the reply was published and so was the finding. What does not go
+  // out is the NEXT turn.
   bool paused = 11;
-  // Frase pronta para a caixa de atenção; vazia quando não pausou.
+  // A ready-made sentence for the attention box; empty when it did not pause.
   string notice = 12;
-  // Os orçamentos estourados — os números com que o humano decide.
-  reserved 13, 14;  // budgets/warnings: viviam no runtime do BFF (ADR-0023)
-  // Avisos legíveis: effort rebaixado pelo fornecedor, resposta cortada no
-  // limite de tokens, conclusão recusada por falta de achado, provedor sem
-  // contabilidade de cache. Vazio no caso feliz.
+  // The blown budgets — the numbers with which the human decides.
+  reserved 13, 14;  // budgets/warnings: they lived in the BFF's runtime (ADR-0023)
+  // Readable warnings: an effort downgraded by the provider, a reply cut at the
+  // token limit, a conclusion refused for want of a finding, a provider with no
+  // cache accounting. Empty on the happy path.
 }

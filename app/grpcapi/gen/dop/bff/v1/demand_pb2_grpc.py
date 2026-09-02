@@ -102,7 +102,7 @@ class DemandServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def GetDemandCockpit(self, request, context):
-        """Etapas + threads + achados de uma vez: a tela do cockpit.
+        """Stages + threads + findings in one go: the cockpit's screen.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -145,9 +145,9 @@ class DemandServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def PublishFinding(self, request, context):
-        """WatchDemand (stream) NÃO está aqui: a camada de streaming/SSE da borda é
-        trabalho à parte e entra quando existir. Um RPC de stream declarado sem
-        servicer por trás seria UNIMPLEMENTED anunciado na reflection.
+        """WatchDemand (a stream) is NOT here: the edge's streaming/SSE layer is
+        separate work and comes in when it exists. A stream RPC declared with no
+        servicer behind it would be an UNIMPLEMENTED announced in the reflection.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

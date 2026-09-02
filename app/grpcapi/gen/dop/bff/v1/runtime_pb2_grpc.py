@@ -26,38 +26,38 @@ if _version_not_supported:
 
 
 class RuntimeServiceStub:
-    """O AgentRuntime na BORDA: executar UM turno de conversa numa thread.
+    """The AgentRuntime at the EDGE: running ONE conversation turn on a thread.
 
-    Mesma disciplina de identity.proto: identidade vem do token em
-    `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
-    Não existe CallContext aqui.
+    The same discipline as identity.proto: identity comes from the token in
+    `authorization: Bearer <token>`, the active account from the `x-account-id`
+    metadata. There is no CallContext here.
 
-    Quatro decisões estruturam este contrato:
+    Four decisions structure this contract:
 
-    1. **UM turno por chamada, não uma sessão.** O RPC é unário e devolve o
-    resultado de uma volta: contexto → roteamento → modelo → medição →
-    mensagens → achado. O laço de N turnos é de quem chama, e é justamente
-    por isso que o orçamento consegue interromper entre uma volta e outra —
-    a demanda PAUSA (ADR-0011 §2) em vez de ser cortada no meio de uma.
+    1. **ONE turn per call, not a session.** The RPC is unary and returns one
+    round's result: context → routing → model → measurement → messages →
+    finding. The loop of N turns belongs to the caller, and that is precisely
+    why the budget manages to interrupt between one round and the next — the
+    demand PAUSES (ADR-0011 §2) instead of being cut in the middle of one.
 
-    2. **Não há streaming aqui, de propósito.** O acompanhamento ao vivo é o SSE
-    que já existe (StreamService.WatchDemand): toda mensagem publicada vira
-    evento no núcleo (ADR-0006) e chega ao cockpit sozinha. Um segundo
-    caminho de streaming seria uma segunda fonte da verdade para a MESMA
-    timeline, e as duas divergiriam no primeiro reconnect.
+    2. **There is no streaming here, on purpose.** Live following is the SSE that
+    already exists (StreamService.WatchDemand): every published message
+    becomes an event in the core (ADR-0006) and reaches the cockpit on its
+    own. A second streaming path would be a second source of truth for the
+    SAME timeline, and the two would diverge on the first reconnect.
 
-    3. **Provedor de agente é escolha de REQUISIÇÃO.** Provedor é recurso de
-    categoria `agent` (ADR-0013), por conta e por projeto — vários convivem
-    no mesmo processo. Por isso `provider` é campo do pedido e não
-    configuração de boot. Vazio = o padrão da instalação.
+    3. **The agent provider is a per-REQUEST choice.** A provider is a resource
+    of category `agent` (ADR-0013), per account and per project — several
+    coexist in the same process. That is why `provider` is a field of the
+    request and not boot configuration. Empty = the installation's default.
 
-    4. **Ausente ≠ zerado, aqui mais que em qualquer lugar.** Dois campos deste
-    contrato existem só para impedir que uma AUSÊNCIA de informação seja lida
-    como uma AFIRMAÇÃO de zero: `cache_creation_known` e `cost_known`. Ver
-    TurnUsage — é a diferença entre "nada foi escrito no cache" e "este
-    provedor não conta isso", e entre "a chamada foi de graça" e "não há
-    tabela de preço". Um orçamento alimentado com zeros de consolo é a ficção
-    que a ADR-0011 existe para impedir.
+    4. **Absent ≠ zeroed, here more than anywhere.** Two fields of this contract
+    exist only to stop an ABSENCE of information from being read as an
+    ASSERTION of zero: `cache_creation_known` and `cost_known`. See TurnUsage
+    — it is the difference between "nothing was written to the cache" and
+    "this provider does not count that", and between "the call was free" and
+    "there is no price table". A budget fed with consolation zeroes is the
+    fiction ADR-0011 exists to prevent.
 
     """
 
@@ -75,38 +75,38 @@ class RuntimeServiceStub:
 
 
 class RuntimeServiceServicer:
-    """O AgentRuntime na BORDA: executar UM turno de conversa numa thread.
+    """The AgentRuntime at the EDGE: running ONE conversation turn on a thread.
 
-    Mesma disciplina de identity.proto: identidade vem do token em
-    `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
-    Não existe CallContext aqui.
+    The same discipline as identity.proto: identity comes from the token in
+    `authorization: Bearer <token>`, the active account from the `x-account-id`
+    metadata. There is no CallContext here.
 
-    Quatro decisões estruturam este contrato:
+    Four decisions structure this contract:
 
-    1. **UM turno por chamada, não uma sessão.** O RPC é unário e devolve o
-    resultado de uma volta: contexto → roteamento → modelo → medição →
-    mensagens → achado. O laço de N turnos é de quem chama, e é justamente
-    por isso que o orçamento consegue interromper entre uma volta e outra —
-    a demanda PAUSA (ADR-0011 §2) em vez de ser cortada no meio de uma.
+    1. **ONE turn per call, not a session.** The RPC is unary and returns one
+    round's result: context → routing → model → measurement → messages →
+    finding. The loop of N turns belongs to the caller, and that is precisely
+    why the budget manages to interrupt between one round and the next — the
+    demand PAUSES (ADR-0011 §2) instead of being cut in the middle of one.
 
-    2. **Não há streaming aqui, de propósito.** O acompanhamento ao vivo é o SSE
-    que já existe (StreamService.WatchDemand): toda mensagem publicada vira
-    evento no núcleo (ADR-0006) e chega ao cockpit sozinha. Um segundo
-    caminho de streaming seria uma segunda fonte da verdade para a MESMA
-    timeline, e as duas divergiriam no primeiro reconnect.
+    2. **There is no streaming here, on purpose.** Live following is the SSE that
+    already exists (StreamService.WatchDemand): every published message
+    becomes an event in the core (ADR-0006) and reaches the cockpit on its
+    own. A second streaming path would be a second source of truth for the
+    SAME timeline, and the two would diverge on the first reconnect.
 
-    3. **Provedor de agente é escolha de REQUISIÇÃO.** Provedor é recurso de
-    categoria `agent` (ADR-0013), por conta e por projeto — vários convivem
-    no mesmo processo. Por isso `provider` é campo do pedido e não
-    configuração de boot. Vazio = o padrão da instalação.
+    3. **The agent provider is a per-REQUEST choice.** A provider is a resource
+    of category `agent` (ADR-0013), per account and per project — several
+    coexist in the same process. That is why `provider` is a field of the
+    request and not boot configuration. Empty = the installation's default.
 
-    4. **Ausente ≠ zerado, aqui mais que em qualquer lugar.** Dois campos deste
-    contrato existem só para impedir que uma AUSÊNCIA de informação seja lida
-    como uma AFIRMAÇÃO de zero: `cache_creation_known` e `cost_known`. Ver
-    TurnUsage — é a diferença entre "nada foi escrito no cache" e "este
-    provedor não conta isso", e entre "a chamada foi de graça" e "não há
-    tabela de preço". Um orçamento alimentado com zeros de consolo é a ficção
-    que a ADR-0011 existe para impedir.
+    4. **Absent ≠ zeroed, here more than anywhere.** Two fields of this contract
+    exist only to stop an ABSENCE of information from being read as an
+    ASSERTION of zero: `cache_creation_known` and `cost_known`. See TurnUsage
+    — it is the difference between "nothing was written to the cache" and
+    "this provider does not count that", and between "the call was free" and
+    "there is no price table". A budget fed with consolation zeroes is the
+    fiction ADR-0011 exists to prevent.
 
     """
 
@@ -133,38 +133,38 @@ def add_RuntimeServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class RuntimeService:
-    """O AgentRuntime na BORDA: executar UM turno de conversa numa thread.
+    """The AgentRuntime at the EDGE: running ONE conversation turn on a thread.
 
-    Mesma disciplina de identity.proto: identidade vem do token em
-    `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
-    Não existe CallContext aqui.
+    The same discipline as identity.proto: identity comes from the token in
+    `authorization: Bearer <token>`, the active account from the `x-account-id`
+    metadata. There is no CallContext here.
 
-    Quatro decisões estruturam este contrato:
+    Four decisions structure this contract:
 
-    1. **UM turno por chamada, não uma sessão.** O RPC é unário e devolve o
-    resultado de uma volta: contexto → roteamento → modelo → medição →
-    mensagens → achado. O laço de N turnos é de quem chama, e é justamente
-    por isso que o orçamento consegue interromper entre uma volta e outra —
-    a demanda PAUSA (ADR-0011 §2) em vez de ser cortada no meio de uma.
+    1. **ONE turn per call, not a session.** The RPC is unary and returns one
+    round's result: context → routing → model → measurement → messages →
+    finding. The loop of N turns belongs to the caller, and that is precisely
+    why the budget manages to interrupt between one round and the next — the
+    demand PAUSES (ADR-0011 §2) instead of being cut in the middle of one.
 
-    2. **Não há streaming aqui, de propósito.** O acompanhamento ao vivo é o SSE
-    que já existe (StreamService.WatchDemand): toda mensagem publicada vira
-    evento no núcleo (ADR-0006) e chega ao cockpit sozinha. Um segundo
-    caminho de streaming seria uma segunda fonte da verdade para a MESMA
-    timeline, e as duas divergiriam no primeiro reconnect.
+    2. **There is no streaming here, on purpose.** Live following is the SSE that
+    already exists (StreamService.WatchDemand): every published message
+    becomes an event in the core (ADR-0006) and reaches the cockpit on its
+    own. A second streaming path would be a second source of truth for the
+    SAME timeline, and the two would diverge on the first reconnect.
 
-    3. **Provedor de agente é escolha de REQUISIÇÃO.** Provedor é recurso de
-    categoria `agent` (ADR-0013), por conta e por projeto — vários convivem
-    no mesmo processo. Por isso `provider` é campo do pedido e não
-    configuração de boot. Vazio = o padrão da instalação.
+    3. **The agent provider is a per-REQUEST choice.** A provider is a resource
+    of category `agent` (ADR-0013), per account and per project — several
+    coexist in the same process. That is why `provider` is a field of the
+    request and not boot configuration. Empty = the installation's default.
 
-    4. **Ausente ≠ zerado, aqui mais que em qualquer lugar.** Dois campos deste
-    contrato existem só para impedir que uma AUSÊNCIA de informação seja lida
-    como uma AFIRMAÇÃO de zero: `cache_creation_known` e `cost_known`. Ver
-    TurnUsage — é a diferença entre "nada foi escrito no cache" e "este
-    provedor não conta isso", e entre "a chamada foi de graça" e "não há
-    tabela de preço". Um orçamento alimentado com zeros de consolo é a ficção
-    que a ADR-0011 existe para impedir.
+    4. **Absent ≠ zeroed, here more than anywhere.** Two fields of this contract
+    exist only to stop an ABSENCE of information from being read as an
+    ASSERTION of zero: `cache_creation_known` and `cost_known`. See TurnUsage
+    — it is the difference between "nothing was written to the cache" and
+    "this provider does not count that", and between "the call was free" and
+    "there is no price table". A budget fed with consolation zeroes is the
+    fiction ADR-0011 exists to prevent.
 
     """
 

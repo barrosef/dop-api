@@ -2,107 +2,109 @@ syntax = "proto3";
 package dop.bff.v1;
 
 import "google/protobuf/struct.proto";
-// `Finding` já existe no contrato da borda, em demand.proto, com exatamente
-// estes campos. Redeclarar aqui (mesmo pacote!) além de não compilar seria o
-// dicionário paralelo que este contrato existe para evitar: o achado que entra
-// no pacote de contexto e o achado que aparece no cockpit da demanda são a
-// MESMA coisa vista de dois lugares.
+// `Finding` already exists in the edge's contract, in demand.proto, with
+// exactly these fields. Redeclaring it here (the same package!) would not
+// compile and would be the parallel dictionary this contract exists to avoid:
+// the finding that goes into the context package and the finding that shows up
+// in the demand's cockpit are the SAME thing seen from two places.
 import "dop/bff/v1/demand.proto";
 
-// Conhecimento na BORDA: regras, índice e memória do projeto (ADR-0009).
+// Knowledge at the EDGE: the project's rules, index and memory (ADR-0009).
 //
-// Mesma disciplina de identity.proto: identidade vem do token em
-// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
-// Não existe CallContext aqui.
+// The same discipline as identity.proto: identity comes from the token in
+// `authorization: Bearer <token>`, the active account from the `x-account-id`
+// metadata. There is no CallContext here.
 //
-// **A decisão que estrutura este contrato: o DESCARTE é informação de primeira
-// classe.** O pacote de contexto é SELECIONADO por orçamento de tokens
-// (ADR-0012), e um pacote truncado que se apresenta como completo faz a tela
-// mentir para o dev: ele lê "o agente tem o índice" quando metade do índice
-// ficou de fora. Por isso `ContextPackage.dropped` existe — e por isso ele é
-// uma MENSAGEM e não quatro contadores soltos: ausente significa "o núcleo não
-// informou", zerado significa "nada foi descartado". Confundir os dois é
-// exatamente a mentira que este campo existe para impedir.
+// **The decision that structures this contract: what was DROPPED is
+// first-class information.** The context package is SELECTED by a token budget
+// (ADR-0012), and a truncated package presenting itself as complete makes the
+// screen lie to the dev: they read "the agent has the index" when half the
+// index was left out. That is why `ContextPackage.dropped` exists — and why it
+// is a MESSAGE and not four loose counters: absent means "the core did not
+// say", zeroed means "nothing was dropped". Confusing the two is exactly the
+// lie this field exists to prevent.
 //
-// O outro trabalho de borda aqui é desfazer duas formas do núcleo que servem ao
-// banco e não à tela:
-//   - `dop.v1.SearchMemoryResponse` devolve artefatos e scores em listas
-//     PARALELAS; aqui eles vêm PAREADOS (MemoryHit), porque índice cruzado é
-//     erro esperando cliente distraído;
-//   - o conteúdo pequeno do artefato viaja no `meta` do núcleo, sob a chave
-//     interna `dop.body`; aqui ele é campo (`body`), e o `meta` que sobra é o
-//     do AUTOR. Vazar convenção interna para a tela cria acoplamento que
-//     ninguém consegue desfazer depois.
+// The edge's other job here is undoing two shapes of the core that serve the
+// database and not the screen:
+//   - `dop.v1.SearchMemoryResponse` returns artifacts and scores in PARALLEL
+//     lists; here they come PAIRED (MemoryHit), because a crossed index is a
+//     bug waiting for a distracted client;
+//   - the small artifact's content travels in the core's `meta`, under the
+//     internal key `dop.body`; here it is a field (`body`), and the `meta` that
+//     remains is the AUTHOR's. Leaking an internal convention to the screen
+//     creates coupling nobody can undo later.
 
-// As três camadas da ADR-0009 §1. Mesmos sufixos e mesmos NÚMEROS de
-// dop.v1.KnowledgeArtifact.Kind — a conversão entre as pontas é identidade.
+// ADR-0009 §1's three layers. The same suffixes and the same NUMBERS as
+// dop.v1.KnowledgeArtifact.Kind — the conversion between the two ends is the
+// identity.
 enum KnowledgeKind {
   KNOWLEDGE_KIND_UNSPECIFIED = 0;
-  KNOWLEDGE_KIND_RULE        = 1;  // convenções que o agente obedece
-  KNOWLEDGE_KIND_INDEX       = 2;  // mapa do código
-  KNOWLEDGE_KIND_MEMORY      = 3;  // achados e lições de demandas passadas
+  KNOWLEDGE_KIND_RULE        = 1;  // conventions the agent obeys
+  KNOWLEDGE_KIND_INDEX       = 2;  // a map of the code
+  KNOWLEDGE_KIND_MEMORY      = 3;  // findings and lessons from past demands
 }
 
 message KnowledgeArtifact {
   string        id         = 1;
   KnowledgeKind kind       = 2;
-  // Vazio em artefato de escopo de conta ou de workspace — e vazio mesmo, sem
-  // um id inventado para "preencher".
+  // Empty on an account- or workspace-scoped artifact — and genuinely empty,
+  // with no id invented to "fill it in".
   string        project_id = 3;
   string        name       = 4;
   int32         version    = 5;
-  // Ponteiro no ObjectStore. Preenchido só no artefato GRANDE, que o sandbox lê
-  // direto do storage; nesse caso `body` vem vazio.
+  // An ObjectStore pointer. Filled in only on a LARGE artifact, which the
+  // sandbox reads straight from storage; in that case `body` comes back empty.
   string        object_ref = 6;
-  // Meta do AUTOR. As chaves internas do núcleo (`dop.body`, `dop.scope`) não
-  // chegam aqui: viraram `body` e `scope`.
+  // The AUTHOR's meta. The core's internal keys (`dop.body`, `dop.scope`) do
+  // not reach here: they became `body` and `scope`.
   google.protobuf.Struct meta = 7;
-  // Conteúdo inline do artefato pequeno — poupa uma segunda ida ao servidor
-  // para desenhar uma regra de três linhas.
+  // The small artifact's inline content — it saves a second round trip to the
+  // server just to draw a three-line rule.
   string body  = 8;
-  // account | workspace | project — o nível em que o artefato vale.
+  // account | workspace | project — the level at which the artifact holds.
   string scope = 9;
 }
 
-// O que FICOU DE FORA do pacote, por camada.
+// What was LEFT OUT of the package, per layer.
 //
-// Existe porque "coube" e "coube porque jogamos metade da memória fora" são
-// fatos diferentes, e só o segundo explica um agente que ignorou uma lição
-// que a plataforma tinha guardado.
+// It exists because "it fitted" and "it fitted because we threw half the memory
+// away" are different facts, and only the second explains an agent that ignored
+// a lesson the platform had kept.
 message DroppedCounts {
   int32 rules    = 1;
   int32 findings = 2;
   int32 index    = 3;
   int32 memories = 4;
-  // Derivado: qualquer contador acima maior que zero. É o único campo que a
-  // tela precisa consultar para dizer "o contexto foi truncado".
+  // Derived: any counter above greater than zero. It is the only field the
+  // screen has to consult to say "the context was truncated".
   bool  truncated = 5;
 }
 
-// A bagagem de bordo do agente para uma demanda (ADR-0009 §3).
+// The agent's carry-on luggage for a demand (ADR-0009 §3).
 message ContextPackage {
   string demand_id = 1;
   repeated string rules = 2;
   repeated KnowledgeArtifact index    = 3;
   repeated KnowledgeArtifact memories = 4;
   repeated Finding findings = 5;
-  // Medido por token counting na montagem, no núcleo. A borda repassa; contar
-  // de novo aqui daria um segundo número, e dois números discordando sobre o
-  // mesmo pacote é pior que nenhum.
+  // Measured by token counting during assembly, in the core. The edge passes it
+  // on; counting again here would give a second number, and two numbers
+  // disagreeing about the same package is worse than none.
   int32 estimated_tokens = 6;
-  // AUSENTE = o núcleo não informou o descarte (ver o cabeçalho deste arquivo).
-  // Nunca preencher com zeros para "ficar bonito": zero é uma AFIRMAÇÃO de que
-  // nada foi descartado.
+  // ABSENT = the core did not report the drops (see this file's header). Never
+  // fill it with zeroes to "look tidy": zero is an ASSERTION that nothing was
+  // dropped.
   DroppedCounts dropped = 7;
 }
 
-// Artefato + relevância, PAREADOS. O núcleo devolve duas listas paralelas; o
-// pareamento é trabalho de borda porque é a tela que sofre com o desalinhamento.
+// Artifact + relevance, PAIRED. The core returns two parallel lists; the
+// pairing is the edge's job because it is the screen that suffers from the
+// misalignment.
 message MemoryHit {
   KnowledgeArtifact artifact = 1;
-  // `optional` de propósito: score 0 é "nenhuma semelhança"; score ausente é
-  // "o núcleo não pontuou este resultado". A busca lexical e a semântica não
-  // respondem a mesma coisa, e a tela precisa poder dizer isso.
+  // `optional` on purpose: a score of 0 is "no similarity"; an absent score is
+  // "the core did not score this result". The lexical search and the semantic
+  // one do not answer the same thing, and the screen has to be able to say so.
   optional float score = 2;
 }
 
@@ -114,47 +116,50 @@ service KnowledgeService {
   rpc ListRules        (ListRulesRequest)         returns (ListRulesResponse);
 }
 
-// Não recebe orçamento de tokens, de propósito: o teto do pacote é política de
-// custo (ADR-0011), e deixar o cliente escolher o próprio teto tornaria a
-// governança uma sugestão. O núcleo decide; a borda mostra o resultado E o
-// descarte.
+// It takes no token budget, on purpose: the package's ceiling is cost policy
+// (ADR-0011), and letting the client choose its own ceiling would turn the
+// governance into a suggestion. The core decides; the edge shows the result AND
+// what was dropped.
 message GetContextPackageRequest { string demand_id = 1; }
 
 message SearchMemoryRequest {
-  // Vazio busca a memória de escopo de CONTA — a que vale para todo projeto.
+  // Empty searches the ACCOUNT-scoped memory — the one that holds for every
+  // project.
   string project_id = 1;
   string query      = 2;
-  // Zero = padrão do núcleo. A borda não fixa número próprio: seriam dois
-  // padrões para a mesma pergunta.
+  // Zero = the core's default. The edge fixes no number of its own: that would
+  // be two defaults for the same question.
   int32  limit      = 3;
 }
 message SearchMemoryResponse { repeated MemoryHit hits = 1; }
 
-// Índice ausente é NOT_FOUND, não lista vazia: o agente precisa SABER que não
-// há mapa. Índice silenciosamente vazio mente com a mesma confiança de um
-// índice desatualizado.
+// A missing index is NOT_FOUND, not an empty list: the agent has to KNOW there
+// is no map. A silently empty index lies with the same confidence as an
+// out-of-date one.
 message ReadIndexRequest { string project_id = 1; string repo = 2; }
 
-// A escrita de volta do ciclo (ADR-0009 §4): o achado de hoje é o contexto da
-// demanda de amanhã.
+// The cycle's write-back (ADR-0009 §4): today's finding is tomorrow's demand's
+// context.
 message PutArtifactRequest {
   KnowledgeKind kind       = 1;
-  // Vazio grava no escopo da CONTA — regra que vale em todo projeto.
+  // Empty writes into the ACCOUNT's scope — a rule that holds in every project.
   string        project_id = 2;
   string        name       = 3;
-  // Bytes, não string: o conteúdo é arbitrário (markdown, JSON, mapa gerado) e
-  // o núcleo o trata como bytes. No REST equivalente ele viaja em base64.
+  // Bytes, not a string: the content is arbitrary (markdown, JSON, a generated
+  // map) and the core treats it as bytes. In the equivalent REST call it travels
+  // as base64.
   bytes         content    = 4;
   google.protobuf.Struct meta = 5;
 
-  // Toda escrita leva chave de idempotência (ADR-0017). Aqui ela NÃO é
-  // redundante com uma UNIQUE: regravar o mesmo nome no mesmo escopo é
-  // operação legítima (bumpa a versão), então sem a chave um retry de rede
-  // viraria versão nova em silêncio. Vazio = o BFF gera uma, que é o que o
-  // REST faz.
+  // Every write carries an idempotency key (ADR-0017). Here it is NOT redundant
+  // with a UNIQUE: rewriting the same name in the same scope is a legitimate
+  // operation (it bumps the version), so without the key a network retry would
+  // silently become a new version. Empty = the BFF generates one, which is what
+  // REST does.
   string idempotency_key = 10;
 }
 
 message ListRulesRequest  { string project_id = 1; }
-// Já com a herança conta → workspace → projeto resolvida pelo núcleo.
+// With the account → workspace → project inheritance already resolved by the
+// core.
 message ListRulesResponse { repeated string rules = 1; }

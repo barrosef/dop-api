@@ -50,14 +50,14 @@ class AttentionServiceServicer:
     """Missing associated documentation comment in .proto file."""
 
     def ListAttention(self, request, context):
-        """A caixa: a fila plana, os grupos por demanda e o badge da conta.
+        """The box: the flat queue, the groups per demand and the account's badge.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def WatchAttention(self, request, context):
-        """A caixa ao vivo — o que abriu e o que fechou, item a item.
+        """The box live — what opened and what closed, item by item.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

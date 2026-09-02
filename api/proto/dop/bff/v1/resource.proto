@@ -3,16 +3,17 @@ package dop.bff.v1;
 
 import "google/protobuf/struct.proto";
 
-// Recursos na BORDA: integrações, skills e fluxos compartilháveis.
+// Resources at the EDGE: integrations, skills and shareable flows.
 //
-// Mesma disciplina de identity.proto: identidade vem do token em
-// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
-// Não existe CallContext aqui.
+// The same discipline as identity.proto: identity comes from the token in
+// `authorization: Bearer <token>`, the active account from the `x-account-id`
+// metadata. There is no CallContext here.
 //
-// **Regra dura: o segredo nunca aparece numa resposta.** `SetCredential` grava
-// no cofre e o recurso volta com `credential_ref` — um rótulo opaco que diz que
-// HÁ credencial, nunca qual é. Não existe RPC de leitura do valor, e não deve
-// passar a existir: quem precisa dele é o executor, direto do cofre (ADR-0001).
+// **A hard rule: the secret never appears in a response.** `SetCredential`
+// writes it into the vault and the resource comes back with `credential_ref` —
+// an opaque label that says there IS a credential, never which one. There is no
+// RPC that reads the value, and there must not come to be one: the one that
+// needs it is the executor, straight from the vault (ADR-0001).
 
 enum ResourceKind {
   RESOURCE_KIND_UNSPECIFIED = 0;
@@ -27,10 +28,11 @@ message Resource {
   ResourceKind kind = 2;
   string name    = 3;
   int32  version = 4;
-  // Categoria e provedor vivem aqui. A categoria é string minúscula
-  // (git | task_manager | agent): quem manda no vocabulário é o provedor.
+  // The category and the provider live here. The category is a lowercase string
+  // (git | task_manager | agent): the one that rules the vocabulary is the
+  // provider.
   google.protobuf.Struct config = 5;
-  // Vazio = integração ainda sem segredo. Nunca o segredo.
+  // Empty = an integration with no secret yet. Never the secret.
   string credential_ref = 6;
 }
 
@@ -42,7 +44,7 @@ message Grant {
 }
 
 message ListResourcesRequest {
-  // Vazio = todos os tipos.
+  // Empty = every kind.
   ResourceKind kind = 1;
 }
 message ListResourcesResponse { repeated Resource resources = 1; }
@@ -56,8 +58,8 @@ message CreateResourceRequest {
   string idempotency_key = 4;
 }
 
-// O segredo entra por RPC SEPARADA, e não no CreateResource: mantém o valor
-// fora da requisição mais logada e mais retentada de todas.
+// The secret goes in through a SEPARATE RPC, and not in CreateResource: it
+// keeps the value out of the most logged and most retried request of all.
 message SetCredentialRequest {
   string resource_id = 1;
   bytes  secret      = 2;
@@ -76,8 +78,9 @@ service ResourceService {
   rpc ListResources  (ListResourcesRequest)  returns (ListResourcesResponse);
   rpc GetResource    (GetResourceRequest)    returns (Resource);
   rpc CreateResource (CreateResourceRequest) returns (Resource);
-  // Devolve o RECURSO (sem o valor), não a referência nua: o cockpit precisa
-  // mostrar "credencial configurada" sem uma segunda ida ao servidor.
+  // It returns the RESOURCE (without the value), not the bare reference: the
+  // cockpit needs to show "credential configured" without a second round trip
+  // to the server.
   rpc SetCredential  (SetCredentialRequest)  returns (Resource);
   rpc GrantResource  (GrantResourceRequest)  returns (Grant);
   rpc RevokeGrant    (RevokeGrantRequest)    returns (RevokeGrantResponse);

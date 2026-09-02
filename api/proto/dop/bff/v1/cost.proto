@@ -3,67 +3,71 @@ package dop.bff.v1;
 
 import "google/protobuf/timestamp.proto";
 
-// Custo de LLM na BORDA: medição, orçamento e roteamento (ADR-0011).
+// LLM cost at the EDGE: measurement, budget and routing (ADR-0011).
 //
-// Mesma disciplina de identity.proto: identidade vem do token em
-// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`.
-// Não existe CallContext aqui.
+// The same discipline as identity.proto: identity comes from the token in
+// `authorization: Bearer <token>`, the active account from the `x-account-id`
+// metadata. There is no CallContext here.
 //
-// Três decisões estruturam este contrato:
+// Three decisions structure this contract:
 //
-// 1. **Dinheiro é `int64` em MICROS, com a moeda junto** — nunca `double`,
-//    nunca string decimal, nunca "reais com centavos". Um float de 64 bits não
-//    representa 0,1 exatamente; somar mil chamadas de agente em float é como o
-//    centavo some, e some devagar, do jeito que só aparece na conciliação do
-//    fim do mês. A borda REPASSA o inteiro: ela não divide por 1.000.000 para
-//    "facilitar a tela" — quem formata é a tela, que sabe a localidade.
+// 1. **Money is an `int64` in MICROS, with the currency alongside** — never a
+//    `double`, never a decimal string, never "units and cents". A 64-bit float
+//    does not represent 0.1 exactly; summing a thousand agent calls in float is
+//    how the cent disappears, and disappears slowly, in the way that only shows
+//    up at the end-of-month reconciliation. The edge PASSES ON the integer: it
+//    does not divide by 1,000,000 to "make the screen's life easier" — the one
+//    that formats is the screen, which knows the locale.
 //
-// 2. **Orçamento estourado não é erro.** A ADR-0011 §2 escolheu corte SUAVE: a
-//    demanda pausa e pergunta (caixa de atenção), nunca morre no meio nem segue
-//    queimando. Um 402/RESOURCE_EXHAUSTED aqui seria o corte duro que a ADR
-//    recusou — e apagaria a medição justamente quando ela mais importa. Por
-//    isso `RecordUsage` responde OK com `budget_exceeded`, um `notice` legível
-//    e os orçamentos ESTOURADOS: é isso que a caixa de atenção desenha para o
-//    humano decidir (aumentar o teto, cortar escopo, encerrar).
+// 2. **A blown budget is not an error.** ADR-0011 §2 chose a SOFT cut: the
+//    demand pauses and asks (the attention box), it never dies halfway nor
+//    keeps burning. A 402/RESOURCE_EXHAUSTED here would be the hard cut the ADR
+//    refused — and it would erase the measurement precisely when it matters
+//    most. That is why `RecordUsage` answers OK with `budget_exceeded`, a
+//    readable `notice` and the BLOWN budgets: that is what the attention box
+//    draws for the human to decide (raise the ceiling, cut scope, close it).
 //
-// 3. **A justificativa do roteamento viaja INTEIRA.** Ver RoutingDecision.
+// 3. **The routing's justification travels WHOLE.** See RoutingDecision.
 
-// Mesmos nomes e números de dop.v1.Money.
+// The same names and numbers as dop.v1.Money.
 message Money {
   string currency      = 1;
-  int64  amount_micros = 2;  // 10⁻⁶ da moeda
+  int64  amount_micros = 2;  // 10⁻⁶ of the currency
 }
 
-// Orçamento de um escopo, como a tela precisa dele.
+// One scope's budget, as the screen needs it.
 message BudgetView {
   string scope    = 1;  // account | demand
   string scope_id = 2;
-  // Teto. `currency` pode vir VAZIA: dop.v1.Budget ainda não carrega moeda, e a
-  // borda não inventa "USD" — moeda vazia significa "o núcleo não disse".
+  // The ceiling. `currency` may come back EMPTY: dop.v1.Budget does not carry a
+  // currency yet, and the edge does not invent "USD" — an empty currency means
+  // "the core did not say".
   Money  limit    = 3;
   Money  spent    = 4;
-  // AUSENTE = escopo SEM TETO (limite zero, ADR-0011). Zero significaria
-  // "acabou o dinheiro", que é o oposto. É a mesma disciplina de
-  // Project.task_manager em hierarchy.proto.
+  // ABSENT = a scope with NO CEILING (a zero limit, ADR-0011). Zero would mean
+  // "the money ran out", which is the opposite. It is the same discipline as
+  // Project.task_manager in hierarchy.proto.
   Money  remaining = 5;
 }
 
-// tarefa → (modelo, effort), COM o porquê.
+// task → (model, effort), WITH the why.
 //
-// `reason` chega do núcleo já prefixado pela PROVENIÊNCIA da política —
-// "ADR-0011 §3 (rascunho — calibrar com telemetria, P-7): …". A borda o repassa
-// inteiro, e isso é regra, não descuido:
-//   - sem ele ninguém audita "por que esta demanda rodou no modelo caro?";
-//   - sem ele ninguém recalibra: a linha da tabela que está errada só é
-//     contestável se o motivo dela estiver escrito;
-//   - e é ele que diz, em TODA decisão, que a política ainda é rascunho.
-// Cortar, resumir ou partir esta string em pedaços "mais limpos" exigiria
-// parsear texto do núcleo — um segundo dicionário, que envelhece separado.
+// `reason` arrives from the core already prefixed by the policy's PROVENANCE —
+// "ADR-0011 §3 (draft — calibrate with telemetry, P-7): …". The edge passes it
+// on whole, and that is a rule, not carelessness:
+//   - without it nobody audits "why did this demand run on the expensive
+//     model?";
+//   - without it nobody recalibrates: the table row that is wrong can only be
+//     challenged if its reason is written down;
+//   - and it is what says, in EVERY decision, that the policy is still a draft.
+// Cutting, summarizing or splitting this string into "tidier" pieces would
+// require parsing the core's text — a second dictionary, which ages
+// separately.
 message RoutingDecision {
-  // mechanical | investigation | implementation | critic — e o que mais o
-  // núcleo aceitar. Vocabulário ABERTO de propósito (tipo desconhecido cai no
-  // fallback caro e diz que caiu), então string e não enum: um enum na borda
-  // fecharia o que o núcleo deixou aberto.
+  // mechanical | investigation | implementation | critic — and whatever else
+  // the core accepts. An OPEN vocabulary on purpose (an unknown kind falls back
+  // to the expensive path and says so), hence a string and not an enum: an enum
+  // at the edge would close what the core left open.
   string task_kind = 1;
   string model     = 2;
   string effort    = 3;  // low | medium | high | xhigh | max
@@ -77,20 +81,20 @@ message UsageEvent {
   string model     = 4;
   int64  input_tokens  = 5;
   int64  output_tokens = 6;
-  // Zerado em prefixo que deveria estar estável = invalidador silencioso de
-  // cache = alerta (ADR-0012 §1). Quem classifica é quem tem a telemetria; a
-  // borda entrega o número.
+  // Zeroed on a prefix that should be stable = a silent cache invalidator = an
+  // alert (ADR-0012 §1). The one who classifies is whoever has the telemetry;
+  // the edge delivers the number.
   int64  cache_read_tokens     = 7;
   int64  cache_creation_tokens = 8;
   Money  cost = 9;
-  // AUSENTE = o núcleo não datou o evento. Não vira "época zero": 1970 numa
-  // tela de custo é um evento que parece antiquíssimo em vez de sem data.
+  // ABSENT = the core did not date the event. It does not become "epoch zero":
+  // 1970 on a cost screen is an event that looks ancient rather than undated.
   google.protobuf.Timestamp at = 10;
 }
 
 message CostSummary {
   Money  total = 1;
-  // Razão, não dinheiro: aqui `double` é o tipo certo.
+  // A ratio, not money: here `double` is the right type.
   double cache_hit_ratio = 2;
   repeated UsageEvent recent = 3;
 }
@@ -103,53 +107,56 @@ service CostService {
   rpc SummarizeCost(SummarizeCostRequest) returns (CostSummary);
 }
 
-// Decisão PURA: mesma entrada, mesma saída. `demand_id` entra porque a
-// calibração de P-7 vai querer correlacionar decisão e gasto por demanda, mas
-// ele não participa da decisão hoje — e o contrato não finge que participa.
+// A PURE decision: the same input, the same output. `demand_id` is here
+// because P-7's calibration will want to correlate decision and spend per
+// demand, but it takes no part in the decision today — and the contract does
+// not pretend it does.
 message RouteModelRequest { string task_kind = 1; string demand_id = 2; }
 
-// Escopo vazio = 'account' com a conta ativa. Pedir que o cliente repita o id
-// da conta que já está no metadado só cria oportunidade de repetir o id ERRADO.
+// An empty scope = 'account' with the active account. Asking the client to
+// repeat the account id that is already in the metadata only creates an
+// opportunity to repeat the WRONG id.
 message GetBudgetRequest { string scope = 1; string scope_id = 2; }
 
-// Define o TETO. `spent` não entra: o acumulado é do sistema, e aceitá-lo do
-// cliente permitiria zerar o gasto pedindo.
+// It sets the CEILING. `spent` is not accepted: the accumulated value is the
+// system's, and accepting it from the client would let anyone zero the spend by
+// asking.
 //
-// Não carrega `idempotency_key`, e a ausência é deliberada: dop.v1.SetBudget
-// não recebe chave porque a operação é idempotente por NATUREZA — grava um
-// valor absoluto, não um incremento. Repetir a chamada grava o mesmo teto.
-// Anunciar um campo aqui que o núcleo não recebe seria prometer uma garantia
-// que a borda descartaria em silêncio.
+// It carries no `idempotency_key`, and the absence is deliberate:
+// dop.v1.SetBudget takes no key because the operation is idempotent by NATURE —
+// it writes an absolute value, not an increment. Repeating the call writes the
+// same ceiling. Announcing a field here that the core does not receive would be
+// promising a guarantee the edge would silently discard.
 message SetBudgetRequest {
   string scope        = 1;
   string scope_id     = 2;
-  int64  limit_micros = 3;  // 0 = sem teto
+  int64  limit_micros = 3;  // 0 = no ceiling
 }
 
-// Registra consumo de modelo. A chave de idempotência é OBRIGATÓRIA no núcleo
-// e por um motivo diferente do usual: aqui a duplicata não colide com nada —
-// entraria como consumo legítimo e o orçamento viraria ficção. Vazio = o BFF
-// gera uma, que é o que o REST faz.
+// Records model usage. The idempotency key is MANDATORY in the core, and for a
+// different reason than usual: here a duplicate collides with nothing — it
+// would come in as legitimate consumption and the budget would become fiction.
+// Empty = the BFF generates one, which is what REST does.
 message RecordUsageRequest {
   UsageEvent usage = 1;
   string idempotency_key = 10;
 }
 
-// Resultado do registro. NÃO é erro nem quando o orçamento estoura (ver o
-// cabeçalho, decisão 2).
+// The record's outcome. It is NOT an error even when the budget is blown (see
+// the header, decision 2).
 message RecordUsageOutcome {
-  // Verdadeiro também na repetição: do ponto de vista de quem chamou o consumo
-  // ESTÁ registrado, e devolver falso o levaria a tentar de novo.
+  // True on a repeat too: from the caller's point of view the consumption IS
+  // recorded, and returning false would lead them to try again.
   bool recorded = 1;
   bool budget_exceeded = 2;
-  // Frase pronta para a caixa de atenção, em português, vazia quando não
-  // estourou. Diz o que ACONTECE (a demanda pausa e pergunta) e o que o humano
-  // decide — um "budget exceeded" seco obrigaria cada cliente a reescrever a
-  // mesma explicação, cada um do seu jeito.
+  // A ready-made sentence for the attention box, empty when nothing was blown.
+  // It says what HAPPENS (the demand pauses and asks) and what the human
+  // decides — a bare "budget exceeded" would force every client to rewrite the
+  // same explanation, each in its own way.
   string notice = 3;
-  // Os escopos consultados quando houve estouro: é com esses números que a
-  // decisão é tomada. Vem vazia quando não estourou — não se gasta ida ao
-  // núcleo para desenhar o caso normal.
+  // The scopes consulted when something was blown: those are the numbers the
+  // decision is made with. It comes back empty when nothing was blown — no
+  // round trip to the core is spent drawing the normal case.
   repeated BudgetView budgets = 4;
 }
 

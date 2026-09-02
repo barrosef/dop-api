@@ -70,7 +70,7 @@ class DeliveryServiceServicer:
     """Missing associated documentation comment in .proto file."""
 
     def GetDeliveryBoard(self, request, context):
-        """PRs + diretrizes do projeto numa resposta: a tela de entrega inteira.
+        """The project's PRs + directives in one response: the whole delivery screen.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -89,7 +89,8 @@ class DeliveryServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def EnqueueMerge(self, request, context):
-        """Pode responder com a entrada OU com a recusa detalhada — ver MergeRefusal.
+        """It may answer with the entry OR with the detailed refusal — see
+        MergeRefusal.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

@@ -1,35 +1,38 @@
 syntax = "proto3";
 package dop.bff.v1;
 
-// Fluxo de trabalho na BORDA — o ciclo da demanda, resolvido pela cadeia
-// plataforma ◁ conta ◁ workspace ◁ projeto ◁ demanda (ADR-0014).
+// The workflow at the EDGE — the demand's cycle, resolved by the chain
+// platform ◁ account ◁ workspace ◁ project ◁ demand (ADR-0014).
 //
-// Mesma disciplina de identity.proto: identidade NÃO viaja no corpo — vem do
-// token em `authorization: Bearer <token>`, e a conta ativa do metadado
-// `x-account-id`. Não existe CallContext aqui.
+// The same discipline as identity.proto: identity does NOT travel in the body —
+// it comes from the token in `authorization: Bearer <token>`, and the active
+// account from the `x-account-id` metadata. There is no CallContext here.
 //
-// O vocabulário de ETAPA (StageType, ArtifactKind, Gate) mora NESTE arquivo e é
-// importado por demand.proto, exatamente como dop.v1 faz. Repetir os enums lá
-// seria um dicionário paralelo dentro do mesmo pacote — e nem compilaria.
+// The STAGE vocabulary (StageType, ArtifactKind, Gate) lives in THIS file and
+// is imported by demand.proto, exactly as dop.v1 does it. Repeating the enums
+// there would be a parallel dictionary inside the same package — and it would
+// not even compile.
 //
-// **Onde a borda ganha o sustento aqui: PROCEDÊNCIA numa forma só.** O núcleo
-// devolve os mesmos fatos de duas maneiras — a frase `resolved_from` ("conta ◂
-// plataforma — etapas: contexto (plataforma), spec (conta)"), que é o que a
-// tela imprime, e os campos `contributors`/`origins`, que é o que dá para usar.
-// A borda entrega UMA `Provenance`, montada dos campos, com a frase inteira
-// junto em `sentence` para conferência e para quem só quer imprimir. Assim o
-// cliente não escolhe entre duas fontes nem decide qual das duas obedecer.
+// **Where the edge earns its keep here: PROVENANCE in a single shape.** The
+// core returns the same facts in two ways — the `resolved_from` sentence
+// ("account ◂ platform — stages: context (platform), spec (account)"), which is
+// what the screen prints, and the `contributors`/`origins` fields, which is
+// what can be used. The edge delivers ONE `Provenance`, assembled from the
+// fields, with the whole sentence alongside in `sentence` for checking and for
+// whoever only wants to print it. That way the client neither chooses between
+// two sources nor decides which of the two to obey.
 //
-// (Até a P-20 a borda montava `Provenance` fazendo PARSING da frase, porque os
-// campos não existiam no contrato do núcleo. Existem desde a P-19, e o parser
-// saiu: contrato que obriga o consumidor a interpretar texto quebra no dia em
-// que alguém melhora a redação.)
+// (Until P-20 the edge assembled `Provenance` by PARSING the sentence, because
+// the fields did not exist in the core's contract. They have existed since
+// P-19, and the parser is gone: a contract that forces the consumer to
+// interpret text breaks the day somebody improves the wording.)
 
-// ── vocabulário compartilhado com dop.v1 (workflow.proto) ───────────────────
+// ── vocabulary shared with dop.v1 (workflow.proto) ──────────────────────────
 
-// Tipo semântico da etapa: decide o renderizador na tela e o comportamento do
-// agente. Mesmos nomes e mesmos números de dop.v1.StageType — tipo novo exige
-// evolução da plataforma, composição nova não (ADR-0014 §1).
+// The stage's semantic type: it decides the renderer on the screen and the
+// agent's behaviour. The same names and the same numbers as dop.v1.StageType —
+// a new type requires the platform to evolve, a new composition does not
+// (ADR-0014 §1).
 enum StageType {
   STAGE_TYPE_UNSPECIFIED      = 0;
   STAGE_TYPE_CONTEXT          = 1;
@@ -52,23 +55,25 @@ enum ArtifactKind {
   ARTIFACT_KIND_REPORT      = 6;
 }
 
-// Portão da etapa: quem fecha. GATE_HUMAN é o que impede a plataforma de
-// aprovar em nome de gente (ADR-0014, e o núcleo recusa agente em DecideGate).
+// The stage's gate: who closes it. GATE_HUMAN is what stops the platform from
+// approving on a person's behalf (ADR-0014, and the core refuses an agent in
+// DecideGate).
 enum Gate {
   GATE_UNSPECIFIED = 0;
   GATE_NONE        = 1;
   GATE_HUMAN       = 2;
 }
 
-// ── modelos da borda ────────────────────────────────────────────────────────
+// ── the edge's models ───────────────────────────────────────────────────────
 
 message StageSpec {
   string    key  = 1;
-  string    name = 2;   // livre, do autor
+  string    name = 2;   // free text, the author's
   StageType type = 3;
   repeated ArtifactKind artifacts = 4;
   Gate      gate = 5;
-  // Ex.: teste → aaa, e2e, integracao. Dinâmicos: quem compõe é o autor.
+  // E.g.: test → aaa, e2e, integration. Dynamic: the one who composes them is
+  // the author.
   repeated string subtypes = 6;
 }
 
@@ -77,43 +82,46 @@ message Flow {
   string name    = 2;
   string description = 3;
   int32  version = 4;
-  // Nível dono na cadeia: platform | account | workspace | project | demand.
-  // String, e não enum, porque em dop.v1 também é string: um enum só da borda
-  // seria o dicionário paralelo que este contrato existe para não ter.
+  // The owning level in the chain: platform | account | workspace | project |
+  // demand. A string, and not an enum, because in dop.v1 it is a string too: an
+  // enum only at the edge would be the parallel dictionary this contract exists
+  // not to have.
   string owner_scope = 5;
   string owner_id    = 6;
   repeated StageSpec stages = 7;
 }
 
-// De onde veio UMA etapa — a resposta a "por que a demanda seguiu este fluxo".
+// Where ONE stage came from — the answer to "why did the demand follow this
+// flow".
 message StageOrigin {
   string stage_key = 1;
-  // Mesmo vocabulário de `Flow.owner_scope` (platform | account | …), e não os
-  // rótulos em português da frase do núcleo: a borda normaliza para que o
-  // cliente compare com `owner_scope` sem tabela de tradução própria.
+  // The same vocabulary as `Flow.owner_scope` (platform | account | …), and not
+  // the labels of the core's sentence: the edge normalizes so the client can
+  // compare against `owner_scope` with no translation table of its own.
   string scope     = 2;
 }
 
-// O rastro de procedência, estruturado.
+// The provenance trail, structured.
 message Provenance {
-  // Níveis que de fato declararam algo, do MAIS ESPECÍFICO ao mais genérico —
-  // a mesma ordem em que a frase se lê. Nível que herdou por omissão não
-  // aparece, porque não contribuiu com nada.
+  // The levels that actually declared something, from the MOST SPECIFIC to the
+  // most generic — the same order in which the sentence reads. A level that
+  // inherited by omission does not appear, because it contributed nothing.
   repeated string contributors = 1;
-  // Origem etapa por etapa, na MESMA ORDEM de `flow.stages`: quando o núcleo
-  // não truncou, `origins[i]` é a origem de `flow.stages[i]`.
+  // The origin stage by stage, in the SAME ORDER as `flow.stages`: when the
+  // core did not truncate, `origins[i]` is the origin of `flow.stages[i]`.
   repeated StageOrigin origins = 2;
-  // A frase do núcleo, preservada inteira. É o que a tela imprime hoje e o que
-  // permite conferir a leitura estruturada acima.
+  // The core's sentence, preserved whole. It is what the screen prints today
+  // and what allows the structured reading above to be checked.
   string sentence  = 3;
-  // Verdadeiro quando `origins` NÃO cobre todas as etapas de `flow.stages` —
-  // ou seja, há etapa cuja origem a borda não sabe informar. Dizer isso é
-  // diferente de deixar o cliente concluir que as demais não têm origem.
+  // True when `origins` does NOT cover every stage of `flow.stages` — that is,
+  // there is a stage whose origin the edge cannot report. Saying so is
+  // different from letting the client conclude the rest have no origin.
   //
-  // Medido comparando os dois tamanhos, e não deduzido de um "…" no fim da
-  // frase: o corte de 12 etapas do núcleo é da FRASE, e a lista estruturada
-  // vem inteira. Contra um núcleo atual isto é sempre falso; ele continua
-  // existindo porque a promessa é sobre a lista, não sobre o corte de hoje.
+  // Measured by comparing the two lengths, and not deduced from a "…" at the
+  // end of the sentence: the core's 12-stage cut is of the SENTENCE, and the
+  // structured list comes whole. Against a current core this is always false;
+  // it keeps existing because the promise is about the list, not about today's
+  // cut.
   bool   truncated = 4;
 }
 
@@ -122,10 +130,10 @@ message EffectiveFlow {
   Provenance provenance = 2;
 }
 
-// ── requisições ─────────────────────────────────────────────────────────────
+// ── requests ────────────────────────────────────────────────────────────────
 
 message ListFlowsRequest {
-  // Vazio = todos os fluxos visíveis na conta ativa.
+  // Empty = every flow visible in the active account.
   string owner_scope = 1;
   string owner_id    = 2;
 }
@@ -133,28 +141,30 @@ message ListFlowsResponse { repeated Flow flows = 1; }
 
 message GetFlowRequest { string id = 1; }
 
-// O fluxo entra inteiro: a v1 não tem edição por etapa, e mandar meio fluxo
-// seria substituição parcial disfarçada (a mesma armadilha do UpdateProject).
+// The flow goes in whole: v1 has no per-stage editing, and sending half a flow
+// would be a partial replacement in disguise (the same trap as UpdateProject).
 message CreateFlowRequest {
   Flow   flow            = 1;
   string idempotency_key = 2;
 }
 
-// UpdateFlow no núcleo gera VERSÃO NOVA — o passado não se reescreve, porque
-// demandas em andamento congelaram a versão que estavam seguindo (ADR-0014 §4).
+// UpdateFlow in the core produces a NEW VERSION — the past is not rewritten,
+// because demands under way froze the version they were following
+// (ADR-0014 §4).
 message UpdateFlowRequest { string id = 1; Flow flow = 2; }
 
-// Ensaio: devolve o relatório, não um erro. A tela precisa da lista para
-// marcar as etapas problemáticas, não de uma mensagem para um toast.
+// A dry run: it returns the report, not an error. The screen needs the list to
+// mark the problematic stages, not a message for a toast.
 message ValidateFlowRequest  { Flow flow = 1; }
 message ValidateFlowResponse {
   bool valid = 1;
   repeated string errors   = 2;
-  repeated string warnings = 3;  // ex.: fluxo sem etapa spec
+  repeated string warnings = 3;  // e.g.: a flow with no spec stage
 }
 
 message ResolveFlowRequest {
-  // Nível de onde se pergunta: platform | account | workspace | project | demand.
+  // The level the question is asked from: platform | account | workspace |
+  // project | demand.
   string scope    = 1;
   string scope_id = 2;
 }
@@ -171,7 +181,7 @@ service WorkflowService {
   rpc CreateFlow   (CreateFlowRequest)   returns (Flow);
   rpc UpdateFlow   (UpdateFlowRequest)   returns (Flow);
   rpc ValidateFlow (ValidateFlowRequest) returns (ValidateFlowResponse);
-  // O fluxo efetivo E o rastro de como se chegou nele, já estruturado.
+  // The effective flow AND the trail of how it was reached, already structured.
   rpc ResolveFlow  (ResolveFlowRequest)  returns (EffectiveFlow);
   rpc PromoteFlow  (PromoteFlowRequest)  returns (Flow);
 }

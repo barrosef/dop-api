@@ -1,31 +1,33 @@
 syntax = "proto3";
 package dop.bff.v1;
 
-// Hierarquia na BORDA: workspaces (nível 1) e projetos (nível 2) da conta ativa.
+// Hierarchy at the EDGE: the active account's workspaces (level 1) and projects
+// (level 2).
 //
-// Mesma disciplina de identity.proto: identidade NÃO viaja no corpo — vem do
-// token em `authorization: Bearer <token>`, e a conta ativa do metadado
-// `x-account-id`. Não existe CallContext aqui.
+// The same discipline as identity.proto: identity does NOT travel in the body —
+// it comes from the token in `authorization: Bearer <token>`, and the active
+// account from the `x-account-id` metadata. There is no CallContext here.
 //
-// Vocabulário, porque confundir custa caro: **workspace é conceito NOSSO**. O
-// "espaço" do provedor de tarefas (Jira, ClickUp) é outra coisa e aparece como
-// `external_space_id` — nunca a palavra workspace nua para os dois.
+// Vocabulary, because confusing the two is expensive: **a workspace is OUR
+// concept**. The task provider's "space" (Jira, ClickUp) is another thing and
+// appears as `external_space_id` — never the bare word workspace for both.
 
 message Workspace {
   string id          = 1;
   string name        = 2;
-  // Chave curta e maiúscula: é ela que prefixa identificador de demanda.
+  // A short uppercase key: it is what prefixes a demand's identifier.
   string key         = 3;
   string description = 4;
   repeated string tags = 5;
 }
 
-// TaskManagerBinding é o vínculo do projeto com o quadro do provedor.
+// TaskManagerBinding is the project's link to the provider's board.
 message TaskManagerBinding {
   string integration_id      = 1;
   string external_space_id   = 2;
   string external_project_id = 3;
-  // Dinâmicos: quem manda no vocabulário de card é o provedor (ADR-0013).
+  // Dynamic: the one that rules the card vocabulary is the provider
+  // (ADR-0013).
   repeated string card_types = 4;
 }
 
@@ -35,13 +37,13 @@ message Project {
   string name         = 3;
   string description  = 4;
   repeated string rules = 5;
-  // Opcional: nem todo projeto tem quadro. Ausente ≠ zerado.
+  // Optional: not every project has a board. Absent ≠ zeroed.
   TaskManagerBinding task_manager = 6;
 }
 
-// TreeNode é um workspace com os projetos dele. Existe para que a barra lateral
-// do cockpit venha em UMA resposta — buscar workspaces e depois um
-// ListProjects por workspace faria a navegação piscar em N requisições.
+// TreeNode is a workspace with its projects. It exists so the cockpit's sidebar
+// comes in ONE response — fetching the workspaces and then a ListProjects per
+// workspace would make the navigation flicker across N requests.
 message TreeNode {
   Workspace workspace = 1;
   repeated Project projects = 2;
@@ -62,7 +64,7 @@ message CreateWorkspaceRequest {
 }
 
 message ListProjectsRequest {
-  // Vazio = todos os projetos da conta ativa.
+  // Empty = every project of the active account.
   string workspace_id = 1;
 }
 message ListProjectsResponse { repeated Project projects = 1; }
@@ -70,8 +72,9 @@ message ListProjectsResponse { repeated Project projects = 1; }
 message GetProjectRequest { string id = 1; }
 
 message CreateProjectRequest {
-  // A conta NÃO é informada: é herdada do workspace. Deixar o chamador
-  // informá-la abriria caminho para projeto nascer em conta alheia.
+  // The account is NOT supplied: it is inherited from the workspace. Letting
+  // the caller supply it would open the way for a project to be born in
+  // somebody else's account.
   string workspace_id = 1;
   string name         = 2;
   string description  = 3;
@@ -90,6 +93,7 @@ service HierarchyService {
   rpc ListProjects    (ListProjectsRequest)    returns (ListProjectsResponse);
   rpc GetProject      (GetProjectRequest)      returns (Project);
   rpc CreateProject   (CreateProjectRequest)   returns (Project);
-  // Substituição do vínculo; o BFF preserva o resto do projeto por dentro.
+  // A replacement of the link; the BFF preserves the rest of the project
+  // internally.
   rpc BindTaskManager (BindTaskManagerRequest) returns (Project);
 }

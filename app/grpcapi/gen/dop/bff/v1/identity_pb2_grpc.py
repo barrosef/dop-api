@@ -26,11 +26,11 @@ if _version_not_supported:
 
 
 class IdentityServiceStub:
-    """── serviço ─────────────────────────────────────────────────────────────────
+    """── the service ─────────────────────────────────────────────────────────────
 
-    Espelha, RPC a RPC, os casos de uso que já existem em REST. A lógica é
-    literalmente a mesma função (app/usecases/identity.py): este serviço é uma
-    segunda porta para a mesma sala, não uma segunda implementação.
+    It mirrors, RPC by RPC, the use cases that already exist in REST. The logic
+    is literally the same function (app/usecases/identity.py): this service is a
+    second door into the same room, not a second implementation.
     """
 
     def __init__(self, channel):
@@ -67,11 +67,11 @@ class IdentityServiceStub:
 
 
 class IdentityServiceServicer:
-    """── serviço ─────────────────────────────────────────────────────────────────
+    """── the service ─────────────────────────────────────────────────────────────
 
-    Espelha, RPC a RPC, os casos de uso que já existem em REST. A lógica é
-    literalmente a mesma função (app/usecases/identity.py): este serviço é uma
-    segunda porta para a mesma sala, não uma segunda implementação.
+    It mirrors, RPC by RPC, the use cases that already exist in REST. The logic
+    is literally the same function (app/usecases/identity.py): this service is a
+    second door into the same room, not a second implementation.
     """
 
     def GetMe(self, request, context):
@@ -141,11 +141,11 @@ def add_IdentityServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class IdentityService:
-    """── serviço ─────────────────────────────────────────────────────────────────
+    """── the service ─────────────────────────────────────────────────────────────
 
-    Espelha, RPC a RPC, os casos de uso que já existem em REST. A lógica é
-    literalmente a mesma função (app/usecases/identity.py): este serviço é uma
-    segunda porta para a mesma sala, não uma segunda implementação.
+    It mirrors, RPC by RPC, the use cases that already exist in REST. The logic
+    is literally the same function (app/usecases/identity.py): this service is a
+    second door into the same room, not a second implementation.
     """
 
     @staticmethod

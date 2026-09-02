@@ -3,32 +3,32 @@ package dop.bff.v1;
 
 import "google/protobuf/struct.proto";
 
-// Entrega na BORDA — pull requests, fila de merge por repositório e as
-// diretrizes de coordenação do techlead.
+// Delivery at the EDGE — pull requests, the per-repository merge queue and the
+// techlead's coordination directives.
 //
-// Mesma disciplina de identity.proto: identidade vem do token em
-// `authorization: Bearer <token>`, conta ativa do metadado `x-account-id`. Não
-// existe CallContext aqui.
+// The same discipline as identity.proto: identity comes from the token in
+// `authorization: Bearer <token>`, the active account from the `x-account-id`
+// metadata. There is no CallContext here.
 //
-// **Onde a borda ganha o sustento aqui: a RECUSA POR FALTA DE VERDE.** O núcleo
-// recusa a entrada na fila com FAILED_PRECONDITION e uma frase que lista, item
-// por item, o que falta ("nenhuma execução de aceitação aprovada…; falta o
-// parecer do crítico…"). Essa lista é a coisa mais útil da resposta: é a
-// receita do que fazer para conseguir entrar. Repassá-la como uma string só
-// obrigaria cada cliente a separar por ponto-e-vírgula para conseguir mostrar
-// uma lista — então a borda separa uma vez, em `MergeRefusal.missing`.
+// **Where the edge earns its keep here: the REFUSAL FOR WANT OF GREEN.** The
+// core refuses entry into the queue with FAILED_PRECONDITION and a sentence
+// that lists, item by item, what is missing ("no approved acceptance run…; the
+// critic's verdict is missing…"). That list is the most useful thing in the
+// answer: it is the recipe for what to do to get in. Passing it on as a single
+// string would force every client to split on semicolons just to show a list —
+// so the edge splits it once, into `MergeRefusal.missing`.
 //
-// A recusa vem como RESPOSTA, não como erro: para o agente que pede a entrada
-// na fila, "ainda não, falta isto" é uma resposta com trabalho a fazer, não uma
-// exceção (ADR-0007 §2). No REST ela sai como 412 com o mesmo corpo, porque lá
-// o código de status é parte da resposta.
+// The refusal comes as a RESPONSE, not as an error: for the agent asking to
+// enter the queue, "not yet, this is missing" is an answer with work to do, not
+// an exception (ADR-0007 §2). In REST it comes out as a 412 with the same body,
+// because there the status code is part of the response.
 
 message Reviewer {
   string name     = 1;
   string initials = 2;
-  // approved | rejected | pending. String, como em dop.v1: o vocabulário de
-  // revisão é do provedor de git, e tipar aqui o que lá é livre criaria um
-  // dicionário que a borda teria de manter sozinha.
+  // approved | rejected | pending. A string, as in dop.v1: the review
+  // vocabulary is the git provider's, and typing here what is free there would
+  // create a dictionary the edge would have to maintain on its own.
   string status   = 3;
 }
 
@@ -42,15 +42,16 @@ message PullRequest {
   bool   merged        = 7;
   bool   has_conflict  = 8;
   repeated Reviewer reviewers = 9;
-  // Derivado na borda: quantos revisores ainda não se pronunciaram. É o número
-  // que ordena "PR aguardando revisão" na caixa de atenção, e contar isso em
-  // cada cliente é a mesma regra escrita três vezes.
+  // Derived at the edge: how many reviewers have not spoken yet. It is the
+  // number that orders "a PR awaiting review" in the attention box, and
+  // counting it in each client is the same rule written three times.
   int32 pending_reviews = 10;
 }
 
-// Fila por repositório: rebase → re-verificação → merge, um por vez (ADR-0008).
-// É o repositório que serializa — dois PRs em repositórios diferentes não
-// invalidam um ao outro, e por isso não existe "a fila" no singular.
+// A queue per repository: rebase → re-verification → merge, one at a time
+// (ADR-0008). It is the repository that serializes — two PRs in different
+// repositories do not invalidate each other, and that is why there is no "the
+// queue" in the singular.
 message MergeQueueEntry {
   enum State {
     STATE_UNSPECIFIED = 0;
@@ -65,11 +66,12 @@ message MergeQueueEntry {
   string demand_id = 3;
   int32  position = 4;
   State  state    = 5;
-  // Detecção do techlead: os arquivos que esta entrada disputa com outra.
+  // The techlead's detection: the files this entry contends for with another.
   repeated string overlapping_files = 6;
 }
 
-// Decisão do dev sobre uma transversal, aplicada pelos agentes (ADR-0015).
+// The dev's decision about a cross-cutting concern, applied by the agents
+// (ADR-0015).
 message Directive {
   enum Kind {
     KIND_UNSPECIFIED    = 0;
@@ -86,14 +88,14 @@ message Directive {
   string decided_by_name = 6;
 }
 
-// A recusa da fila, item por item (ADR-0007).
+// The queue's refusal, item by item (ADR-0007).
 message MergeRefusal {
-  // A frase do núcleo sem o detalhe — "a fila de merge recusa entrada sem
-  // evidência de verde do commit abc1234 (ADR-0007)".
+  // The core's sentence without the detail — "the merge queue refuses entry
+  // with no evidence of green for commit abc1234 (ADR-0007)".
   string reason = 1;
-  // O que falta, um item por linha, na ordem em que o núcleo listou. Vazia
-  // quando a recusa não é sobre verde (PR já mergeado, PR inexistente): aí a
-  // razão sozinha já responde.
+  // What is missing, one item per line, in the order the core listed them.
+  // Empty when the refusal is not about green (an already merged PR, a
+  // nonexistent PR): there the reason alone already answers.
   repeated string missing = 2;
 }
 
@@ -102,12 +104,13 @@ message DeliveryBoard {
   repeated Directive   directives    = 2;
 }
 
-// ── requisições ─────────────────────────────────────────────────────────────
+// ── requests ────────────────────────────────────────────────────────────────
 
 message GetDeliveryBoardRequest { string project_id = 1; }
 
 message ListPullRequestsRequest {
-  // Um dos dois: a demanda (tela da demanda) ou o projeto (tela de entrega).
+  // One of the two: the demand (the demand's screen) or the project (the
+  // delivery screen).
   string demand_id  = 1;
   string project_id = 2;
 }
@@ -122,9 +125,9 @@ message EnqueueMergeRequest {
   string idempotency_key = 3;
 }
 
-// Exatamente um dos dois vem preenchido. Ausente ≠ zerado: uma entrada zerada
-// e uma recusa são a diferença entre "está na fila" e "não está" — use
-// HasField, nunca o valor dos campos.
+// Exactly one of the two comes filled in. Absent ≠ zeroed: a zeroed entry and a
+// refusal are the difference between "it is in the queue" and "it is not" — use
+// HasField, never the fields' values.
 message EnqueueMergeResponse {
   MergeQueueEntry entry   = 1;
   MergeRefusal    refusal = 2;
@@ -140,11 +143,12 @@ message DecideDirectiveRequest {
 }
 
 service DeliveryService {
-  // PRs + diretrizes do projeto numa resposta: a tela de entrega inteira.
+  // The project's PRs + directives in one response: the whole delivery screen.
   rpc GetDeliveryBoard (GetDeliveryBoardRequest) returns (DeliveryBoard);
   rpc ListPullRequests (ListPullRequestsRequest) returns (ListPullRequestsResponse);
   rpc GetMergeQueue    (GetMergeQueueRequest)    returns (GetMergeQueueResponse);
-  // Pode responder com a entrada OU com a recusa detalhada — ver MergeRefusal.
+  // It may answer with the entry OR with the detailed refusal — see
+  // MergeRefusal.
   rpc EnqueueMerge     (EnqueueMergeRequest)     returns (EnqueueMergeResponse);
   rpc ListDirectives   (ListDirectivesRequest)   returns (ListDirectivesResponse);
   rpc DecideDirective  (DecideDirectiveRequest)  returns (Directive);

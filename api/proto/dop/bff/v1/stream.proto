@@ -4,26 +4,28 @@ package dop.bff.v1;
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-// Streaming na BORDA — o MESMO fluxo que o cockpit recebe como SSE.
+// Streaming at the EDGE — the SAME stream the cockpit receives as SSE.
 //
-// A ADR-0017 (convenção 1) manda: streaming server-side para tudo ao vivo, e o
-// BFF converte em SSE para o browser. O browser é UM dos consumidores; o
-// `dop-cli` e os agentes dos sandboxes falam gRPC e não deveriam ser obrigados
-// a implementar `text/event-stream` para acompanhar a mesma coisa. Por isso
-// este serviço existe: mesma função de caso de uso, dois adaptadores — como em
-// hierarchy.proto e identity.proto, só que agora com resposta em stream.
+// ADR-0017 (convention 1) commands: server-side streaming for everything live,
+// and the BFF converts it into SSE for the browser. The browser is ONE of the
+// consumers; `dop-cli` and the sandboxes' agents speak gRPC and should not be
+// forced to implement `text/event-stream` to follow the same thing. That is why
+// this service exists: the same use-case function, two adapters — as in
+// hierarchy.proto and identity.proto, only now with a streamed response.
 //
-// Mesma disciplina dos demais contratos da borda: identidade NÃO viaja no
-// corpo — vem do token em `authorization: Bearer <token>` e a conta ativa do
-// metadado `x-account-id`. Não existe CallContext aqui.
+// The same discipline as the edge's other contracts: identity does NOT travel
+// in the body — it comes from the token in `authorization: Bearer <token>` and
+// the active account from the `x-account-id` metadata. There is no CallContext
+// here.
 
-// StreamEvent é o evento do log do núcleo (dop.v1.EventEnvelope) na roupa da
-// borda. `account` sai fora porque a conta já é a do metadado: repeti-la seria
-// uma segunda fonte de verdade sobre o tenant.
+// StreamEvent is the core's log event (dop.v1.EventEnvelope) in the edge's
+// clothes. `account` is left out because the account is already the metadata's:
+// repeating it would be a second source of truth about the tenant.
 message StreamEvent {
-  // Id do evento no LOG do núcleo. É este valor que o SSE emite como `id:` e
-  // que o cliente devolve em `since_event_id` para retomar sem buraco e sem
-  // duplicata. Vazio no fluxo de demanda, que não tem cursor (ver abaixo).
+  // The event's id in the core's LOG. It is this value the SSE emits as `id:`
+  // and that the client returns in `since_event_id` to resume with no gap and
+  // no duplicate. Empty in the demand stream, which has no cursor (see
+  // below).
   string id           = 1;
   string type         = 2;   // dop.hierarchy.project.created
   string aggregate    = 3;   // demand, project, workspace, resource...
@@ -33,20 +35,21 @@ message StreamEvent {
 }
 
 message WatchEventsRequest {
-  // Filtros opcionais. Vazio = tudo o que a conta produzir. Existem para que a
-  // caixa de atenção não precise receber (e descartar) o log inteiro.
+  // Optional filters. Empty = everything the account produces. They exist so
+  // the attention box does not have to receive (and discard) the whole log.
   repeated string aggregate = 1;
   repeated string types     = 2;
 
-  // Cursor de retomada: o ÚLTIMO evento que o cliente já processou. Atravessa
-  // intacto para `since_event_id` do núcleo, que drena o log a partir dali e só
-  // então emenda no fluxo ao vivo. No SSE, o equivalente é o cabeçalho
-  // `Last-Event-ID`; aqui é campo, porque gRPC não tem esse cabeçalho.
+  // The resume cursor: the LAST event the client has already processed. It
+  // crosses intact into the core's `since_event_id`, which drains the log from
+  // there and only then splices into the live stream. In SSE the equivalent is
+  // the `Last-Event-ID` header; here it is a field, because gRPC has no such
+  // header.
   string since_event_id = 3;
 }
 
-// WatchDemand acompanha UMA demanda: mensagem de thread, avanço de etapa,
-// achado publicado. É o que faz o chat da demanda ser ao vivo.
+// WatchDemand follows ONE demand: a thread message, a stage advancing, a
+// published finding. It is what makes the demand's chat live.
 message WatchDemandRequest { string demand_id = 1; }
 
 message LogLine {
@@ -56,8 +59,8 @@ message LogLine {
   google.protobuf.Timestamp at = 4;
 }
 
-// TailLogs é a cauda de log do sandbox. `source`, `service` e `test_type` são
-// filtros do núcleo e passam adiante sem interpretação.
+// TailLogs is the sandbox's log tail. `source`, `service` and `test_type` are
+// the core's filters and are passed on without interpretation.
 message TailLogsRequest {
   string sandbox_id = 1;
   string source     = 2;
@@ -66,13 +69,13 @@ message TailLogsRequest {
 }
 
 service StreamService {
-  // Eventos da conta ativa — alimenta timeline e caixa de atenção.
+  // The active account's events — it feeds the timeline and the attention box.
   rpc WatchEvents (WatchEventsRequest) returns (stream StreamEvent);
-  // Eventos de uma demanda. NÃO tem cursor de retomada: o contrato do núcleo
-  // (dop.v1.WatchDemandRequest) não oferece um, e inventar um id aqui seria
-  // prometer uma retomada que a origem não sabe cumprir. Quem reconecta relê o
-  // dossiê da demanda e reassina.
+  // One demand's events. It has NO resume cursor: the core's contract
+  // (dop.v1.WatchDemandRequest) offers none, and inventing an id here would be
+  // promising a resume the source cannot deliver. Whoever reconnects rereads
+  // the demand's dossier and resubscribes.
   rpc WatchDemand (WatchDemandRequest) returns (stream StreamEvent);
-  // Cauda de log de um sandbox. Também sem cursor, pela mesma razão.
+  // A sandbox's log tail. Also with no cursor, for the same reason.
   rpc TailLogs    (TailLogsRequest)    returns (stream LogLine);
 }

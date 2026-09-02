@@ -89,7 +89,8 @@ class ExecutionServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def DestroySandbox(self, request, context):
-        """IRREVERSÍVEL: apaga a execução E o workspace da demanda. Ver o cabeçalho.
+        """IRREVERSIBLE: it erases the execution AND the demand's workspace. See the
+        header.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

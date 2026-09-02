@@ -3,58 +3,61 @@ package dop.bff.v1;
 
 import "google/protobuf/timestamp.proto";
 
-// A caixa de atenção na BORDA — a fila ÚNICA, entre todas as demandas da conta
-// ativa, que responde "onde eu sou necessário, e em que ordem".
+// The attention box at the EDGE — the SINGLE queue, across all the active
+// account's demands, that answers "where am I needed, and in what order".
 //
-// Não é o chat: é o que leva ao chat certo. Cinco demandas com três threads
-// cada são quinze conversas, e sem esta fila o modelo multi-agente afoga o dev
-// — os dois sobem juntos ou nenhum sobe (spec conversação-e-atenção §3, risco
-// R-2). Sem a caixa na borda, o cockpit não tem como desenhá-la.
+// It is not the chat: it is what leads to the right chat. Five demands with
+// three threads each are fifteen conversations, and without this queue the
+// multi-agent model drowns the dev — the two rise together or neither rises
+// (the conversation-and-attention spec §3, risk R-2). Without the box at the
+// edge, the cockpit has no way to draw it.
 //
-// Mesma disciplina de identity.proto: identidade NÃO viaja no corpo — vem do
-// token em `authorization: Bearer <token>`, e a conta ativa do metadado
-// `x-account-id`. Não existe CallContext aqui.
+// The same discipline as identity.proto: identity does NOT travel in the body —
+// it comes from the token in `authorization: Bearer <token>`, and the active
+// account from the `x-account-id` metadata. There is no CallContext here.
 //
-// **O que este contrato deliberadamente NÃO oferece: marcar como lido, ou
-// descartar.** A caixa é PROJEÇÃO, não sistema (ADR-0006): todo item nasce de
-// um evento e morre de outro, e quem fecha um item é o FATO — o portão
-// decidido, a thread destravada, a diretriz resolvida. Item que some sem o
-// problema ter sido resolvido é mentira confortável, e caixa que mente vira
-// caixa ignorada, que é o risco R-1 da spec. Repassar aqui um "dispensar" que o
-// núcleo não tem seria a borda inventando um estado que nada sustenta.
+// **What this contract deliberately does NOT offer: marking as read, or
+// dismissing.** The box is a PROJECTION, not a system (ADR-0006): every item is
+// born of an event and dies of another, and what closes an item is the FACT —
+// the gate decided, the thread unblocked, the directive resolved. An item that
+// disappears without the problem having been solved is a comfortable lie, and a
+// box that lies becomes a box that is ignored, which is the spec's risk R-1.
+// Passing on a "dismiss" here that the core does not have would be the edge
+// inventing a state nothing backs.
 //
-// **Onde a borda ganha o sustento:**
+// **Where the edge earns its keep:**
 //
-//   - o BADGE vem de `open_total`, que é do núcleo e conta a CONTA inteira.
-//     Contar `items` daria um número que muda ao paginar — um badge que
-//     diminui porque o dev abriu a segunda página;
-//   - os itens vêm AGRUPADOS por demanda (`groups`), que é o agrupamento que a
-//     spec pede. Cada cliente fazendo o seu agrupamento é como duas telas
-//     passam a mostrar a mesma fila em ordens diferentes.
+//   - the BADGE comes from `open_total`, which is the core's and counts the
+//     WHOLE ACCOUNT. Counting `items` would give a number that changes when you
+//     paginate — a badge that goes down because the dev opened the second page;
+//   - the items come GROUPED by demand (`groups`), which is the grouping the
+//     spec asks for. Each client doing its own grouping is how two screens end
+//     up showing the same queue in different orders.
 //
-// E o que a borda NÃO faz: recalcular prioridade. Ela é DERIVADA pelo núcleo
-// (impacto do tipo, depois idade — internal/domain/attention/entity.go), e uma
-// segunda régua aqui faria a fila deixar de ter uma ordem só, que é exatamente
-// o que ela existe para oferecer. `items` sai na ordem em que o núcleo mandou,
-// e os grupos saem na ordem do item mais urgente de cada um.
+// And what the edge does NOT do: recompute priority. It is DERIVED by the core
+// (the kind's impact, then age — internal/domain/attention/entity.go), and a
+// second ruler here would make the queue stop having a single order, which is
+// exactly what it exists to offer. `items` comes out in the order the core sent
+// it, and the groups come out in the order of each one's most urgent item.
 
-// A natureza do item — e é ela que determina o impacto na ordenação.
-// Mesmos números e mesma ordem de dop.v1.AttentionItem.Kind.
+// The item's nature — and it is what determines its impact on the ordering.
+// The same numbers and the same order as dop.v1.AttentionItem.Kind.
 enum AttentionKind {
   ATTENTION_KIND_UNSPECIFIED = 0;
-  // Thread bloqueada esperando resposta do humano (ADR-0010).
+  // A thread blocked waiting for the human's answer (ADR-0010).
   ATTENTION_KIND_THREAD_BLOCKED = 1;
-  // Etapa parada num portão humano — spec aguardando aprovação.
+  // A stage stopped at a human gate — a spec awaiting approval.
   ATTENTION_KIND_GATE_PENDING = 2;
-  // PR aguardando revisão, com a evidência junto (ADR-0007).
+  // A PR awaiting review, with the evidence alongside (ADR-0007).
   ATTENTION_KIND_PR_REVIEW = 3;
-  // Conflito que a fila de merge escalou para decisão humana (ADR-0008).
+  // A conflict the merge queue escalated to a human decision (ADR-0008).
   ATTENTION_KIND_MERGE_CONFLICT = 4;
-  // Transversal detectada pelo techlead, com opções e recomendação (ADR-0015).
+  // A cross-cutting concern detected by the techlead, with options and a
+  // recommendation (ADR-0015).
   ATTENTION_KIND_DIRECTIVE = 5;
-  // Demanda pausada por estouro de orçamento (ADR-0011).
+  // A demand paused by a budget overrun (ADR-0011).
   ATTENTION_KIND_BUDGET_EXCEEDED = 6;
-  // Integração da conta quebrada — o trabalho para até alguém reconectar.
+  // A broken account integration — the work stops until somebody reconnects it.
   ATTENTION_KIND_INTEGRATION_BROKEN = 7;
 }
 
@@ -62,75 +65,78 @@ message AttentionItem {
   string        id   = 1;
   AttentionKind kind = 2;
 
-  // Onde clicar leva. `target_kind` diz o que é (thread, stage, pull_request,
-  // directive, demand, resource) e `target_id` qual — o cockpit resolve a rota.
-  // Guardar a rota pronta aqui amarraria o backend ao desenho da tela.
+  // Where clicking leads. `target_kind` says what it is (thread, stage,
+  // pull_request, directive, demand, resource) and `target_id` says which one —
+  // the cockpit resolves the route. Keeping the finished route here would tie
+  // the backend to the screen's design.
   string target_kind = 3;
   string target_id   = 4;
 
-  // A demanda a que o item pertence, quando pertence a alguma: é por ela que a
-  // caixa agrupa. VAZIA em item de conta (integração quebrada, por exemplo).
+  // The demand the item belongs to, when it belongs to one: it is what the box
+  // groups by. EMPTY on an account item (a broken integration, for example).
   string demand_id = 5;
 
   string title   = 6;
   string summary = 7;
 
-  // DERIVADA pelo núcleo (impacto do tipo, depois idade), nunca informada por
-  // quem emite o evento nem recalculada aqui. Menor número = mais urgente.
+  // DERIVED by the core (the kind's impact, then age), never supplied by
+  // whoever emits the event and never recomputed here. A lower number = more
+  // urgent.
   int32 priority = 8;
 
   google.protobuf.Timestamp opened_at = 9;
-  // Preenchido quando o fato que abriu o item foi resolvido. Ausente ≠ zerado:
-  // um Timestamp zerado diria "resolvido em 1970". Item resolvido sai da caixa
-  // mas permanece na projeção — é dele que sai quanto tempo o dev levou para
-  // responder.
+  // Filled in when the fact that opened the item was resolved. Absent ≠ zeroed:
+  // a zeroed Timestamp would say "resolved in 1970". A resolved item leaves the
+  // box but stays in the projection — it is what tells how long the dev took to
+  // answer.
   google.protobuf.Timestamp resolved_at = 10;
 }
 
-// Os itens de UMA demanda, na ordem que o núcleo deu.
+// ONE demand's items, in the order the core gave them.
 //
-// Existe porque a spec pede a caixa agrupável por demanda: quinze conversas
-// espalhadas numa lista plana não dizem "a demanda 3 está te esperando em três
-// lugares". O agrupamento é feito UMA vez, aqui, e não em cada cliente.
+// It exists because the spec asks for a box groupable by demand: fifteen
+// conversations spread over a flat list do not say "demand 3 is waiting for you
+// in three places". The grouping is done ONCE, here, and not in each client.
 message AttentionGroup {
-  // Vazio = os itens de CONTA, que não pertencem a demanda nenhuma. Este grupo
-  // é um grupo como os outros, e não um resto jogado no fim: integração
-  // quebrada para a conta inteira e costuma ser o item mais urgente da caixa.
+  // Empty = the ACCOUNT items, which belong to no demand. This group is a group
+  // like the others, and not a leftover thrown at the end: a broken integration
+  // affects the whole account and is usually the box's most urgent item.
   string demand_id = 1;
   repeated AttentionItem items = 2;
 }
 
-// A caixa como a tela precisa dela.
+// The box as the screen needs it.
 message AttentionBox {
-  // A fila plana, na ordem do núcleo — o mais urgente primeiro.
+  // The flat queue, in the core's order — the most urgent first.
   repeated AttentionItem items = 1;
-  // Os MESMOS itens agrupados por demanda. Os grupos saem na ordem do item
-  // mais urgente de cada um, que é a ordem em que a primeira ocorrência
-  // apareceu na fila — nenhuma régua nova.
+  // The SAME items grouped by demand. The groups come out in the order of each
+  // one's most urgent item, which is the order in which the first occurrence
+  // appeared in the queue — no new ruler.
   repeated AttentionGroup groups = 2;
-  // O BADGE: quantos itens ABERTOS a conta tem, independente desta página e
-  // independente do filtro por demanda. Vem do núcleo. Contar `items` daria um
-  // badge que muda ao paginar.
+  // The BADGE: how many OPEN items the account has, independent of this page
+  // and independent of the demand filter. It comes from the core. Counting
+  // `items` would give a badge that changes when you paginate.
   int32 open_total = 3;
 }
 
 message ListAttentionRequest {
-  // Falso (o padrão) = só os abertos, que é o caso da caixa. Os resolvidos
-  // entram por pedido explícito, para histórico.
+  // False (the default) = only the open ones, which is the box's case. The
+  // resolved ones come in by explicit request, for history.
   bool include_resolved = 1;
-  // Filtro opcional: a caixa de UMA demanda. Não muda `open_total`, que
-  // continua sendo o badge da conta.
+  // An optional filter: ONE demand's box. It does not change `open_total`,
+  // which stays the account's badge.
   string demand_id = 2;
-  // 0 = o padrão do núcleo. NÃO existe page_token: `dop.v1.AttentionService`
-  // não devolve cursor de página, e anunciar um aqui seria prometer uma
-  // navegação que a origem não sabe cumprir. Quem quer saber se está vendo
-  // tudo compara `open_total` com o tamanho de `items`.
+  // 0 = the core's default. There is NO page_token: `dop.v1.AttentionService`
+  // returns no page cursor, and announcing one here would be promising a
+  // navigation the source cannot deliver. Whoever wants to know they are seeing
+  // everything compares `open_total` with the size of `items`.
   int32 page_size = 3;
 }
 
-// O que mudou na caixa — não a caixa inteira.
+// What changed in the box — not the whole box.
 //
-// Reenviar a fila a cada alteração desperdiçaria banda e faria a tela piscar.
+// Resending the queue on every change would waste bandwidth and make the screen
+// flicker.
 enum AttentionChange {
   ATTENTION_CHANGE_UNSPECIFIED = 0;
   ATTENTION_CHANGE_OPENED   = 1;
@@ -138,42 +144,45 @@ enum AttentionChange {
 }
 
 message AttentionUpdate {
-  // `change` é a VERDADE do aviso, e não `item.resolved_at`. Ver abaixo.
+  // `change` is the notice's TRUTH, not `item.resolved_at`. See below.
   AttentionChange change = 1;
 
-  // No OPENED, o item vem inteiro.
+  // On OPENED, the item comes whole.
   //
-  // No RESOLVED, ele vem PARCIAL, e de propósito: o núcleo identifica o que
-  // fechou pelo ALVO (`kind` + `target_kind` + `target_id`), porque quem fecha
-  // conhece o alvo e não o id da projeção. Então `id`, `title`, `summary` e
-  // `opened_at` chegam vazios, e `resolved_at` também — o cliente casa o aviso
-  // com o item que já tem em mão, pelo alvo, e o remove. A borda repassa isso
-  // como está: inventar aqui um id, ou um `resolved_at` com a hora do BFF,
-  // daria ao cockpit um dado que ninguém mediu.
+  // On RESOLVED, it comes PARTIAL, and on purpose: the core identifies what
+  // closed by the TARGET (`kind` + `target_kind` + `target_id`), because
+  // whoever closes it knows the target and not the projection's id. So `id`,
+  // `title`, `summary` and `opened_at` arrive empty, and so does `resolved_at`
+  // — the client matches the notice against the item it already holds, by the
+  // target, and removes it. The edge passes that on as it is: inventing an id
+  // here, or a `resolved_at` with the BFF's clock, would give the cockpit a
+  // datum nobody measured.
   AttentionItem item = 2;
 }
 
 message WatchAttentionRequest {
-  // Cursor de retomada: o último evento do LOG do núcleo que o cliente já
-  // processou. Atravessa intacto para `since_event_id` do núcleo, que drena o
-  // log a partir dali e só então emenda no fluxo ao vivo. No SSE o equivalente
-  // é o cabeçalho `Last-Event-ID`; aqui é campo, porque gRPC não tem esse
-  // cabeçalho.
+  // The resume cursor: the last event of the core's LOG the client has already
+  // processed. It crosses intact into the core's `since_event_id`, which drains
+  // the log from there and only then splices into the live stream. In SSE the
+  // equivalent is the `Last-Event-ID` header; here it is a field, because gRPC
+  // has no such header.
   //
-  // Ressalva honesta: `dop.v1.AttentionUpdate` NÃO carrega o id do evento que
-  // o gerou, então nem esta porta nem o SSE conseguem DEVOLVER o cursor ao
-  // cliente. Ele funciona para quem já sabe a posição do log (quem também
-  // assina WatchEvents); a retomada automática do EventSource só fecha o
-  // circuito quando o núcleo publicar esse id.
+  // An honest caveat: `dop.v1.AttentionUpdate` does NOT carry the id of the
+  // event that produced it, so neither this port nor the SSE can GIVE the
+  // cursor back to the client. It works for whoever already knows their
+  // position in the log (whoever also subscribes to WatchEvents); the
+  // EventSource's automatic resume only closes the circuit once the core
+  // publishes that id.
   string since_event_id = 1;
 }
 
 service AttentionService {
-  // A caixa: a fila plana, os grupos por demanda e o badge da conta.
+  // The box: the flat queue, the groups per demand and the account's badge.
   rpc ListAttention (ListAttentionRequest) returns (AttentionBox);
-  // A caixa ao vivo — o que abriu e o que fechou, item a item.
+  // The box live — what opened and what closed, item by item.
   rpc WatchAttention (WatchAttentionRequest) returns (stream AttentionUpdate);
 
-  // NÃO existe, e a ausência é a decisão: nada de MarkRead, Dismiss ou
-  // Snooze. Ver o cabeçalho deste arquivo — item nasce e morre de evento.
+  // It does NOT exist, and the absence is the decision: no MarkRead, Dismiss or
+  // Snooze. See this file's header — an item is born of an event and dies of
+  // one.
 }

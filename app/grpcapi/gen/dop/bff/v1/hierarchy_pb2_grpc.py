@@ -111,7 +111,8 @@ class HierarchyServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def BindTaskManager(self, request, context):
-        """Substituição do vínculo; o BFF preserva o resto do projeto por dentro.
+        """A replacement of the link; the BFF preserves the rest of the project
+        internally.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

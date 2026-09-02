@@ -55,24 +55,24 @@ class StreamServiceServicer:
     """Missing associated documentation comment in .proto file."""
 
     def WatchEvents(self, request, context):
-        """Eventos da conta ativa — alimenta timeline e caixa de atenção.
+        """The active account's events — it feeds the timeline and the attention box.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def WatchDemand(self, request, context):
-        """Eventos de uma demanda. NÃO tem cursor de retomada: o contrato do núcleo
-        (dop.v1.WatchDemandRequest) não oferece um, e inventar um id aqui seria
-        prometer uma retomada que a origem não sabe cumprir. Quem reconecta relê o
-        dossiê da demanda e reassina.
+        """One demand's events. It has NO resume cursor: the core's contract
+        (dop.v1.WatchDemandRequest) offers none, and inventing an id here would be
+        promising a resume the source cannot deliver. Whoever reconnects rereads
+        the demand's dossier and resubscribes.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def TailLogs(self, request, context):
-        """Cauda de log de um sandbox. Também sem cursor, pela mesma razão.
+        """A sandbox's log tail. Also with no cursor, for the same reason.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
