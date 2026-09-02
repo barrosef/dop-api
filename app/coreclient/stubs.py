@@ -1,12 +1,12 @@
-"""Fábricas de stub — um ponto único de criação.
+"""Stub factories — a single point of creation.
 
-Existir como função (e não como stub global) tem duas razões: o canal só fica
-pronto depois do lifespan, e o teste substitui UMA função em vez de caçar
-importações espalhadas.
+Existing as functions (and not as global stubs) has two reasons: the channel is
+only ready after the lifespan, and a test replaces ONE function instead of
+hunting scattered imports.
 
-Uma fábrica por serviço do núcleo, todas iguais de propósito: quem escreve um
-caso de uso novo não precisa decidir nada aqui, e quem escreve teste sabe
-exatamente qual nome trocar.
+One factory per core service, all alike on purpose: whoever writes a new use
+case does not have to decide anything here, and whoever writes a test knows
+exactly which name to swap.
 """
 
 from app.coreclient.client import core
@@ -63,20 +63,20 @@ def execution_stub() -> execution_pb2_grpc.ExecutionServiceStub:
 
 
 def event_stub() -> event_pb2_grpc.EventServiceStub:
-    """Streaming de eventos ao vivo — a origem do SSE que o cockpit consome."""
+    """Live event streaming — the source of the SSE the cockpit consumes."""
     return event_pb2_grpc.EventServiceStub(core.channel)
 
 
 def attention_stub() -> attention_pb2_grpc.AttentionServiceStub:
-    """A caixa de atenção: lista e stream da fila única de pendências."""
+    """The attention box: the list and the stream of the single queue of pending items."""
     return attention_pb2_grpc.AttentionServiceStub(core.channel)
 
 
 def agent_stub() -> agent_pb2_grpc.AgentServiceStub:
-    """Runtime de agente — vive no NÚCLEO (ADR-0023).
+    """The agent runtime — it lives in the CORE (ADR-0023).
 
-    O BFF não executa turno e não vê credencial de provedor: ele é a camada
-    exposta à internet, e comprometê-la não pode entregar as credenciais de
-    agente de todas as contas.
+    The BFF does not run a turn and does not see a provider credential: it is
+    the layer exposed to the internet, and compromising it must not hand over
+    every account's agent credentials.
     """
     return agent_pb2_grpc.AgentServiceStub(core.channel)

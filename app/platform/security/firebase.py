@@ -1,22 +1,23 @@
-"""Verificação de token do Firebase — e a fronteira que ela protege.
+"""Verifying a Firebase token — and the boundary that verification protects.
 
-Claims de Firebase NÃO cruzam para o resto da aplicação: verifica-se aqui e
-devolve-se um Principal normalizado. É o que permite trocar por Keycloak,
-Zitadel ou Ory sem tocar em mais nada (ADR-0001).
+Firebase claims do NOT cross into the rest of the application: they are verified
+here and a normalized Principal is returned. It is what allows swapping in
+Keycloak, Zitadel or Ory without touching anything else (ADR-0001).
 
-Contra o emulador o token é emitido com `alg: none` e a verificação de
-ASSINATURA é pulada — mas só ela, e só quando `FIREBASE_AUTH_EMULATOR_HOST`
-está definido. A decisão vem do AMBIENTE, nunca do conteúdo do token: um token
-que se declara não assinado não pode escolher o próprio caminho de validação.
-A normalização é idêntica nos dois modos, então o resto do sistema vê a mesma
-coisa em qualquer ambiente.
+Against the emulator the token is issued with `alg: none` and the SIGNATURE
+check is skipped — but only that one, and only when
+`FIREBASE_AUTH_EMULATOR_HOST` is set. The decision comes from the ENVIRONMENT,
+never from the token's content: a token that declares itself unsigned must not
+choose its own validation path. The normalization is identical in both modes, so
+the rest of the system sees the same thing in any environment.
 
-Histórico que vale ficar registrado: esta verificação já esteve incompleta —
-buscava as chaves, conferia se o `kid` existia e devolvia SEM verificar a
-assinatura. Como `kid` é público, qualquer pessoa forjava um payload com o
-`sub` de outro usuário e entrava como ele. Passou despercebido porque no
-desenvolvimento tudo roda contra o emulador, onde esse caminho nem executa.
-Se for mexer aqui, o teste que importa é `tests/test_firebase_verifier.py`.
+A piece of history worth recording: this verification was once incomplete — it
+fetched the keys, checked whether the `kid` existed and returned WITHOUT
+verifying the signature. Since `kid` is public, anybody could forge a payload
+with another user's `sub` and get in as them. It went unnoticed because in
+development everything runs against the emulator, where that path does not even
+execute. If you are going to touch this, the test that matters is
+`tests/test_firebase_verifier.py`.
 """
 
 import base64
@@ -30,22 +31,23 @@ from cryptography.x509 import load_pem_x509_certificate
 
 from app.platform.context import Principal
 
-# O Firebase publica CERTIFICADOS X.509, não um JWKS: a chave pública sai do
-# certificado, não de um par (n, e).
+# Firebase publishes X.509 CERTIFICATES, not a JWKS: the public key comes out of
+# the certificate, not out of an (n, e) pair.
 _CERTS_URL = (
     "https://www.googleapis.com/robot/v1/metadata/x509/"
     "securetoken@system.gserviceaccount.com"
 )
 
-# Tolerância de relógio, nos dois sentidos. Sem ela, deriva de NTP vira "token
-# expirado" intermitente; grande demais, token roubado sobrevive à expiração.
+# Clock tolerance, in both directions. Without it, NTP drift becomes an
+# intermittent "expired token"; too large, and a stolen token outlives its
+# expiry.
 _CLOCK_SKEW_S = 60
 
-_ALGORITMOS = ["RS256"]
+_ALGORITHMS = ["RS256"]
 
 
 class InvalidToken(Exception):
-    """Token ausente, malformado, expirado ou de outro projeto."""
+    """A token that is missing, malformed, expired or from another project."""
 
 
 class FirebaseVerifier:
@@ -62,17 +64,17 @@ class FirebaseVerifier:
     async def verify(self, raw: str) -> Principal:
         token = raw.removeprefix("Bearer ").strip()
         if not token:
-            raise InvalidToken("token ausente")
+            raise InvalidToken("missing token")
 
         if self.using_emulator:
-            # Só o emulador chega aqui, e só ele emite `alg: none`.
-            claims = self._claims_do_emulador(token)
+            # Only the emulator gets here, and only it issues `alg: none`.
+            claims = self._emulator_claims(token)
         else:
-            claims = await self._claims_verificadas(token)
+            claims = await self._verified_claims(token)
 
         subject = claims.get("sub") or claims.get("user_id")
         if not subject:
-            raise InvalidToken("token sem sujeito")
+            raise InvalidToken("token with no subject")
 
         fb = claims.get("firebase") or {}
         providers = list((fb.get("identities") or {}).keys())
@@ -88,60 +90,60 @@ class FirebaseVerifier:
             providers=providers,
         )
 
-    async def _claims_verificadas(self, token: str) -> dict:
-        """O caminho de PRODUÇÃO: assinatura, emissor, audiência e validade.
+    async def _verified_claims(self, token: str) -> dict:
+        """The PRODUCTION path: signature, issuer, audience and validity.
 
-        Falha FECHADA sem `project_id`: sem ele não há audiência para conferir,
-        e aceitar qualquer projeto é o mesmo que não conferir nada.
+        It fails CLOSED with no `project_id`: without it there is no audience to
+        check, and accepting any project is the same as checking nothing.
         """
         if not self.project_id:
-            raise InvalidToken("verificador sem projeto configurado")
+            raise InvalidToken("the verifier has no project configured")
 
-        chave = await self._chave_publica(token)
+        key = await self._public_key(token)
         try:
             return jwt.decode(
                 token,
-                key=chave,
-                algorithms=_ALGORITMOS,
+                key=key,
+                algorithms=_ALGORITHMS,
                 audience=self.project_id,
                 issuer=f"https://securetoken.google.com/{self.project_id}",
                 leeway=_CLOCK_SKEW_S,
                 options={"require": ["exp", "iat", "aud", "iss"]},
             )
         except jwt.InvalidTokenError as exc:
-            # A mensagem NÃO carrega o token nem pedaço dele: token em log é
-            # credencial em repouso.
-            raise InvalidToken("token inválido") from exc
+            # The message carries NEITHER the token nor a piece of it: a token
+            # in a log is a credential at rest.
+            raise InvalidToken("invalid token") from exc
 
-    async def _chave_publica(self, token: str):
-        """Resolve a chave pelo `kid`, com cache e renovação na rotação."""
+    async def _public_key(self, token: str):
+        """Resolves the key by its `kid`, with a cache and a refresh on rotation."""
         try:
-            cabecalho = jwt.get_unverified_header(token)
+            header = jwt.get_unverified_header(token)
         except jwt.InvalidTokenError as exc:
-            raise InvalidToken("token malformado") from exc
+            raise InvalidToken("malformed token") from exc
 
-        alg = cabecalho.get("alg")
-        if alg not in _ALGORITMOS:
-            # Recusa explícita de `none` e da família HS*: é a confusão de
-            # algoritmo, e ela precisa morrer antes de qualquer outra coisa.
-            raise InvalidToken("algoritmo de assinatura não aceito")
-        kid = cabecalho.get("kid")
+        alg = header.get("alg")
+        if alg not in _ALGORITHMS:
+            # An explicit refusal of `none` and of the HS* family: it is the
+            # algorithm confusion, and it has to die before anything else.
+            raise InvalidToken("signature algorithm not accepted")
+        kid = header.get("kid")
         if not kid:
-            raise InvalidToken("token sem kid")
+            raise InvalidToken("token with no kid")
 
         if kid not in self._keys:
-            await self._buscar_certificados()
+            await self._fetch_certificates()
         cert_pem = self._keys.get(kid)
         if not cert_pem:
-            raise InvalidToken("chave de assinatura desconhecida")
+            raise InvalidToken("unknown signing key")
         return load_pem_x509_certificate(cert_pem.encode()).public_key()
 
-    async def _buscar_certificados(self) -> None:
-        """Busca os certificados, com freio.
+    async def _fetch_certificates(self) -> None:
+        """Fetches the certificates, with a brake.
 
-        O freio existe porque `kid` desconhecido é o gatilho da busca: sem ele,
-        uma enxurrada de tokens com `kid` inventado vira ataque de negação de
-        serviço contra o Google usando o nosso IP.
+        The brake exists because an unknown `kid` is what triggers the fetch:
+        without it, a flood of tokens with invented `kid`s becomes a
+        denial-of-service attack against Google using our IP.
         """
         if time.time() - self._keys_fetched_at < 30:
             return
@@ -151,24 +153,24 @@ class FirebaseVerifier:
             self._keys = resp.json()
             self._keys_fetched_at = time.time()
 
-    def _claims_do_emulador(self, token: str) -> dict:
-        """Emulador: sem assinatura, mas o RESTO continua valendo.
+    def _emulator_claims(self, token: str) -> dict:
+        """The emulator: no signature, but the REST still holds.
 
-        Audiência e expiração seguem conferidas — pular a assinatura não é
-        desculpa para aceitar token de outro projeto ou vencido, e é isso que
-        mantém o comportamento local parecido com o de produção.
+        The audience and the expiry are still checked — skipping the signature is
+        no excuse for accepting a token from another project or an expired one,
+        and it is what keeps the local behaviour close to production's.
         """
         parts = token.split(".")
         if len(parts) < 2:
-            raise InvalidToken("token malformado")
+            raise InvalidToken("malformed token")
         claims = self._decode_payload(parts[1])
 
         exp = claims.get("exp")
         if exp and float(exp) + _CLOCK_SKEW_S < time.time():
-            raise InvalidToken("token expirado")
+            raise InvalidToken("expired token")
         aud = claims.get("aud")
         if aud and self.project_id and aud != self.project_id:
-            raise InvalidToken("token emitido para outro projeto")
+            raise InvalidToken("token issued for another project")
         return claims
 
     @staticmethod
@@ -177,4 +179,4 @@ class FirebaseVerifier:
         try:
             return json.loads(base64.urlsafe_b64decode(padded))
         except Exception as exc:
-            raise InvalidToken("payload ilegível") from exc
+            raise InvalidToken("unreadable payload") from exc

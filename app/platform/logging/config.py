@@ -1,8 +1,8 @@
-"""Log estruturado em JSON — MESMO formato do core (dop-core).
+"""Structured JSON logging — the SAME format as the core's (dop-core).
 
-Os dois processos escrevem os mesmos nomes de campo, o mesmo formato de tempo e
-a mesma política de máscara. Um log agregado de plataforma só é útil se as duas
-pontas falarem a mesma língua.
+Both processes write the same field names, the same time format and the same
+masking policy. An aggregated platform log is only useful if the two ends speak
+the same language.
 """
 
 import logging
@@ -11,7 +11,7 @@ import sys
 
 import structlog
 
-# Campos canônicos — espelham internal/platform/logging do core.
+# The canonical fields — they mirror the core's internal/platform/logging.
 FIELD_REQUEST_ID = "request_id"
 FIELD_ACCOUNT_ID = "account_id"
 FIELD_ACTOR_ID = "actor_id"
@@ -19,7 +19,7 @@ FIELD_COMPONENT = "component"
 FIELD_DURATION_MS = "duration_ms"
 FIELD_ERROR = "error"
 
-# Redação de segredos é REQUISITO (F-10), não conveniência.
+# Redacting secrets is a REQUIREMENT (F-10), not a convenience.
 AUTO_MASK: frozenset[str] = frozenset(
     {
         "password",
@@ -40,7 +40,7 @@ REDACTED = "***"
 
 
 def _mask_processor(_logger, _method, event_dict: dict) -> dict:
-    """Aplica a máscara em qualquer profundidade do evento."""
+    """Applies the mask at any depth of the event."""
 
     def walk(value):
         if isinstance(value, dict):
@@ -55,7 +55,7 @@ def _mask_processor(_logger, _method, event_dict: dict) -> dict:
 
 
 def _add_context(_logger, _method, event_dict: dict) -> dict:
-    """Injeta request_id e account_id em toda linha, sem o chamador pedir."""
+    """Injects request_id and account_id into every line, without the caller asking."""
     from app.platform.context import auth_ctx, request_ctx
 
     ctx = request_ctx.get()
@@ -89,10 +89,11 @@ def configure() -> None:
 
 
 def get_logger(**initial):
-    """Devolve um logger JÁ configurado.
+    """Returns a logger that is ALREADY configured.
 
-    Chamar SEMPRE no ponto de uso, nunca no import do módulo: `configure()` roda
-    no lifespan, e um logger vinculado antes disso congela a configuração padrão
-    — as linhas sairiam fora do formato JSON, silenciosamente.
+    ALWAYS call it at the point of use, never at the module's import:
+    `configure()` runs in the lifespan, and a logger bound before that freezes
+    the default configuration — the lines would come out outside the JSON format,
+    silently.
     """
     return structlog.get_logger().bind(component="dop-api", **initial)

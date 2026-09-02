@@ -1,8 +1,8 @@
-"""Cliente gRPC do core: deadline, retry e propagação de contexto.
+"""The core's gRPC client: deadline, retry and context propagation.
 
-Regra da ADR-0016 que este módulo materializa: o BFF NÃO tem banco. Tudo que
-precisa de estado passa por aqui. Se alguém adicionar um driver de Postgres ao
-BFF, a fronteira morre em três semanas.
+The ADR-0016 rule this module materializes: the BFF has NO database. Everything
+that needs state goes through here. If somebody adds a Postgres driver to the
+BFF, the boundary dies in three weeks.
 """
 
 import os
@@ -15,8 +15,8 @@ from app.platform.context import auth_ctx, current_request_id
 
 DEFAULT_DEADLINE_S = float(os.getenv("CORE_DEADLINE_S", "10"))
 
-# Retry no canal: só para erros REALMENTE retentáveis. Escritas carregam
-# idempotency_key (ADR-0017), então repetir é seguro.
+# Retry on the channel: only for REALLY retryable errors. Writes carry an
+# idempotency_key (ADR-0017), so repeating is safe.
 _RETRY_POLICY = {
     "methodConfig": [
         {
@@ -34,7 +34,7 @@ _RETRY_POLICY = {
 
 
 class CoreClient:
-    """Canal único e compartilhado — gRPC multiplexa em HTTP/2."""
+    """A single, shared channel — gRPC multiplexes over HTTP/2."""
 
     def __init__(self, target: str | None = None):
         self.target = target or os.getenv("CORE_GRPC", "dop-core.dop-local.svc:9090")
@@ -58,7 +58,7 @@ class CoreClient:
     @property
     def channel(self) -> grpc.aio.Channel:
         if self._channel is None:
-            raise RuntimeError("CoreClient não iniciado")
+            raise RuntimeError("CoreClient not started")
         return self._channel
 
     @staticmethod
@@ -69,22 +69,23 @@ class CoreClient:
         actor_name: str = "",
         actor_kind: str = "user",
     ) -> Sequence[tuple[str, str]]:
-        """Monta o contrato de metadados SEM depender do auth_ctx.
+        """Builds the metadata contract WITHOUT depending on auth_ctx.
 
-        Existe porque o resolver de autorização roda ANTES do auth_ctx ser
-        preenchido — é justamente ele quem descobre user_id e papel. Sem esta
-        porta de entrada, a primeira chamada ao core sairia sem conta ativa e o
-        interceptor do core a recusaria.
+        It exists because the authorization resolver runs BEFORE auth_ctx is
+        filled in — it is precisely the one that discovers the user_id and the
+        role. Without this way in, the first call to the core would go out with
+        no active account and the core's interceptor would refuse it.
         """
         md = [("x-request-id", current_request_id() or uuid.uuid4().hex)]
         if user_id or account_id:
             md += [
                 ("x-account-id", account_id),
                 ("x-actor-id", user_id),
-                # A ESPÉCIE do ator, não só o id. O núcleo deriva a autoria
-                # daqui, e a plataforma inteira parte de "o dev é gerente de
-                # agentes": gravar a resposta do agente como fala do humano
-                # corrompe o log de eventos, que é a verdade (ADR-0006).
+                # The actor's KIND, not only the id. The core derives
+                # authorship from here, and the whole platform starts from "the
+                # dev is a manager of agents": recording the agent's answer as
+                # the human's speech corrupts the event log, which is the truth
+                # (ADR-0006).
                 ("x-actor-kind", actor_kind),
                 ("x-actor-name", actor_name),
             ]
@@ -92,10 +93,10 @@ class CoreClient:
 
     @classmethod
     def metadata(cls) -> Sequence[tuple[str, str]]:
-        """Propaga o contexto de chamada — quem, em qual conta.
+        """Propagates the call's context — who, in which account.
 
-        A BORDA preenche; o domínio confia. É o mesmo contrato lido pelo
-        interceptor UnaryCallContext do core.
+        The EDGE fills it in; the domain trusts it. It is the same contract the
+        core's UnaryCallContext interceptor reads.
         """
         ctx = auth_ctx.get()
         if ctx is None:
@@ -108,7 +109,7 @@ class CoreClient:
 
     @staticmethod
     def idempotency_key() -> str:
-        """Chave para RPC de escrita — repetir não pode duplicar efeito."""
+        """The key for a write RPC — repeating must not duplicate the effect."""
         return uuid.uuid4().hex
 
 

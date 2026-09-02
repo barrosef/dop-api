@@ -1,7 +1,8 @@
-"""@log — entrada, saída, erro e duração, sem poluir o código de negócio.
+"""@log — entry, exit, error and duration, without polluting the business code.
 
-Padrão: o decorator lê o contexto do ContextVar; o método decorado não recebe
-nada a mais. Funciona em função síncrona e assíncrona.
+The pattern: the decorator reads the context from the ContextVar; the decorated
+method receives nothing extra. It works on synchronous and asynchronous
+functions.
 """
 
 import asyncio
@@ -47,8 +48,8 @@ def _elapsed_ms(start: float) -> int:
 def log(_func=None, *, level: str | None = None, mask: list[str] | None = None):
     """
     @log
-    @log(level="debug")            # inclui os parâmetros, já mascarados
-    @log(mask=["cpf", "cnpj"])     # acrescenta chaves à máscara automática
+    @log(level="debug")            # includes the parameters, already masked
+    @log(mask=["cpf", "cnpj"])     # adds keys to the automatic mask
     """
 
     def decorator(func):

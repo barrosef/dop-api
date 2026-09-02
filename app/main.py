@@ -1,10 +1,10 @@
-"""dop-api — BFF da plataforma DOP.
+"""dop-api — the DOP platform's BFF.
 
-Duas portas de entrada, um só núcleo atrás:
-  REST + SSE  → o frontend (dop-app)
-  gRPC        → o dop-cli e os agentes dos sandboxes
+Two doors in, a single core behind them:
+  REST + SSE  → the frontend (dop-app)
+  gRPC        → dop-cli and the sandboxes' agents
 
-O que este processo NÃO faz: falar com banco. Todo estado vem do dop-core
+What this process does NOT do: talk to a database. All state comes from dop-core
 (ADR-0016).
 """
 
@@ -44,10 +44,10 @@ from app.settings import settings
 
 
 def _bridge_storage_emulator() -> None:
-    """Ponte STORAGE_EMULATOR_HOST ↔ FIREBASE_STORAGE_EMULATOR_HOST.
+    """The STORAGE_EMULATOR_HOST ↔ FIREBASE_STORAGE_EMULATOR_HOST bridge.
 
-    O SDK do Cloud Storage lê a primeira; o Firebase CLI expõe a segunda. Sem
-    esta ponte, upload local vai para o bucket REAL (ADR-0020 §4).
+    The Cloud Storage SDK reads the first; the Firebase CLI exposes the second.
+    Without this bridge, a local upload goes to the REAL bucket (ADR-0020 §4).
     """
     fb = os.getenv("FIREBASE_STORAGE_EMULATOR_HOST")
     if fb and not os.getenv("STORAGE_EMULATOR_HOST"):
@@ -61,20 +61,20 @@ async def lifespan(app: FastAPI):
     log = get_logger()
 
     await core.start()
-    log.info("núcleo conectado", target=core.target)
+    log.info("core connected", target=core.target)
 
-    # Precisa rodar DEPOIS de todas as rotas registradas.
+    # It has to run AFTER every route is registered.
     register_public_routes(app.routes)
 
     verifier = FirebaseVerifier(settings.firebase_project)
     if verifier.using_emulator:
-        log.info("identidade apontada para o emulador do Firebase Auth")
+        log.info("identity pointed at the Firebase Auth emulator")
     app.state.verifier = verifier
 
-    # A porta gRPC sobe DEPOIS do canal com o núcleo (todo caso de uso depende
-    # dele) e desce ANTES, para que o encerramento gracioso ainda consiga
-    # terminar as chamadas em voo. Mesmo processo, mesmos casos de uso, mesma
-    # autenticação — só o adaptador muda.
+    # The gRPC port comes up AFTER the channel to the core (every use case
+    # depends on it) and goes down BEFORE it, so the graceful shutdown can still
+    # finish the in-flight calls. The same process, the same use cases, the same
+    # authentication — only the adapter changes.
     grpc_server = None
     if settings.grpc_enabled:
         grpc_server = GrpcServer(
@@ -84,7 +84,7 @@ async def lifespan(app: FastAPI):
     app.state.grpc_server = grpc_server
 
     log.info(
-        "dop-api pronto",
+        "dop-api ready",
         http_port=settings.http_port,
         grpc_port=grpc_server.port if grpc_server else 0,
     )
@@ -92,7 +92,7 @@ async def lifespan(app: FastAPI):
     if grpc_server is not None:
         await grpc_server.stop()
     await core.stop()
-    log.info("dop-api encerrado")
+    log.info("dop-api stopped")
 
 
 def create_app() -> FastAPI:
@@ -101,8 +101,8 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
         description=(
-            "Borda da plataforma DOP. REST+SSE para o cockpit, gRPC para CLI e agentes. "
-            "Todo estado vive no dop-core."
+            "The DOP platform's edge. REST+SSE for the cockpit, gRPC for the CLI "
+            "and the agents. All state lives in dop-core."
         ),
     )
 
@@ -110,25 +110,26 @@ def create_app() -> FastAPI:
     app.include_router(identity.router)
     app.include_router(hierarchy.router)
     app.include_router(resource.router)
-    # Ciclo de trabalho.
+    # The work cycle.
     app.include_router(workflow.router)
     app.include_router(demand.router)
     app.include_router(delivery.router)
-    # Conhecimento, custo e substrato.
+    # Knowledge, cost and the substrate.
     app.include_router(knowledge.router)
     app.include_router(cost.router)
     app.include_router(execution.router)
     app.include_router(runtime.router)
-    # A caixa de atenção: a fila única de "onde eu sou necessário".
+    # The attention box: the single queue of "where am I needed".
     app.include_router(attention.router)
-    # SSE por último: é o único que abre conexão longa, e deixá-lo no fim
-    # mantém a leitura da montagem na ordem em que o cockpit consome.
+    # SSE last: it is the only one that opens a long connection, and leaving it
+    # at the end keeps the assembly readable in the order the cockpit consumes.
     app.include_router(stream.router)
 
     verifier = FirebaseVerifier(settings.firebase_project)
-    # Ordem importa: logging abre o contexto, auth preenche o principal.
-    # O resolver é quem pergunta ao CORE user_id, papel e concessões — o BFF não
-    # decide permissão, ele traduz a decisão do núcleo (ADR-0016).
+    # The order matters: logging opens the context, auth fills in the principal.
+    # The resolver is the one that asks the CORE for the user_id, the role and
+    # the grants — the BFF does not decide permission, it translates the core's
+    # decision (ADR-0016).
     app.add_middleware(AuthMiddleware, verifier=verifier, resolver=CoreResolver())
     app.add_middleware(LoggingMiddleware)
     app.add_middleware(

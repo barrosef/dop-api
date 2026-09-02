@@ -1,4 +1,4 @@
-"""Middleware que abre o contexto de log de cada requisição."""
+"""The middleware that opens each request's logging context."""
 
 import time
 import uuid
@@ -12,7 +12,8 @@ from app.platform.logging.config import FIELD_DURATION_MS, get_logger
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Aceita o request_id de quem chamou (rastro entre serviços) ou cria um.
+        # It accepts the caller's request_id (a trace between services) or
+        # creates one.
         request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
         token = request_ctx.set(
             {
@@ -28,7 +29,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         except Exception as exc:
             logger.error(
-                "request falhou",
+                "the request failed",
                 path=request.url.path,
                 method=request.method,
                 error=str(exc),

@@ -1,20 +1,21 @@
-"""Tradução entre o vocabulário do contrato (.proto) e o do BFF.
+"""Translation between the contract's vocabulary (.proto) and the BFF's.
 
-Enum do proto é número; a borda fala string. A conversão mora aqui, num lugar
-só, para que router e resolver nunca discordem sobre o que é "owner".
+A proto enum is a number; the edge speaks strings. The conversion lives here, in
+one place only, so the router and the resolver never disagree about what
+"owner" is.
 """
 
 from app.coreclient.gen.dop.v1 import common_pb2, identity_pb2
 from app.platform.context import AuthContext
 
-# Os quatro papéis pré-definidos (dop-core: identity.Role).
+# The four predefined roles (dop-core: identity.Role).
 ROLE_TO_NAME: dict[int, str] = {
     identity_pb2.ROLE_OWNER: "owner",
     identity_pb2.ROLE_ADMIN: "admin",
     identity_pb2.ROLE_DEVELOPER: "developer",
     identity_pb2.ROLE_VIEWER: "viewer",
 }
-NAME_TO_ROLE: dict[str, int] = {nome: valor for valor, nome in ROLE_TO_NAME.items()}
+NAME_TO_ROLE: dict[str, int] = {name: value for value, name in ROLE_TO_NAME.items()}
 
 KIND_TO_NAME: dict[int, str] = {
     identity_pb2.Account.KIND_PERSONAL: "personal",
@@ -33,8 +34,8 @@ def role_name(role: int) -> str:
     return ROLE_TO_NAME.get(role, "")
 
 
-def role_value(nome: str) -> int:
-    return NAME_TO_ROLE.get(nome.lower(), identity_pb2.ROLE_UNSPECIFIED)
+def role_value(name: str) -> int:
+    return NAME_TO_ROLE.get(name.lower(), identity_pb2.ROLE_UNSPECIFIED)
 
 
 def account_kind_name(kind: int) -> str:
@@ -45,10 +46,10 @@ def invite_status_name(status: int) -> str:
     return INVITE_STATUS_TO_NAME.get(status, "")
 
 
-# Espécie do ator ↔ enum. O núcleo lê a espécie da METADATA (`x-actor-kind`),
-# não daqui — mas manter os dois coerentes evita que alguém leia o corpo e
-# conclua a coisa errada sobre quem agiu.
-ACTOR_KIND_POR_NOME = {
+# The actor's kind ↔ enum. The core reads the kind from the METADATA
+# (`x-actor-kind`), not from here — but keeping the two consistent stops anybody
+# from reading the body and concluding the wrong thing about who acted.
+ACTOR_KIND_BY_NAME = {
     "user": common_pb2.ActorRef.KIND_USER,
     "agent": common_pb2.ActorRef.KIND_AGENT,
     "subagent": common_pb2.ActorRef.KIND_SUBAGENT,
@@ -59,17 +60,17 @@ ACTOR_KIND_POR_NOME = {
 def call_context(
     *, user_id: str, account_id: str = "", actor_name: str = "", actor_kind: str = "user"
 ) -> common_pb2.CallContext:
-    """Contexto obrigatório de toda chamada: quem, em qual conta (ADR-0016).
+    """The context every call requires: who, in which account (ADR-0016).
 
-    `actor_kind` existe porque nem todo ator é gente: a resposta do agente
-    gravada como fala do humano transforma o log de eventos — que é a verdade
-    da demanda (ADR-0006) — numa mentira sobre quem fez o quê. Numa plataforma
-    cuja premissa é "o dev é gerente de agentes", é o pior lugar para errar.
+    `actor_kind` exists because not every actor is a person: the agent's answer
+    recorded as the human's speech turns the event log — which is the demand's
+    truth (ADR-0006) — into a lie about who did what. On a platform whose premise
+    is "the dev is a manager of agents", it is the worst place to get it wrong.
     """
     return common_pb2.CallContext(
         account=common_pb2.AccountRef(id=account_id),
         actor=common_pb2.ActorRef(
-            kind=ACTOR_KIND_POR_NOME.get(actor_kind, common_pb2.ActorRef.KIND_USER),
+            kind=ACTOR_KIND_BY_NAME.get(actor_kind, common_pb2.ActorRef.KIND_USER),
             id=user_id,
             name=actor_name,
         ),

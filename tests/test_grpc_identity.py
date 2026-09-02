@@ -151,7 +151,7 @@ class TestAutenticacao:
             stub_grpc.GetMe(bff.GetMeRequest(), metadata=metadados_de("Bearer lixo"))
         )
         assert exc.code() == grpc.StatusCode.UNAUTHENTICATED
-        assert "malformado" in exc.details()
+        assert "malformed" in exc.details()
 
 
 class TestAutorizacao:
