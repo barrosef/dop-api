@@ -96,6 +96,35 @@ class InviteSummary(BaseModel):
     email: str
     role: str
     status: str
+    expires_at: str | None = None
+
+
+class InvitePreview(BaseModel):
+    """What whoever OPENS the link sees.
+
+    It does NOT carry the invitee's e-mail: whoever finds the link must not
+    learn an address from it (ADR-0026).
+    """
+
+    id: str
+    account_name: str
+    role: str
+    status: str
+    expires_at: str | None = None
+    usable: bool
+
+
+class AcceptedInvite(BaseModel):
+    """The account just joined, so the cockpit can switch to it with no second
+    round trip: whoever accepts an invite wants to be inside."""
+
+    account_id: str
+    account_name: str
+    role: str
+
+
+class MemberRole(BaseModel):
+    role: str
 
 
 # ── use cases ───────────────────────────────────────────────────────────────
@@ -230,9 +259,115 @@ async def create_invite(body: NewInvite, idempotency_key: str = "") -> InviteSum
         metadata=core.metadata(),
         timeout=_deadline(),
     )
+    return _invite(invite)
+
+
+def _invite(invite) -> InviteSummary:
     return InviteSummary(
         id=invite.id,
         email=invite.email,
         role=role_name(invite.role),
         status=invite_status_name(invite.status),
+        expires_at=_ts(invite.expires_at),
     )
+
+
+def _ts(value) -> str | None:
+    """A Timestamp that was never set comes back as None, not as 1970."""
+    return value.ToDatetime().isoformat() + "Z" if value.seconds or value.nanos else None
+
+
+@log
+@account_scoped
+@require_role("owner", "admin")
+async def list_invites() -> list[InviteSummary]:
+    """The active account's invites — the history, not only the pending ones."""
+    ctx = auth_ctx.get()
+    resp = await stubs.identity_stub().ListInvites(
+        identity_pb2.ListInvitesRequest(ctx=call_context_from(ctx)),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return [_invite(i) for i in resp.invites]
+
+
+@log
+async def get_invite(invite_id: str) -> InvitePreview:
+    """The preview of whoever OPENS the link.
+
+    It is deliberately NOT `@account_scoped`: whoever opens an invite may not be
+    a member of anything yet, and requiring an active account here would be
+    asking somebody to already be inside in order to be let in.
+    """
+    resp = await stubs.identity_stub().GetInvite(
+        identity_pb2.GetInviteRequest(id=invite_id),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return InvitePreview(
+        id=resp.id,
+        account_name=resp.account_name,
+        role=role_name(resp.role),
+        status=invite_status_name(resp.status),
+        expires_at=_ts(resp.expires_at),
+        usable=resp.usable,
+    )
+
+
+@log
+async def accept_invite(invite_id: str, idempotency_key: str = "") -> AcceptedInvite:
+    """Accepts. The core requires the session's VERIFIED e-mail to be the
+    invite's — the two refusals it can give are different walls, and the cockpit
+    shows different texts for them (ADR-0026)."""
+    ctx = auth_ctx.get()
+    membership = await stubs.identity_stub().AcceptInvite(
+        identity_pb2.AcceptInviteRequest(
+            invite_id=invite_id,
+            idempotency_key=_idempotency(idempotency_key),
+        ),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    account = await stubs.identity_stub().GetAccount(
+        identity_pb2.GetAccountRequest(id=membership.account.id),
+        metadata=core.metadata_for(user_id=ctx.user_id, account_id=membership.account.id),
+        timeout=_deadline(),
+    )
+    return AcceptedInvite(
+        account_id=account.id,
+        account_name=account.display_name,
+        role=role_name(membership.role),
+    )
+
+
+@log
+@account_scoped
+@require_role("owner", "admin")
+async def revoke_invite(invite_id: str) -> InviteSummary:
+    """Revokes a pending invite."""
+    ctx = auth_ctx.get()
+    invite = await stubs.identity_stub().RevokeInvite(
+        identity_pb2.RevokeInviteRequest(ctx=call_context_from(ctx), id=invite_id),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return _invite(invite)
+
+
+@log
+@account_scoped
+@require_role("owner", "admin")
+async def update_member(membership_id: str, body: MemberRole) -> MemberSummary:
+    """Changes a member's role. The core keeps the invariant that the account is
+    never left with no active owner."""
+    ctx = auth_ctx.get()
+    m = await stubs.identity_stub().UpdateMembership(
+        identity_pb2.UpdateMembershipRequest(
+            ctx=call_context_from(ctx),
+            membership_id=membership_id,
+            role=role_value(body.role),
+        ),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return MemberSummary(id=m.id, user_id=m.user.id, role=role_name(m.role))

@@ -64,6 +64,31 @@ class IdentityServiceStub:
                 request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.CreateInviteRequest.SerializeToString,
                 response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.InviteSummary.FromString,
                 _registered_method=True)
+        self.ListInvites = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/ListInvites',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.ListInvitesRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.ListInvitesResponse.FromString,
+                _registered_method=True)
+        self.GetInvite = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/GetInvite',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.GetInviteRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.InvitePreview.FromString,
+                _registered_method=True)
+        self.AcceptInvite = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/AcceptInvite',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.AcceptInviteRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.AcceptInviteResponse.FromString,
+                _registered_method=True)
+        self.RevokeInvite = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/RevokeInvite',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.RevokeInviteRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.InviteSummary.FromString,
+                _registered_method=True)
+        self.UpdateMember = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/UpdateMember',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.UpdateMemberRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.MemberSummary.FromString,
+                _registered_method=True)
 
 
 class IdentityServiceServicer:
@@ -104,6 +129,36 @@ class IdentityServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListInvites(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetInvite(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AcceptInvite(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RevokeInvite(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateMember(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_IdentityServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -131,6 +186,31 @@ def add_IdentityServiceServicer_to_server(servicer, server):
                     servicer.CreateInvite,
                     request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.CreateInviteRequest.FromString,
                     response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.InviteSummary.SerializeToString,
+            ),
+            'ListInvites': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListInvites,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.ListInvitesRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.ListInvitesResponse.SerializeToString,
+            ),
+            'GetInvite': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetInvite,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.GetInviteRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.InvitePreview.SerializeToString,
+            ),
+            'AcceptInvite': grpc.unary_unary_rpc_method_handler(
+                    servicer.AcceptInvite,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.AcceptInviteRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.AcceptInviteResponse.SerializeToString,
+            ),
+            'RevokeInvite': grpc.unary_unary_rpc_method_handler(
+                    servicer.RevokeInvite,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.RevokeInviteRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.InviteSummary.SerializeToString,
+            ),
+            'UpdateMember': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateMember,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.UpdateMemberRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.MemberSummary.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -273,6 +353,141 @@ class IdentityService:
             '/dop.bff.v1.IdentityService/CreateInvite',
             dop_dot_bff_dot_v1_dot_identity__pb2.CreateInviteRequest.SerializeToString,
             dop_dot_bff_dot_v1_dot_identity__pb2.InviteSummary.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListInvites(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/ListInvites',
+            dop_dot_bff_dot_v1_dot_identity__pb2.ListInvitesRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.ListInvitesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetInvite(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/GetInvite',
+            dop_dot_bff_dot_v1_dot_identity__pb2.GetInviteRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.InvitePreview.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AcceptInvite(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/AcceptInvite',
+            dop_dot_bff_dot_v1_dot_identity__pb2.AcceptInviteRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.AcceptInviteResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RevokeInvite(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/RevokeInvite',
+            dop_dot_bff_dot_v1_dot_identity__pb2.RevokeInviteRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.InviteSummary.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateMember(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/UpdateMember',
+            dop_dot_bff_dot_v1_dot_identity__pb2.UpdateMemberRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.MemberSummary.FromString,
             options,
             channel_credentials,
             insecure,

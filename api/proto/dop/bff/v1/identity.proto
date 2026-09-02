@@ -1,6 +1,8 @@
 syntax = "proto3";
 package dop.bff.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // The DOP platform's EDGE contract — what the cockpit, dop-cli and the agents
 // consume. Deliberately DIFFERENT from the core's contract (dop.v1).
 //
@@ -111,9 +113,29 @@ message InviteSummary {
   string email  = 2;
   Role   role   = 3;
   Status status = 4;
-  // The invite's token does NOT appear here, on purpose: it goes out through
-  // the communication channel (P-11). Whoever loses the link needs a new
-  // invite.
+  google.protobuf.Timestamp expires_at = 5;
+
+  // There is no token here because the invite HAS no token (ADR-0026). The
+  // `id` is what the e-mail's link carries, and on its own it grants nothing:
+  // acceptance requires the session's VERIFIED e-mail to be the invite's. That
+  // is what lets the id travel in the event, in the timeline and in the
+  // message with no risk.
+}
+
+// What whoever OPENS the invite's link sees, before signing in or after.
+//
+// It says the minimum needed to decide the screen, and it does NOT say who the
+// invite was for: whoever finds the link must not learn an address from it —
+// that would turn it back into an oracle, which is what taking the token out
+// was meant to end.
+message InvitePreview {
+  string id           = 1;
+  string account_name = 2;
+  Role   role         = 3;
+  InviteSummary.Status status = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  // usable says whether it is still worth answering — pending and not expired.
+  bool usable = 6;
 }
 
 // ── the service ─────────────────────────────────────────────────────────────
@@ -127,6 +149,35 @@ service IdentityService {
   rpc ListMembers  (ListMembersRequest)  returns (ListMembersResponse);
   rpc CreateAccount(CreateAccountRequest) returns (AccountSummary);
   rpc CreateInvite (CreateInviteRequest)  returns (InviteSummary);
+  rpc ListInvites  (ListInvitesRequest)   returns (ListInvitesResponse);
+  rpc GetInvite    (GetInviteRequest)     returns (InvitePreview);
+  rpc AcceptInvite (AcceptInviteRequest)  returns (AcceptInviteResponse);
+  rpc RevokeInvite (RevokeInviteRequest)  returns (InviteSummary);
+  rpc UpdateMember (UpdateMemberRequest)  returns (MemberSummary);
+}
+
+message ListInvitesRequest  {}
+message ListInvitesResponse { repeated InviteSummary invites = 1; }
+
+// GetInvite is the ONE identity RPC that does not require an active account:
+// whoever opens the link may not be a member of anything yet — that is the
+// point of an invite.
+message GetInviteRequest { string id = 1; }
+
+message AcceptInviteRequest { string id = 1; }
+
+message AcceptInviteResponse {
+  // The account the person has just joined, so the cockpit can switch to it
+  // without a second round trip: whoever accepts an invite wants to be inside.
+  AccountSummary account = 1;
+  Role role = 2;
+}
+
+message RevokeInviteRequest { string id = 1; }
+
+message UpdateMemberRequest {
+  string membership_id = 1;
+  Role   role          = 2;
 }
 
 // Empty because everything it would need to say is already in the metadata: the

@@ -14,9 +14,12 @@ from fastapi import APIRouter
 
 from app.usecases import identity as uc
 from app.usecases.identity import (
+    AcceptedInvite,
     AccountSummary,
     GrantSpec,
+    InvitePreview,
     InviteSummary,
+    MemberRole,
     MemberSummary,
     MeResponse,
     NewAccount,
@@ -26,11 +29,14 @@ from app.usecases.identity import (
 # Re-exported for whoever already imported the models from here — they are the
 # edge's DTOs, shared with gRPC, and now live in the use case.
 __all__ = [
+    "AcceptedInvite",
     "AccountSummary",
     "GrantSpec",
+    "InvitePreview",
     "InviteSummary",
-    "MeResponse",
+    "MemberRole",
     "MemberSummary",
+    "MeResponse",
     "NewAccount",
     "NewInvite",
     "router",
@@ -71,3 +77,39 @@ async def list_members() -> list[MemberSummary]:
 async def create_invite(body: NewInvite) -> InviteSummary:
     """Invites somebody to the active account."""
     return await uc.create_invite(body)
+
+
+@router.get("/invites", response_model=list[InviteSummary])
+async def list_invites() -> list[InviteSummary]:
+    """The active account's invites — the history, not only the pending ones."""
+    return await uc.list_invites()
+
+
+@router.get("/invites/{invite_id}", response_model=InvitePreview)
+async def get_invite(invite_id: str) -> InvitePreview:
+    """The preview of whoever OPENS the e-mail's link.
+
+    It is the one identity route with no active account: whoever opens an invite
+    may not be a member of anything yet. It is where `/invites/:id` in the
+    cockpit lands, and it is what closes P-32 — until today the link led to a
+    404.
+    """
+    return await uc.get_invite(invite_id)
+
+
+@router.post("/invites/{invite_id}/accept", response_model=AcceptedInvite)
+async def accept_invite(invite_id: str) -> AcceptedInvite:
+    """Accepts the invite and returns the account just joined."""
+    return await uc.accept_invite(invite_id)
+
+
+@router.delete("/invites/{invite_id}", response_model=InviteSummary)
+async def revoke_invite(invite_id: str) -> InviteSummary:
+    """Revokes a pending invite."""
+    return await uc.revoke_invite(invite_id)
+
+
+@router.patch("/members/{membership_id}", response_model=MemberSummary)
+async def update_member(membership_id: str, body: MemberRole) -> MemberSummary:
+    """Changes a member's role in the active account."""
+    return await uc.update_member(membership_id, body)

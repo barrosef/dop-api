@@ -21,6 +21,7 @@ execute. If you are going to touch this, the test that matters is
 """
 
 import base64
+import hashlib
 import json
 import os
 import time
@@ -88,6 +89,7 @@ class FirebaseVerifier:
             name=claims.get("name", ""),
             avatar_url=claims.get("picture", ""),
             providers=providers,
+            session_id=_session_id(subject, claims),
         )
 
     async def _verified_claims(self, token: str) -> dict:
@@ -180,3 +182,20 @@ class FirebaseVerifier:
             return json.loads(base64.urlsafe_b64decode(padded))
         except Exception as exc:
             raise InvalidToken("unreadable payload") from exc
+
+
+def _session_id(subject: str, claims: dict) -> str:
+    """Derives the session's identifier from the token.
+
+    `auth_time` is the instant the person actually authenticated, and Firebase
+    keeps it across every refresh of the same session — which is precisely the
+    life of a session. Using `iat` would change the identifier every hour and
+    ask for the second factor again in the middle of the working day; using a
+    value the client sends would let the client choose its own session.
+
+    It is hashed because it goes into the metadata and into the core's table: an
+    identifier that carries the subject in the clear is one more copy of the
+    identity in a place that does not need it.
+    """
+    auth_time = str(claims.get("auth_time") or claims.get("iat") or "")
+    return hashlib.sha256(f"{subject}:{auth_time}".encode()).hexdigest()[:32]

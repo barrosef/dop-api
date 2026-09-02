@@ -1,3 +1,6 @@
+import datetime
+
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -79,7 +82,7 @@ class MemberSummary(_message.Message):
     def __init__(self, id: _Optional[str] = ..., user_id: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ...) -> None: ...
 
 class InviteSummary(_message.Message):
-    __slots__ = ("id", "email", "role", "status")
+    __slots__ = ("id", "email", "role", "status", "expires_at")
     class Status(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         STATUS_UNSPECIFIED: _ClassVar[InviteSummary.Status]
@@ -96,11 +99,73 @@ class InviteSummary(_message.Message):
     EMAIL_FIELD_NUMBER: _ClassVar[int]
     ROLE_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
     email: str
     role: Role
     status: InviteSummary.Status
-    def __init__(self, id: _Optional[str] = ..., email: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., status: _Optional[_Union[InviteSummary.Status, str]] = ...) -> None: ...
+    expires_at: _timestamp_pb2.Timestamp
+    def __init__(self, id: _Optional[str] = ..., email: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., status: _Optional[_Union[InviteSummary.Status, str]] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
+class InvitePreview(_message.Message):
+    __slots__ = ("id", "account_name", "role", "status", "expires_at", "usable")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    ACCOUNT_NAME_FIELD_NUMBER: _ClassVar[int]
+    ROLE_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    USABLE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    account_name: str
+    role: Role
+    status: InviteSummary.Status
+    expires_at: _timestamp_pb2.Timestamp
+    usable: bool
+    def __init__(self, id: _Optional[str] = ..., account_name: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., status: _Optional[_Union[InviteSummary.Status, str]] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., usable: _Optional[bool] = ...) -> None: ...
+
+class ListInvitesRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListInvitesResponse(_message.Message):
+    __slots__ = ("invites",)
+    INVITES_FIELD_NUMBER: _ClassVar[int]
+    invites: _containers.RepeatedCompositeFieldContainer[InviteSummary]
+    def __init__(self, invites: _Optional[_Iterable[_Union[InviteSummary, _Mapping]]] = ...) -> None: ...
+
+class GetInviteRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class AcceptInviteRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class AcceptInviteResponse(_message.Message):
+    __slots__ = ("account", "role")
+    ACCOUNT_FIELD_NUMBER: _ClassVar[int]
+    ROLE_FIELD_NUMBER: _ClassVar[int]
+    account: AccountSummary
+    role: Role
+    def __init__(self, account: _Optional[_Union[AccountSummary, _Mapping]] = ..., role: _Optional[_Union[Role, str]] = ...) -> None: ...
+
+class RevokeInviteRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class UpdateMemberRequest(_message.Message):
+    __slots__ = ("membership_id", "role")
+    MEMBERSHIP_ID_FIELD_NUMBER: _ClassVar[int]
+    ROLE_FIELD_NUMBER: _ClassVar[int]
+    membership_id: str
+    role: Role
+    def __init__(self, membership_id: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ...) -> None: ...
 
 class GetMeRequest(_message.Message):
     __slots__ = ()

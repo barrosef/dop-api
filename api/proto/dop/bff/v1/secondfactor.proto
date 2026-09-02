@@ -1,0 +1,126 @@
+syntax = "proto3";
+package dop.bff.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// The second factor at the EDGE (ADR-0027).
+//
+// It mirrors, RPC by RPC, the use cases that already exist in REST — the same
+// function, a second door into the same room.
+//
+// What the edge NEVER carries: the TOTP seed after the enrolment's response,
+// the code sent, and the whole destination. And it carries no `user_id`: every
+// operation here is about the CALLER's own factors. There is no "manage
+// somebody else's second factor", by design — an admin who could enrol a factor
+// for another person would be an admin who could take over their account.
+
+enum SecondFactorKind {
+  SECOND_FACTOR_KIND_UNSPECIFIED = 0;
+  SECOND_FACTOR_KIND_TOTP        = 1;
+  SECOND_FACTOR_KIND_EMAIL       = 2;
+  SECOND_FACTOR_KIND_SMS         = 3;
+}
+
+message SecondFactorSummary {
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_PENDING     = 1;
+    STATUS_ACTIVE      = 2;
+    STATUS_REVOKED     = 3;
+  }
+  string id    = 1;
+  SecondFactorKind kind = 2;
+  Status status = 3;
+  string label  = 4;
+  // MASKED. The whole value never crosses the edge.
+  string masked_destination = 5;
+  google.protobuf.Timestamp confirmed_at = 6;
+  google.protobuf.Timestamp last_used_at = 7;
+}
+
+message EnrollSecondFactorRequest {
+  SecondFactorKind kind = 1;
+  string label = 2;
+  string destination = 3;
+}
+
+message EnrollSecondFactorResponse {
+  SecondFactorSummary factor = 1;
+  string challenge_id = 2;
+  // Only for TOTP, and only here — the platform keeps the seed to VERIFY, not
+  // to show.
+  string secret = 3;
+  string uri    = 4;
+}
+
+message ConfirmSecondFactorRequest {
+  string factor_id    = 1;
+  string challenge_id = 2;
+  string code         = 3;
+}
+
+message ConfirmSecondFactorResponse {
+  SecondFactorSummary factor = 1;
+  // Only on the FIRST active factor, and only once.
+  repeated string recovery_codes = 2;
+}
+
+message ListSecondFactorsRequest  {}
+message ListSecondFactorsResponse { repeated SecondFactorSummary factors = 1; }
+
+message RevokeSecondFactorRequest { string id = 1; }
+
+message ChallengeSecondFactorRequest { string factor_id = 1; }
+
+message ChallengeSecondFactorResponse {
+  string challenge_id = 1;
+  SecondFactorKind kind = 2;
+  // So the screen can say WHERE the code went: "check your e-mail" and "check
+  // your phone" are different screens, and guessing is what makes people wait
+  // for a message that is not coming.
+  string masked_destination = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+message VerifySecondFactorRequest {
+  string challenge_id = 1;
+  string code = 2;
+}
+
+message VerifyRecoveryCodeRequest { string code = 1; }
+
+message StepUpResult {
+  SecondFactorKind method = 1;
+  bool recovery = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message GetSecondFactorStateRequest {}
+
+message GetSecondFactorStateResponse {
+  bool required = 1;
+  bool enrolled = 2;
+  bool stepped_up = 3;
+  bool needs_setup = 4;
+  repeated SecondFactorKind allowed = 5;
+  repeated SecondFactorSummary factors = 6;
+  int32 recovery_codes_left = 7;
+  google.protobuf.Timestamp step_up_expires_at = 8;
+}
+
+message RegenerateRecoveryCodesRequest  {}
+message RegenerateRecoveryCodesResponse { repeated string codes = 1; }
+
+service SecondFactorService {
+  rpc GetSecondFactorState (GetSecondFactorStateRequest) returns (GetSecondFactorStateResponse);
+  rpc ListSecondFactors    (ListSecondFactorsRequest)    returns (ListSecondFactorsResponse);
+  rpc EnrollSecondFactor   (EnrollSecondFactorRequest)   returns (EnrollSecondFactorResponse);
+  rpc ConfirmSecondFactor  (ConfirmSecondFactorRequest)  returns (ConfirmSecondFactorResponse);
+  rpc RevokeSecondFactor   (RevokeSecondFactorRequest)   returns (SecondFactorSummary);
+
+  rpc ChallengeSecondFactor(ChallengeSecondFactorRequest) returns (ChallengeSecondFactorResponse);
+  rpc VerifySecondFactor   (VerifySecondFactorRequest)    returns (StepUpResult);
+  rpc VerifyRecoveryCode   (VerifyRecoveryCodeRequest)    returns (StepUpResult);
+
+  rpc RegenerateRecoveryCodes (RegenerateRecoveryCodesRequest) returns (RegenerateRecoveryCodesResponse);
+}

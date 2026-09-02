@@ -41,6 +41,7 @@ from app.grpcapi.gen.dop.bff.v1 import resource_pb2 as bff_res_pb2
 from app.grpcapi.gen.dop.bff.v1 import resource_pb2_grpc as bff_res_grpc
 from app.grpcapi.gen.dop.bff.v1 import runtime_pb2 as bff_runtime_pb2
 from app.grpcapi.gen.dop.bff.v1 import runtime_pb2_grpc as bff_runtime_grpc
+from app.grpcapi.gen.dop.bff.v1 import secondfactor_pb2_grpc as bff_2fa_grpc
 from app.grpcapi.gen.dop.bff.v1 import stream_pb2 as bff_stream_pb2
 from app.grpcapi.gen.dop.bff.v1 import stream_pb2_grpc as bff_stream_grpc
 from app.grpcapi.gen.dop.bff.v1 import workflow_pb2 as bff_workflow_pb2
@@ -51,6 +52,7 @@ from app.grpcapi.interceptors import AuthInterceptor, ErrorInterceptor, LoggingI
 from app.grpcapi.knowledge import KnowledgeServicer
 from app.grpcapi.resource import ResourceServicer
 from app.grpcapi.runtime import RuntimeServicer
+from app.grpcapi.secondfactor import SecondFactorServicer
 from app.grpcapi.stream import StreamServicer
 from app.grpcapi.workflow import WorkflowServicer
 from app.platform.logging.config import get_logger
@@ -98,6 +100,7 @@ class GrpcServer:
         bff_grpc.add_IdentityServiceServicer_to_server(IdentityServicer(), self._server)
         bff_hier_grpc.add_HierarchyServiceServicer_to_server(HierarchyServicer(), self._server)
         bff_res_grpc.add_ResourceServiceServicer_to_server(ResourceServicer(), self._server)
+        bff_2fa_grpc.add_SecondFactorServiceServicer_to_server(SecondFactorServicer(), self._server)
         bff_runtime_grpc.add_RuntimeServiceServicer_to_server(RuntimeServicer(), self._server)
         bff_attention_grpc.add_AttentionServiceServicer_to_server(AttentionServicer(), self._server)
         bff_cost_grpc.add_CostServiceServicer_to_server(CostServicer(), self._server)

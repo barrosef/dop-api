@@ -122,6 +122,42 @@ class ResourceGrantSpec(_message.Message):
     level: str
     def __init__(self, resource: _Optional[_Union[_common_pb2.ResourceRef, _Mapping]] = ..., level: _Optional[str] = ...) -> None: ...
 
+class ListInvitesRequest(_message.Message):
+    __slots__ = ("ctx",)
+    CTX_FIELD_NUMBER: _ClassVar[int]
+    ctx: _common_pb2.CallContext
+    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ...) -> None: ...
+
+class ListInvitesResponse(_message.Message):
+    __slots__ = ("invites",)
+    INVITES_FIELD_NUMBER: _ClassVar[int]
+    invites: _containers.RepeatedCompositeFieldContainer[Invite]
+    def __init__(self, invites: _Optional[_Iterable[_Union[Invite, _Mapping]]] = ...) -> None: ...
+
+class GetInviteRequest(_message.Message):
+    __slots__ = ("ctx", "id")
+    CTX_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    ctx: _common_pb2.CallContext
+    id: str
+    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+
+class InvitePreview(_message.Message):
+    __slots__ = ("id", "account_name", "role", "status", "expires_at", "usable")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    ACCOUNT_NAME_FIELD_NUMBER: _ClassVar[int]
+    ROLE_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    USABLE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    account_name: str
+    role: Role
+    status: Invite.Status
+    expires_at: _timestamp_pb2.Timestamp
+    usable: bool
+    def __init__(self, id: _Optional[str] = ..., account_name: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., status: _Optional[_Union[Invite.Status, str]] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., usable: _Optional[bool] = ...) -> None: ...
+
 class GetUserRequest(_message.Message):
     __slots__ = ("ctx", "id")
     CTX_FIELD_NUMBER: _ClassVar[int]

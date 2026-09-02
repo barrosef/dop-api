@@ -85,6 +85,16 @@ class IdentityServiceStub:
                 request_serializer=dop_dot_v1_dot_identity__pb2.UpdateMembershipRequest.SerializeToString,
                 response_deserializer=dop_dot_v1_dot_identity__pb2.Membership.FromString,
                 _registered_method=True)
+        self.ListInvites = channel.unary_unary(
+                '/dop.v1.IdentityService/ListInvites',
+                request_serializer=dop_dot_v1_dot_identity__pb2.ListInvitesRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_identity__pb2.ListInvitesResponse.FromString,
+                _registered_method=True)
+        self.GetInvite = channel.unary_unary(
+                '/dop.v1.IdentityService/GetInvite',
+                request_serializer=dop_dot_v1_dot_identity__pb2.GetInviteRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_identity__pb2.InvitePreview.FromString,
+                _registered_method=True)
 
 
 class IdentityServiceServicer:
@@ -152,6 +162,21 @@ class IdentityServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListInvites(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetInvite(self, request, context):
+        """GetInvite is the ONE identity RPC that does not require an active account:
+        whoever opens the link may not be a member of anything yet — that is the
+        point of an invite. It requires a session all the same.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_IdentityServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -204,6 +229,16 @@ def add_IdentityServiceServicer_to_server(servicer, server):
                     servicer.UpdateMembership,
                     request_deserializer=dop_dot_v1_dot_identity__pb2.UpdateMembershipRequest.FromString,
                     response_serializer=dop_dot_v1_dot_identity__pb2.Membership.SerializeToString,
+            ),
+            'ListInvites': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListInvites,
+                    request_deserializer=dop_dot_v1_dot_identity__pb2.ListInvitesRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_identity__pb2.ListInvitesResponse.SerializeToString,
+            ),
+            'GetInvite': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetInvite,
+                    request_deserializer=dop_dot_v1_dot_identity__pb2.GetInviteRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_identity__pb2.InvitePreview.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -477,6 +512,60 @@ class IdentityService:
             '/dop.v1.IdentityService/UpdateMembership',
             dop_dot_v1_dot_identity__pb2.UpdateMembershipRequest.SerializeToString,
             dop_dot_v1_dot_identity__pb2.Membership.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListInvites(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.IdentityService/ListInvites',
+            dop_dot_v1_dot_identity__pb2.ListInvitesRequest.SerializeToString,
+            dop_dot_v1_dot_identity__pb2.ListInvitesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetInvite(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.IdentityService/GetInvite',
+            dop_dot_v1_dot_identity__pb2.GetInviteRequest.SerializeToString,
+            dop_dot_v1_dot_identity__pb2.InvitePreview.FromString,
             options,
             channel_credentials,
             insecure,

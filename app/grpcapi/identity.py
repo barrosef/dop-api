@@ -16,6 +16,31 @@ from app.grpcapi.gen.dop.bff.v1 import identity_pb2_grpc as bff_grpc
 from app.usecases import identity as uc
 
 
+def _ts(value: str | None):
+    """An absent date stays ABSENT on the wire — a zeroed one would say 1970."""
+    if not value:
+        return None
+    from datetime import datetime
+
+    from google.protobuf.timestamp_pb2 import Timestamp
+
+    ts = Timestamp()
+    ts.FromDatetime(datetime.fromisoformat(value.replace("Z", "")))
+    return ts
+
+
+def _invite(i: uc.InviteSummary) -> bff.InviteSummary:
+    msg = bff.InviteSummary(
+        id=i.id,
+        email=i.email,
+        role=convert.role_enum(i.role),
+        status=convert.status_enum(i.status),
+    )
+    if ts := _ts(i.expires_at):
+        msg.expires_at.CopyFrom(ts)
+    return msg
+
+
 def _account(a: uc.AccountSummary) -> bff.AccountSummary:
     return bff.AccountSummary(
         id=a.id,
@@ -54,6 +79,42 @@ class IdentityServicer(bff_grpc.IdentityServiceServicer):
                 for m in membros
             ]
         )
+
+    async def ListInvites(
+        self, request: bff.ListInvitesRequest, context
+    ) -> bff.ListInvitesResponse:
+        return bff.ListInvitesResponse(invites=[_invite(i) for i in await uc.list_invites()])
+
+    async def GetInvite(self, request: bff.GetInviteRequest, context) -> bff.InvitePreview:
+        p = await uc.get_invite(request.id)
+        msg = bff.InvitePreview(
+            id=p.id,
+            account_name=p.account_name,
+            role=convert.role_enum(p.role),
+            status=convert.status_enum(p.status),
+            usable=p.usable,
+        )
+        if ts := _ts(p.expires_at):
+            msg.expires_at.CopyFrom(ts)
+        return msg
+
+    async def AcceptInvite(
+        self, request: bff.AcceptInviteRequest, context
+    ) -> bff.AcceptInviteResponse:
+        r = await uc.accept_invite(request.id)
+        return bff.AcceptInviteResponse(
+            account=bff.AccountSummary(id=r.account_id, display_name=r.account_name),
+            role=convert.role_enum(r.role),
+        )
+
+    async def RevokeInvite(self, request: bff.RevokeInviteRequest, context) -> bff.InviteSummary:
+        return _invite(await uc.revoke_invite(request.id))
+
+    async def UpdateMember(self, request: bff.UpdateMemberRequest, context) -> bff.MemberSummary:
+        m = await uc.update_member(
+            request.membership_id, uc.MemberRole(role=convert.role_name(request.role))
+        )
+        return bff.MemberSummary(id=m.id, user_id=m.user_id, role=convert.role_enum(m.role))
 
     async def CreateAccount(
         self, request: bff.CreateAccountRequest, context

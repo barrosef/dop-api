@@ -68,6 +68,7 @@ class CoreClient:
         account_id: str = "",
         actor_name: str = "",
         actor_kind: str = "user",
+        session_id: str = "",
     ) -> Sequence[tuple[str, str]]:
         """Builds the metadata contract WITHOUT depending on auth_ctx.
 
@@ -88,6 +89,10 @@ class CoreClient:
                 # (ADR-0006).
                 ("x-actor-kind", actor_kind),
                 ("x-actor-name", actor_name),
+                # The SESSION, for the second factor's step-up (ADR-0027 §5).
+                # It travels like every other field here — with the limit P-18
+                # describes, which this feature makes load-bearing.
+                ("x-session-id", session_id),
             ]
         return md
 
@@ -105,6 +110,7 @@ class CoreClient:
             user_id=ctx.user_id,
             account_id=ctx.account_id,
             actor_name=ctx.principal.name or ctx.principal.email,
+            session_id=ctx.principal.session_id,
         )
 
     @staticmethod

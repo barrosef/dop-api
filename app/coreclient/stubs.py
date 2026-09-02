@@ -22,6 +22,7 @@ from app.coreclient.gen.dop.v1 import (
     identity_pb2_grpc,
     knowledge_pb2_grpc,
     resource_pb2_grpc,
+    secondfactor_pb2_grpc,
     workflow_pb2_grpc,
 )
 
@@ -32,6 +33,10 @@ def identity_stub() -> identity_pb2_grpc.IdentityServiceStub:
 
 def resource_stub() -> resource_pb2_grpc.ResourceServiceStub:
     return resource_pb2_grpc.ResourceServiceStub(core.channel)
+
+
+def second_factor_stub() -> secondfactor_pb2_grpc.SecondFactorServiceStub:
+    return secondfactor_pb2_grpc.SecondFactorServiceStub(core.channel)
 
 
 def hierarchy_stub() -> hierarchy_pb2_grpc.HierarchyServiceStub:

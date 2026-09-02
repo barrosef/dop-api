@@ -37,6 +37,7 @@ from app.routers import (
     knowledge,
     resource,
     runtime,
+    secondfactor,
     stream,
     workflow,
 )
@@ -108,6 +109,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(identity.router)
+    app.include_router(secondfactor.router)
     app.include_router(hierarchy.router)
     app.include_router(resource.router)
     # The work cycle.

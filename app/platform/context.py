@@ -25,6 +25,16 @@ class Principal:
     name: str = ""
     avatar_url: str = ""
     providers: list[str] = field(default_factory=list)
+    # session_id identifies THIS sign-in, and it exists for the second factor:
+    # the step-up is per (user, session), because two open sessions are two
+    # doors and one of them answering must not open the other (ADR-0027 §5).
+    #
+    # It is DERIVED, not stored: the subject plus the instant the person
+    # authenticated, hashed. It survives the token refresh (auth_time does not
+    # change within a session) and changes on the next sign-in — which is
+    # exactly the life of a session. Deriving it also keeps the BFF stateless,
+    # which is the property that lets it be replicated.
+    session_id: str = ""
 
 
 @dataclass(frozen=True)

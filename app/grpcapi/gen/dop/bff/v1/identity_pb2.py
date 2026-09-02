@@ -22,45 +22,62 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x64op/bff/v1/identity.proto\x12\ndop.bff.v1\"7\n\x11ResourceGrantSpec\x12\x13\n\x0bresource_id\x18\x01 \x01(\t\x12\r\n\x05level\x18\x02 \x01(\t\"\x8a\x01\n\x02Me\x12\x0f\n\x07subject\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\r\n\x05\x65mail\x18\x03 \x01(\t\x12\x0c\n\x04name\x18\x04 \x01(\t\x12\x11\n\tproviders\x18\x05 \x03(\t\x12\x12\n\naccount_id\x18\n \x01(\t\x12\x1e\n\x04role\x18\x0b \x01(\x0e\x32\x10.dop.bff.v1.Role\"\xd9\x01\n\x0e\x41\x63\x63ountSummary\x12\n\n\x02id\x18\x01 \x01(\t\x12-\n\x04kind\x18\x02 \x01(\x0e\x32\x1f.dop.bff.v1.AccountSummary.Kind\x12\x0e\n\x06handle\x18\x03 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x04 \x01(\t\x12\x1e\n\x04role\x18\x05 \x01(\x0e\x32\x10.dop.bff.v1.Role\"F\n\x04Kind\x12\x14\n\x10KIND_UNSPECIFIED\x10\x00\x12\x11\n\rKIND_PERSONAL\x10\x01\x12\x15\n\x11KIND_ORGANIZATION\x10\x02\"L\n\rMemberSummary\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x1e\n\x04role\x18\x03 \x01(\x0e\x32\x10.dop.bff.v1.Role\"\xef\x01\n\rInviteSummary\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05\x65mail\x18\x02 \x01(\t\x12\x1e\n\x04role\x18\x03 \x01(\x0e\x32\x10.dop.bff.v1.Role\x12\x30\n\x06status\x18\x04 \x01(\x0e\x32 .dop.bff.v1.InviteSummary.Status\"q\n\x06Status\x12\x16\n\x12STATUS_UNSPECIFIED\x10\x00\x12\x12\n\x0eSTATUS_PENDING\x10\x01\x12\x13\n\x0fSTATUS_ACCEPTED\x10\x02\x12\x12\n\x0eSTATUS_EXPIRED\x10\x03\x12\x12\n\x0eSTATUS_REVOKED\x10\x04\"\x0e\n\x0cGetMeRequest\"\x15\n\x13ListAccountsRequest\"D\n\x14ListAccountsResponse\x12,\n\x08\x61\x63\x63ounts\x18\x01 \x03(\x0b\x32\x1a.dop.bff.v1.AccountSummary\"\x14\n\x12ListMembersRequest\"A\n\x13ListMembersResponse\x12*\n\x07members\x18\x01 \x03(\x0b\x32\x19.dop.bff.v1.MemberSummary\"g\n\x14\x43reateAccountRequest\x12\x0e\n\x06handle\x18\x01 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\x12\x10\n\x08legal_id\x18\x03 \x01(\t\x12\x17\n\x0fidempotency_key\x18\n \x01(\t\"\x8c\x01\n\x13\x43reateInviteRequest\x12\r\n\x05\x65mail\x18\x01 \x01(\t\x12\x1e\n\x04role\x18\x02 \x01(\x0e\x32\x10.dop.bff.v1.Role\x12-\n\x06grants\x18\x03 \x03(\x0b\x32\x1d.dop.bff.v1.ResourceGrantSpec\x12\x17\n\x0fidempotency_key\x18\n \x01(\t*a\n\x04Role\x12\x14\n\x10ROLE_UNSPECIFIED\x10\x00\x12\x0e\n\nROLE_OWNER\x10\x01\x12\x0e\n\nROLE_ADMIN\x10\x02\x12\x12\n\x0eROLE_DEVELOPER\x10\x03\x12\x0f\n\x0bROLE_VIEWER\x10\x04\x32\x82\x03\n\x0fIdentityService\x12\x31\n\x05GetMe\x12\x18.dop.bff.v1.GetMeRequest\x1a\x0e.dop.bff.v1.Me\x12Q\n\x0cListAccounts\x12\x1f.dop.bff.v1.ListAccountsRequest\x1a .dop.bff.v1.ListAccountsResponse\x12N\n\x0bListMembers\x12\x1e.dop.bff.v1.ListMembersRequest\x1a\x1f.dop.bff.v1.ListMembersResponse\x12M\n\rCreateAccount\x12 .dop.bff.v1.CreateAccountRequest\x1a\x1a.dop.bff.v1.AccountSummary\x12J\n\x0c\x43reateInvite\x12\x1f.dop.bff.v1.CreateInviteRequest\x1a\x19.dop.bff.v1.InviteSummaryb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x64op/bff/v1/identity.proto\x12\ndop.bff.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"7\n\x11ResourceGrantSpec\x12\x13\n\x0bresource_id\x18\x01 \x01(\t\x12\r\n\x05level\x18\x02 \x01(\t\"\x8a\x01\n\x02Me\x12\x0f\n\x07subject\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\r\n\x05\x65mail\x18\x03 \x01(\t\x12\x0c\n\x04name\x18\x04 \x01(\t\x12\x11\n\tproviders\x18\x05 \x03(\t\x12\x12\n\naccount_id\x18\n \x01(\t\x12\x1e\n\x04role\x18\x0b \x01(\x0e\x32\x10.dop.bff.v1.Role\"\xd9\x01\n\x0e\x41\x63\x63ountSummary\x12\n\n\x02id\x18\x01 \x01(\t\x12-\n\x04kind\x18\x02 \x01(\x0e\x32\x1f.dop.bff.v1.AccountSummary.Kind\x12\x0e\n\x06handle\x18\x03 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x04 \x01(\t\x12\x1e\n\x04role\x18\x05 \x01(\x0e\x32\x10.dop.bff.v1.Role\"F\n\x04Kind\x12\x14\n\x10KIND_UNSPECIFIED\x10\x00\x12\x11\n\rKIND_PERSONAL\x10\x01\x12\x15\n\x11KIND_ORGANIZATION\x10\x02\"L\n\rMemberSummary\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x1e\n\x04role\x18\x03 \x01(\x0e\x32\x10.dop.bff.v1.Role\"\x9f\x02\n\rInviteSummary\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05\x65mail\x18\x02 \x01(\t\x12\x1e\n\x04role\x18\x03 \x01(\x0e\x32\x10.dop.bff.v1.Role\x12\x30\n\x06status\x18\x04 \x01(\x0e\x32 .dop.bff.v1.InviteSummary.Status\x12.\n\nexpires_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"q\n\x06Status\x12\x16\n\x12STATUS_UNSPECIFIED\x10\x00\x12\x12\n\x0eSTATUS_PENDING\x10\x01\x12\x13\n\x0fSTATUS_ACCEPTED\x10\x02\x12\x12\n\x0eSTATUS_EXPIRED\x10\x03\x12\x12\n\x0eSTATUS_REVOKED\x10\x04\"\xc3\x01\n\rInvitePreview\x12\n\n\x02id\x18\x01 \x01(\t\x12\x14\n\x0c\x61\x63\x63ount_name\x18\x02 \x01(\t\x12\x1e\n\x04role\x18\x03 \x01(\x0e\x32\x10.dop.bff.v1.Role\x12\x30\n\x06status\x18\x04 \x01(\x0e\x32 .dop.bff.v1.InviteSummary.Status\x12.\n\nexpires_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06usable\x18\x06 \x01(\x08\"\x14\n\x12ListInvitesRequest\"A\n\x13ListInvitesResponse\x12*\n\x07invites\x18\x01 \x03(\x0b\x32\x19.dop.bff.v1.InviteSummary\"\x1e\n\x10GetInviteRequest\x12\n\n\x02id\x18\x01 \x01(\t\"!\n\x13\x41\x63\x63\x65ptInviteRequest\x12\n\n\x02id\x18\x01 \x01(\t\"c\n\x14\x41\x63\x63\x65ptInviteResponse\x12+\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32\x1a.dop.bff.v1.AccountSummary\x12\x1e\n\x04role\x18\x02 \x01(\x0e\x32\x10.dop.bff.v1.Role\"!\n\x13RevokeInviteRequest\x12\n\n\x02id\x18\x01 \x01(\t\"L\n\x13UpdateMemberRequest\x12\x15\n\rmembership_id\x18\x01 \x01(\t\x12\x1e\n\x04role\x18\x02 \x01(\x0e\x32\x10.dop.bff.v1.Role\"\x0e\n\x0cGetMeRequest\"\x15\n\x13ListAccountsRequest\"D\n\x14ListAccountsResponse\x12,\n\x08\x61\x63\x63ounts\x18\x01 \x03(\x0b\x32\x1a.dop.bff.v1.AccountSummary\"\x14\n\x12ListMembersRequest\"A\n\x13ListMembersResponse\x12*\n\x07members\x18\x01 \x03(\x0b\x32\x19.dop.bff.v1.MemberSummary\"g\n\x14\x43reateAccountRequest\x12\x0e\n\x06handle\x18\x01 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\x12\x10\n\x08legal_id\x18\x03 \x01(\t\x12\x17\n\x0fidempotency_key\x18\n \x01(\t\"\x8c\x01\n\x13\x43reateInviteRequest\x12\r\n\x05\x65mail\x18\x01 \x01(\t\x12\x1e\n\x04role\x18\x02 \x01(\x0e\x32\x10.dop.bff.v1.Role\x12-\n\x06grants\x18\x03 \x03(\x0b\x32\x1d.dop.bff.v1.ResourceGrantSpec\x12\x17\n\x0fidempotency_key\x18\n \x01(\t*a\n\x04Role\x12\x14\n\x10ROLE_UNSPECIFIED\x10\x00\x12\x0e\n\nROLE_OWNER\x10\x01\x12\x0e\n\nROLE_ADMIN\x10\x02\x12\x12\n\x0eROLE_DEVELOPER\x10\x03\x12\x0f\n\x0bROLE_VIEWER\x10\x04\x32\x83\x06\n\x0fIdentityService\x12\x31\n\x05GetMe\x12\x18.dop.bff.v1.GetMeRequest\x1a\x0e.dop.bff.v1.Me\x12Q\n\x0cListAccounts\x12\x1f.dop.bff.v1.ListAccountsRequest\x1a .dop.bff.v1.ListAccountsResponse\x12N\n\x0bListMembers\x12\x1e.dop.bff.v1.ListMembersRequest\x1a\x1f.dop.bff.v1.ListMembersResponse\x12M\n\rCreateAccount\x12 .dop.bff.v1.CreateAccountRequest\x1a\x1a.dop.bff.v1.AccountSummary\x12J\n\x0c\x43reateInvite\x12\x1f.dop.bff.v1.CreateInviteRequest\x1a\x19.dop.bff.v1.InviteSummary\x12N\n\x0bListInvites\x12\x1e.dop.bff.v1.ListInvitesRequest\x1a\x1f.dop.bff.v1.ListInvitesResponse\x12\x44\n\tGetInvite\x12\x1c.dop.bff.v1.GetInviteRequest\x1a\x19.dop.bff.v1.InvitePreview\x12Q\n\x0c\x41\x63\x63\x65ptInvite\x12\x1f.dop.bff.v1.AcceptInviteRequest\x1a .dop.bff.v1.AcceptInviteResponse\x12J\n\x0cRevokeInvite\x12\x1f.dop.bff.v1.RevokeInviteRequest\x1a\x19.dop.bff.v1.InviteSummary\x12J\n\x0cUpdateMember\x12\x1f.dop.bff.v1.UpdateMemberRequest\x1a\x19.dop.bff.v1.MemberSummaryb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'dop.bff.v1.identity_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_ROLE']._serialized_start=1225
-  _globals['_ROLE']._serialized_end=1322
-  _globals['_RESOURCEGRANTSPEC']._serialized_start=41
-  _globals['_RESOURCEGRANTSPEC']._serialized_end=96
-  _globals['_ME']._serialized_start=99
-  _globals['_ME']._serialized_end=237
-  _globals['_ACCOUNTSUMMARY']._serialized_start=240
-  _globals['_ACCOUNTSUMMARY']._serialized_end=457
-  _globals['_ACCOUNTSUMMARY_KIND']._serialized_start=387
-  _globals['_ACCOUNTSUMMARY_KIND']._serialized_end=457
-  _globals['_MEMBERSUMMARY']._serialized_start=459
-  _globals['_MEMBERSUMMARY']._serialized_end=535
-  _globals['_INVITESUMMARY']._serialized_start=538
-  _globals['_INVITESUMMARY']._serialized_end=777
-  _globals['_INVITESUMMARY_STATUS']._serialized_start=664
-  _globals['_INVITESUMMARY_STATUS']._serialized_end=777
-  _globals['_GETMEREQUEST']._serialized_start=779
-  _globals['_GETMEREQUEST']._serialized_end=793
-  _globals['_LISTACCOUNTSREQUEST']._serialized_start=795
-  _globals['_LISTACCOUNTSREQUEST']._serialized_end=816
-  _globals['_LISTACCOUNTSRESPONSE']._serialized_start=818
-  _globals['_LISTACCOUNTSRESPONSE']._serialized_end=886
-  _globals['_LISTMEMBERSREQUEST']._serialized_start=888
-  _globals['_LISTMEMBERSREQUEST']._serialized_end=908
-  _globals['_LISTMEMBERSRESPONSE']._serialized_start=910
-  _globals['_LISTMEMBERSRESPONSE']._serialized_end=975
-  _globals['_CREATEACCOUNTREQUEST']._serialized_start=977
-  _globals['_CREATEACCOUNTREQUEST']._serialized_end=1080
-  _globals['_CREATEINVITEREQUEST']._serialized_start=1083
-  _globals['_CREATEINVITEREQUEST']._serialized_end=1223
-  _globals['_IDENTITYSERVICE']._serialized_start=1325
-  _globals['_IDENTITYSERVICE']._serialized_end=1711
+  _globals['_ROLE']._serialized_start=1874
+  _globals['_ROLE']._serialized_end=1971
+  _globals['_RESOURCEGRANTSPEC']._serialized_start=74
+  _globals['_RESOURCEGRANTSPEC']._serialized_end=129
+  _globals['_ME']._serialized_start=132
+  _globals['_ME']._serialized_end=270
+  _globals['_ACCOUNTSUMMARY']._serialized_start=273
+  _globals['_ACCOUNTSUMMARY']._serialized_end=490
+  _globals['_ACCOUNTSUMMARY_KIND']._serialized_start=420
+  _globals['_ACCOUNTSUMMARY_KIND']._serialized_end=490
+  _globals['_MEMBERSUMMARY']._serialized_start=492
+  _globals['_MEMBERSUMMARY']._serialized_end=568
+  _globals['_INVITESUMMARY']._serialized_start=571
+  _globals['_INVITESUMMARY']._serialized_end=858
+  _globals['_INVITESUMMARY_STATUS']._serialized_start=745
+  _globals['_INVITESUMMARY_STATUS']._serialized_end=858
+  _globals['_INVITEPREVIEW']._serialized_start=861
+  _globals['_INVITEPREVIEW']._serialized_end=1056
+  _globals['_LISTINVITESREQUEST']._serialized_start=1058
+  _globals['_LISTINVITESREQUEST']._serialized_end=1078
+  _globals['_LISTINVITESRESPONSE']._serialized_start=1080
+  _globals['_LISTINVITESRESPONSE']._serialized_end=1145
+  _globals['_GETINVITEREQUEST']._serialized_start=1147
+  _globals['_GETINVITEREQUEST']._serialized_end=1177
+  _globals['_ACCEPTINVITEREQUEST']._serialized_start=1179
+  _globals['_ACCEPTINVITEREQUEST']._serialized_end=1212
+  _globals['_ACCEPTINVITERESPONSE']._serialized_start=1214
+  _globals['_ACCEPTINVITERESPONSE']._serialized_end=1313
+  _globals['_REVOKEINVITEREQUEST']._serialized_start=1315
+  _globals['_REVOKEINVITEREQUEST']._serialized_end=1348
+  _globals['_UPDATEMEMBERREQUEST']._serialized_start=1350
+  _globals['_UPDATEMEMBERREQUEST']._serialized_end=1426
+  _globals['_GETMEREQUEST']._serialized_start=1428
+  _globals['_GETMEREQUEST']._serialized_end=1442
+  _globals['_LISTACCOUNTSREQUEST']._serialized_start=1444
+  _globals['_LISTACCOUNTSREQUEST']._serialized_end=1465
+  _globals['_LISTACCOUNTSRESPONSE']._serialized_start=1467
+  _globals['_LISTACCOUNTSRESPONSE']._serialized_end=1535
+  _globals['_LISTMEMBERSREQUEST']._serialized_start=1537
+  _globals['_LISTMEMBERSREQUEST']._serialized_end=1557
+  _globals['_LISTMEMBERSRESPONSE']._serialized_start=1559
+  _globals['_LISTMEMBERSRESPONSE']._serialized_end=1624
+  _globals['_CREATEACCOUNTREQUEST']._serialized_start=1626
+  _globals['_CREATEACCOUNTREQUEST']._serialized_end=1729
+  _globals['_CREATEINVITEREQUEST']._serialized_start=1732
+  _globals['_CREATEINVITEREQUEST']._serialized_end=1872
+  _globals['_IDENTITYSERVICE']._serialized_start=1974
+  _globals['_IDENTITYSERVICE']._serialized_end=2745
 # @@protoc_insertion_point(module_scope)
