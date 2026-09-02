@@ -1,16 +1,16 @@
-"""Servicer gRPC de custo — adaptador protobuf sobre os casos de uso.
+"""The cost gRPC servicer — a protobuf adapter over the use cases.
 
-Simétrico a `app/routers/cost.py`: recebe mensagem, chama a MESMA função de
-`app/usecases/cost.py`, devolve mensagem. Nenhuma decisão aqui — nem qual
-modelo atende qual trabalho, nem o que é estouro.
+Symmetric to `app/routers/cost.py`: it receives a message, calls the SAME
+function from `app/usecases/cost.py`, returns a message. No decisions here —
+neither which model serves which work, nor what counts as an overrun.
 
-Dois cuidados que este arquivo não pode perder:
+Two cares this file must not lose:
 
-  - **dinheiro é `int64` em micros.** Não há divisão nem `float` neste arquivo,
-    e não deve passar a haver: a conversão para a unidade da moeda é trabalho
-    da tela, que sabe a localidade;
-  - **`remaining` ausente é ausente.** Escopo sem teto não tem sobra a mostrar,
-    e um `Money` zerado diria "acabou o dinheiro".
+  - **money is an `int64` in micros.** There is no division and no `float` in
+    this file, and there must not come to be: converting to the currency's unit
+    is the screen's job, which knows the locale;
+  - **an absent `remaining` is absent.** A scope with no ceiling has no
+    remainder to show, and a zeroed `Money` would say "the money ran out".
 """
 
 from app.grpcapi.gen.dop.bff.v1 import cost_pb2 as bff
@@ -46,8 +46,8 @@ def _usage(u: uc.UsageEventSummary) -> bff.UsageEvent:
         cache_creation_tokens=u.cache_creation_tokens,
         cost=_money(u.cost),
     )
-    # Evento sem data fica sem data: o zero do protobuf é 1970, e 1970 numa
-    # tela de custo parece um evento antiquíssimo em vez de um evento sem data.
+    # An event with no date stays without one: protobuf's zero is 1970, and 1970
+    # on a cost screen looks like an ancient event rather than an undated one.
     if u.at is not None:
         msg.at.FromDatetime(u.at)
     return msg
@@ -62,9 +62,10 @@ class CostServicer(bff_grpc.CostServiceServicer):
             task_kind=d.task_kind,
             model=d.model,
             effort=d.effort,
-            # A justificativa vai INTEIRA, com a proveniência que vem na frente
-            # dela. É o que permite auditar e recalibrar; resumir aqui jogaria
-            # fora a única parte contestável da resposta.
+            # The justification goes WHOLE, with the provenance that comes up
+            # front. It is what makes auditing and recalibrating possible;
+            # summarizing here would throw away the only challengeable part of
+            # the answer.
             reason=d.reason,
         )
 
@@ -95,9 +96,9 @@ class CostServicer(bff_grpc.CostServiceServicer):
             currency=u.cost.currency,
         )
         out = await uc.record_usage(body, request.idempotency_key)
-        # Estouro NÃO vira `context.abort`: o corte da ADR-0011 §2 é suave, e um
-        # RESOURCE_EXHAUSTED aqui faria o chamador achar que o consumo não foi
-        # registrado — ele foi.
+        # An overrun does NOT become a `context.abort`: ADR-0011 §2's cut is
+        # soft, and a RESOURCE_EXHAUSTED here would make the caller think the
+        # consumption was not recorded — it was.
         return bff.RecordUsageOutcome(
             recorded=out.recorded,
             budget_exceeded=out.budget_exceeded,

@@ -1,13 +1,13 @@
-"""Servicer gRPC de conhecimento — adaptador protobuf sobre os casos de uso.
+"""The knowledge gRPC servicer — a protobuf adapter over the use cases.
 
-Simétrico a `app/routers/knowledge.py`: recebe mensagem, chama a MESMA função
-de `app/usecases/knowledge.py`, devolve mensagem. Nenhuma decisão aqui — nem
-autorização, nem curadoria, nem chamada ao núcleo.
+Symmetric to `app/routers/knowledge.py`: it receives a message, calls the SAME
+function from `app/usecases/knowledge.py`, returns a message. No decisions here
+— neither authorization, nor curation, nor a call to the core.
 
-O único cuidado que este arquivo exige é o de sempre: campo de mensagem só se
-preenche quando existe. `dropped` ausente e `dropped` zerado dizem coisas
-opostas sobre o pacote de contexto, e `CopyFrom` de um vazio apagaria a
-diferença.
+The only care this file requires is the usual one: a message field is only
+filled in when it exists. An absent `dropped` and a zeroed `dropped` say
+opposite things about the context package, and a `CopyFrom` of an empty one
+would erase the difference.
 """
 
 import base64
@@ -20,14 +20,15 @@ from app.grpcapi.gen.dop.bff.v1 import knowledge_pb2 as bff
 from app.grpcapi.gen.dop.bff.v1 import knowledge_pb2_grpc as bff_grpc
 from app.usecases import knowledge as uc
 
-# Enum da borda ↔ nome do caso de uso. Os números são os mesmos de
-# dop.v1.KnowledgeArtifact.Kind, então a conversão é identidade, não tradução.
-_NOME_POR_ENUM = {
+# The edge's enum ↔ the use case's name. The numbers are the same as
+# dop.v1.KnowledgeArtifact.Kind's, so the conversion is the identity, not a
+# translation.
+_NAME_BY_ENUM = {
     bff.KNOWLEDGE_KIND_RULE: "rule",
     bff.KNOWLEDGE_KIND_INDEX: "index",
     bff.KNOWLEDGE_KIND_MEMORY: "memory",
 }
-_ENUM_POR_NOME = {v: k for k, v in _NOME_POR_ENUM.items()}
+_ENUM_BY_NAME = {v: k for k, v in _NAME_BY_ENUM.items()}
 
 
 def _struct(d: dict) -> struct_pb2.Struct:
@@ -39,7 +40,7 @@ def _struct(d: dict) -> struct_pb2.Struct:
 def _artifact(a: uc.ArtifactSummary) -> bff.KnowledgeArtifact:
     return bff.KnowledgeArtifact(
         id=a.id,
-        kind=_ENUM_POR_NOME.get(a.kind, bff.KNOWLEDGE_KIND_UNSPECIFIED),
+        kind=_ENUM_BY_NAME.get(a.kind, bff.KNOWLEDGE_KIND_UNSPECIFIED),
         project_id=a.project_id,
         name=a.name,
         version=a.version,
@@ -51,8 +52,8 @@ def _artifact(a: uc.ArtifactSummary) -> bff.KnowledgeArtifact:
 
 
 def _finding(f: uc.FindingSummary) -> bff_demand.Finding:
-    # `Finding` é do contrato de demanda: o achado do pacote de contexto e o do
-    # cockpit são a MESMA coisa vista de dois lugares.
+    # `Finding` belongs to the demand's contract: the context package's finding
+    # and the cockpit's are the SAME thing seen from two places.
     return bff_demand.Finding(
         id=f.id, thread_id=f.thread_id, title=f.title, payload=_struct(f.payload)
     )
@@ -67,9 +68,9 @@ def _pacote(p: uc.ContextPackageSummary) -> bff.ContextPackage:
         findings=[_finding(f) for f in p.findings],
         estimated_tokens=p.estimated_tokens,
     )
-    # Só preenche quando o núcleo informou. Um `dropped` zerado afirmaria que
-    # nada foi descartado — que é justamente a mentira que o campo existe para
-    # impedir.
+    # It only fills in when the core reported. A zeroed `dropped` would assert
+    # that nothing was dropped — which is precisely the lie the field exists to
+    # prevent.
     if p.dropped is not None:
         msg.dropped.CopyFrom(
             bff.DroppedCounts(
@@ -85,7 +86,7 @@ def _pacote(p: uc.ContextPackageSummary) -> bff.ContextPackage:
 
 def _hit(h: uc.MemoryHit) -> bff.MemoryHit:
     msg = bff.MemoryHit(artifact=_artifact(h.artifact))
-    # Score ausente fica ausente: `optional` no proto existe para isso.
+    # An absent score stays absent: `optional` in the proto exists for that.
     if h.score is not None:
         msg.score = h.score
     return msg
@@ -116,17 +117,18 @@ class KnowledgeServicer(bff_grpc.KnowledgeServiceServicer):
     async def PutArtifact(
         self, request: bff.PutArtifactRequest, context
     ) -> bff.KnowledgeArtifact:
-        # O caso de uso recebe base64 porque é assim que o REST o entrega; aqui
-        # os bytes já vêm crus. Uma assinatura só para os dois transportes vale
-        # o reencode — duas assinaturas valeriam duas implementações.
+        # The use case takes base64 because that is how REST delivers it; here
+        # the bytes already arrive raw. A single signature for both transports is
+        # worth the re-encode — two signatures would be worth two
+        # implementations.
         body = uc.NewArtifact(
-            kind=_NOME_POR_ENUM.get(request.kind, ""),
+            kind=_NAME_BY_ENUM.get(request.kind, ""),
             name=request.name,
             project_id=request.project_id,
             content_base64=base64.b64encode(request.content).decode(),
-            # MessageToDict e não `dict(...)`: o segundo devolveria
-            # submensagens do protobuf nos níveis aninhados, e o Struct de
-            # volta não as aceita.
+            # MessageToDict and not `dict(...)`: the second would return
+            # protobuf submessages at the nested levels, and the Struct on the
+            # way back does not accept them.
             meta=MessageToDict(request.meta) if request.HasField("meta") else {},
         )
         return _artifact(await uc.put_artifact(body, request.idempotency_key))

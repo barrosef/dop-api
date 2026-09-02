@@ -1,7 +1,7 @@
-"""Servicer gRPC de recursos — adaptador protobuf sobre os casos de uso.
+"""The resource gRPC servicer — a protobuf adapter over the use cases.
 
-Nenhuma decisão aqui. Em particular: nenhum caminho que devolva o segredo —
-`SetCredential` responde o recurso, e o recurso não carrega valor nenhum.
+No decisions here. In particular: no path that returns the secret —
+`SetCredential` answers with the resource, and the resource carries no value.
 """
 
 import base64
@@ -12,15 +12,15 @@ from app.grpcapi.gen.dop.bff.v1 import resource_pb2 as bff
 from app.grpcapi.gen.dop.bff.v1 import resource_pb2_grpc as bff_grpc
 from app.usecases import resource as uc
 
-# Enum da borda ↔ nome do caso de uso. Os números são os mesmos de
-# dop.v1.Resource.Kind, então a conversão é identidade, não tradução.
-_NOME_POR_ENUM = {
+# The edge's enum ↔ the use case's name. The numbers are the same as
+# dop.v1.Resource.Kind's, so the conversion is the identity, not a translation.
+_NAME_BY_ENUM = {
     bff.RESOURCE_KIND_INTEGRATION: "integration",
     bff.RESOURCE_KIND_SKILL: "skill",
     bff.RESOURCE_KIND_WORKFLOW: "workflow",
     bff.RESOURCE_KIND_GIT_FLOW: "git_flow",
 }
-_ENUM_POR_NOME = {v: k for k, v in _NOME_POR_ENUM.items()}
+_ENUM_BY_NAME = {v: k for k, v in _NAME_BY_ENUM.items()}
 
 
 def _resource(r: uc.ResourceSummary) -> bff.Resource:
@@ -28,7 +28,7 @@ def _resource(r: uc.ResourceSummary) -> bff.Resource:
     config.update(r.config)
     return bff.Resource(
         id=r.id,
-        kind=_ENUM_POR_NOME.get(r.kind, bff.RESOURCE_KIND_UNSPECIFIED),
+        kind=_ENUM_BY_NAME.get(r.kind, bff.RESOURCE_KIND_UNSPECIFIED),
         name=r.name,
         version=r.version,
         config=config,
@@ -40,7 +40,7 @@ class ResourceServicer(bff_grpc.ResourceServiceServicer):
     async def ListResources(
         self, request: bff.ListResourcesRequest, context
     ) -> bff.ListResourcesResponse:
-        kind = _NOME_POR_ENUM.get(request.kind, "")
+        kind = _NAME_BY_ENUM.get(request.kind, "")
         return bff.ListResourcesResponse(
             resources=[_resource(r) for r in await uc.list_resources(kind)]
         )
@@ -52,7 +52,7 @@ class ResourceServicer(bff_grpc.ResourceServiceServicer):
         self, request: bff.CreateResourceRequest, context
     ) -> bff.Resource:
         body = uc.NewResource(
-            kind=_NOME_POR_ENUM.get(request.kind, ""),
+            kind=_NAME_BY_ENUM.get(request.kind, ""),
             name=request.name,
             config=dict(request.config) if request.HasField("config") else {},
         )
@@ -61,9 +61,9 @@ class ResourceServicer(bff_grpc.ResourceServiceServicer):
     async def SetCredential(
         self, request: bff.SetCredentialRequest, context
     ) -> bff.Resource:
-        # O caso de uso recebe base64 porque é assim que o REST o entrega; aqui
-        # os bytes já vêm crus e voltam a ser codificados. Uma assinatura só
-        # para os dois transportes vale o reencode.
+        # The use case takes base64 because that is how REST delivers it; here
+        # the bytes already arrive raw and are encoded again. A single signature
+        # for both transports is worth the re-encode.
         body = uc.NewCredential(secret_base64=base64.b64encode(request.secret).decode())
         return _resource(await uc.set_credential(request.resource_id, body))
 

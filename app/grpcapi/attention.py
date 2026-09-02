@@ -1,29 +1,30 @@
-"""Servicer gRPC da caixa de atenção — adaptador protobuf sobre os casos de uso.
+"""The attention box's gRPC servicer — a protobuf adapter over the use cases.
 
-Simétrico a `app/routers/attention.py`: recebe mensagem, chama a MESMA função de
-`app/usecases/attention.py`, devolve mensagem. Nenhuma decisão aqui — nem
-autorização, nem chamada ao núcleo, nem o agrupamento por demanda (esse vem
-pronto do caso de uso, senão as duas portas agrupariam de jeitos diferentes e a
-mesma fila apareceria em duas ordens).
+Symmetric to `app/routers/attention.py`: it receives a message, calls the SAME
+function from `app/usecases/attention.py`, returns a message. No decisions here
+— neither authorization, nor a call to the core, nor the grouping by demand
+(that comes ready from the use case, or the two ports would group in different
+ways and the same queue would appear in two orders).
 
-Por que a porta gRPC também oferece a caixa, em vez de mandar todo mundo usar
-REST+SSE: o `dop-cli` já fala gRPC e já carrega o token no metadado, e "onde eu
-sou necessário agora" é exatamente a pergunta que se faz do terminal. Obrigá-lo
-a implementar `text/event-stream` para acompanhar a mesma fila seria pedir um
-segundo cliente para o mesmo dado.
+Why the gRPC port offers the box too, instead of telling everybody to use
+REST+SSE: `dop-cli` already speaks gRPC and already carries the token in the
+metadata, and "where am I needed now" is exactly the question one asks from the
+terminal. Forcing it to implement `text/event-stream` to follow the same queue
+would be asking for a second client for the same data.
 
-`WatchAttention` é uma função GERADORA. Não é estilo: o `grpc.aio` escolhe como
-executar o handler a partir disso — ver o docstring de `interceptors.py`.
+`WatchAttention` is a GENERATOR function. It is not style: `grpc.aio` chooses how
+to run the handler from that — see `interceptors.py`'s docstring.
 """
 
 from app.grpcapi.gen.dop.bff.v1 import attention_pb2 as bff
 from app.grpcapi.gen.dop.bff.v1 import attention_pb2_grpc as bff_grpc
 from app.usecases import attention as uc
 
-# Nome ↔ enum na direção da saída. A tabela do caso de uso vai do enum do NÚCLEO
-# para o nome; esta vai do nome para o enum da BORDA. São dois contratos
-# diferentes, e um dicionário só (invertido na hora) esconderia isso.
-ENUM_POR_KIND: dict[str, int] = {
+# Name ↔ enum in the outbound direction. The use case's table goes from the
+# CORE's enum to the name; this one goes from the name to the EDGE's enum. They
+# are two different contracts, and a single dictionary (inverted on the fly)
+# would hide that.
+ENUM_BY_KIND: dict[str, int] = {
     "thread_blocked": bff.ATTENTION_KIND_THREAD_BLOCKED,
     "gate_pending": bff.ATTENTION_KIND_GATE_PENDING,
     "pr_review": bff.ATTENTION_KIND_PR_REVIEW,
@@ -33,7 +34,7 @@ ENUM_POR_KIND: dict[str, int] = {
     "integration_broken": bff.ATTENTION_KIND_INTEGRATION_BROKEN,
 }
 
-ENUM_POR_CHANGE: dict[str, int] = {
+ENUM_BY_CHANGE: dict[str, int] = {
     "opened": bff.ATTENTION_CHANGE_OPENED,
     "resolved": bff.ATTENTION_CHANGE_RESOLVED,
 }
@@ -42,7 +43,7 @@ ENUM_POR_CHANGE: dict[str, int] = {
 def _item(i: uc.AttentionItem) -> bff.AttentionItem:
     msg = bff.AttentionItem(
         id=i.id,
-        kind=ENUM_POR_KIND.get(i.kind, bff.ATTENTION_KIND_UNSPECIFIED),
+        kind=ENUM_BY_KIND.get(i.kind, bff.ATTENTION_KIND_UNSPECIFIED),
         target_kind=i.target_kind,
         target_id=i.target_id,
         demand_id=i.demand_id,
@@ -50,8 +51,8 @@ def _item(i: uc.AttentionItem) -> bff.AttentionItem:
         summary=i.summary,
         priority=i.priority,
     )
-    # Só preenche o que existe: um Timestamp zerado diria "aberto em 1970", e do
-    # outro lado o HasField responderia que há data.
+    # It only fills in what exists: a zeroed Timestamp would say "opened in
+    # 1970", and on the other side HasField would answer that there is a date.
     if i.opened_at is not None:
         msg.opened_at.FromDatetime(i.opened_at)
     if i.resolved_at is not None:
@@ -63,29 +64,29 @@ class AttentionServicer(bff_grpc.AttentionServiceServicer):
     async def ListAttention(
         self, request: bff.ListAttentionRequest, context
     ) -> bff.AttentionBox:
-        caixa = await uc.list_attention(
+        box = await uc.list_attention(
             request.include_resolved, request.demand_id, request.page_size
         )
         return bff.AttentionBox(
-            items=[_item(i) for i in caixa.items],
+            items=[_item(i) for i in box.items],
             groups=[
                 bff.AttentionGroup(
                     demand_id=g.demand_id, items=[_item(i) for i in g.items]
                 )
-                for g in caixa.groups
+                for g in box.groups
             ],
-            open_total=caixa.open_total,
+            open_total=box.open_total,
         )
 
     async def WatchAttention(self, request: bff.WatchAttentionRequest, context):
-        # O caso de uso é chamado ANTES do primeiro `yield`, e é essa chamada
-        # que dispara o @account_scoped — recusa sai como status, sem o cliente
-        # ter recebido um stream vazio que parece sucesso.
-        fonte = uc.watch_attention(since_event_id=request.since_event_id)
-        async for atualizacao in fonte:
+        # The use case is called BEFORE the first `yield`, and it is that call
+        # that fires @account_scoped — a refusal comes out as a status, without
+        # the client having received an empty stream that looks like success.
+        source = uc.watch_attention(since_event_id=request.since_event_id)
+        async for update in source:
             yield bff.AttentionUpdate(
-                change=ENUM_POR_CHANGE.get(
-                    atualizacao.change, bff.ATTENTION_CHANGE_UNSPECIFIED
+                change=ENUM_BY_CHANGE.get(
+                    update.change, bff.ATTENTION_CHANGE_UNSPECIFIED
                 ),
-                item=_item(atualizacao.item),
+                item=_item(update.item),
             )

@@ -1,32 +1,32 @@
-"""Servicer gRPC do substrato — adaptador protobuf sobre os casos de uso.
+"""The substrate gRPC servicer — a protobuf adapter over the use cases.
 
-Simétrico a `app/routers/execution.py`: recebe mensagem, chama a MESMA função
-de `app/usecases/execution.py`, devolve mensagem. Nenhuma decisão aqui.
+Symmetric to `app/routers/execution.py`: it receives a message, calls the SAME
+function from `app/usecases/execution.py`, returns a message. No decisions here.
 
-E, em particular, **nenhum default de isolamento**: `ISOLATION_TIER_UNSPECIFIED`
-vira string vazia, o modelo do caso de uso a recusa e o cliente recebe
-INVALID_ARGUMENT. Preencher o vazio "para o cliente não precisar pensar" seria
-o servicer decidindo o isolamento — exatamente o que a spec do substrato §2
-proíbe, e da forma mais difícil de auditar: em silêncio.
+And, in particular, **no isolation default**: `ISOLATION_TIER_UNSPECIFIED`
+becomes an empty string, the use case's model refuses it and the client receives
+INVALID_ARGUMENT. Filling the gap "so the client does not have to think" would
+be the servicer deciding the isolation — exactly what the substrate spec §2
+forbids, and in the hardest way to audit: in silence.
 
-`StreamLogs` não está aqui de propósito — o streaming da borda está sendo
-desenhado em separado.
+`StreamLogs` is deliberately not here — the edge's streaming is being designed
+separately.
 """
 
 from app.grpcapi.gen.dop.bff.v1 import execution_pb2 as bff
 from app.grpcapi.gen.dop.bff.v1 import execution_pb2_grpc as bff_grpc
 from app.usecases import execution as uc
 
-# Enum da borda ↔ nome do caso de uso. Os números são os mesmos de
-# dop.v1.IsolationTier, então a conversão é identidade, não tradução.
-_NOME_POR_TIER = {
+# The edge's enum ↔ the use case's name. The numbers are the same as
+# dop.v1.IsolationTier's, so the conversion is the identity, not a translation.
+_NAME_BY_TIER = {
     bff.ISOLATION_TIER_HARDWARE: "hardware",
     bff.ISOLATION_TIER_KERNEL_EMULATED: "kernel_emulated",
     bff.ISOLATION_TIER_NAMESPACE: "namespace",
 }
-_TIER_POR_NOME = {v: k for k, v in _NOME_POR_TIER.items()}
+_TIER_BY_NAME = {v: k for k, v in _NAME_BY_TIER.items()}
 
-_ESTADO_POR_NOME = {
+_STATE_BY_NAME = {
     "provisioning": bff.Sandbox.STATE_PROVISIONING,
     "active": bff.Sandbox.STATE_ACTIVE,
     "suspended": bff.Sandbox.STATE_SUSPENDED,
@@ -38,16 +38,16 @@ def _sandbox(s: uc.SandboxSummary) -> bff.Sandbox:
     msg = bff.Sandbox(
         id=s.id,
         demand_id=s.demand_id,
-        state=_ESTADO_POR_NOME.get(s.state, bff.Sandbox.STATE_UNSPECIFIED),
-        tier=_TIER_POR_NOME.get(s.tier, bff.ISOLATION_TIER_UNSPECIFIED),
+        state=_STATE_BY_NAME.get(s.state, bff.Sandbox.STATE_UNSPECIFIED),
+        tier=_TIER_BY_NAME.get(s.tier, bff.ISOLATION_TIER_UNSPECIFIED),
         namespace=s.namespace,
         endpoints=[
             bff.SandboxEndpoint(name=e.name, url=e.url, port=e.port, state=e.state)
             for e in s.endpoints
         ],
     )
-    # Sem atividade registrada fica sem: o zero do protobuf é 1970, e a
-    # suspensão automática lê justamente este campo.
+    # With no activity recorded it stays without: protobuf's zero is 1970, and
+    # the automatic suspension reads precisely this field.
     if s.last_active_at is not None:
         msg.last_active_at.FromDatetime(s.last_active_at)
     return msg
@@ -59,10 +59,10 @@ class ExecutionServicer(bff_grpc.ExecutionServiceServicer):
     ) -> bff.Sandbox:
         body = uc.NewSandbox(
             demand_id=request.demand_id,
-            # UNSPECIFIED vira "" e o modelo recusa. É o `get` sem default que
-            # mantém a regra viva: um `.get(x, "namespace")` aqui seria a
-            # presunção entrando pela porta dos fundos.
-            min_tier=_NOME_POR_TIER.get(request.min_tier, ""),
+            # UNSPECIFIED becomes "" and the model refuses. It is the `get` with
+            # no default that keeps the rule alive: a `.get(x, "namespace")` here
+            # would be the presumption coming in through the back door.
+            min_tier=_NAME_BY_TIER.get(request.min_tier, ""),
         )
         return _sandbox(await uc.provision_sandbox(body, request.idempotency_key))
 

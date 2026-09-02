@@ -1,1 +1,1 @@
-"""Porta gRPC do BFF — a mesma camada de casos de uso, outro transporte."""
+"""The BFF's gRPC port — the same use-case layer, another transport."""

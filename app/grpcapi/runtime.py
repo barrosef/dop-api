@@ -1,12 +1,14 @@
-"""Servicer gRPC de execução de turno — adaptador protobuf, nada mais.
+"""The turn-running gRPC servicer — a protobuf adapter, nothing more.
 
-O runtime NÃO vive no BFF (ADR-0023): este servicer chama a mesma função de
-`app/usecases/runtime.py` que a rota REST chama, e ela chama o núcleo.
+The runtime does NOT live in the BFF (ADR-0023): this servicer calls the same
+function from `app/usecases/runtime.py` the REST route calls, and that one calls
+the core.
 
-Provedor indisponível, credencial recusada e conta sem integração de agente
-chegam do núcleo com o status certo e atravessam pelo interceptor de erro de
-sempre — não há tratamento especial aqui, e não deve haver: seria uma segunda
-tradução do mesmo erro, divergindo da do REST no primeiro ajuste.
+An unavailable provider, a refused credential and an account with no agent
+integration arrive from the core with the right status and cross through the
+usual error interceptor — there is no special handling here, and there must not
+be: it would be a second translation of the same error, diverging from REST's at
+the first adjustment.
 """
 
 from app.grpcapi.gen.dop.bff.v1 import runtime_pb2 as bff
@@ -24,8 +26,8 @@ def _outcome(o: uc.TurnOutcome) -> bff.TurnOutcome:
             model=o.routing.model,
             effort=o.routing.effort,
             effort_applied=o.routing.effort_applied,
-            # A justificativa vai INTEIRA, com a proveniência na frente: é a
-            # única parte auditável da decisão de roteamento (ADR-0011 §3).
+            # The justification goes WHOLE, with the provenance up front: it is
+            # the only auditable part of the routing decision (ADR-0011 §3).
             reason=o.routing.reason,
             from_agent_card=o.routing.from_agent_card,
         ),
@@ -44,8 +46,8 @@ def _outcome(o: uc.TurnOutcome) -> bff.TurnOutcome:
         paused=o.paused,
         notice=o.notice,
     )
-    # Ausente ≠ zerado: achado só existe quando a thread concluiu, e um
-    # FindingRef vazio diria que concluiu sem publicar nada.
+    # Absent ≠ zeroed: a finding only exists once the thread has concluded, and
+    # an empty FindingRef would say it concluded without publishing anything.
     if o.finding is not None:
         msg.finding.CopyFrom(bff.FindingRef(id=o.finding.id, title=o.finding.title))
     return msg

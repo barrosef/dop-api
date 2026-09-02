@@ -1,13 +1,13 @@
-"""Servicer gRPC de identidade — adaptador protobuf sobre os casos de uso.
+"""The identity gRPC servicer — a protobuf adapter over the use cases.
 
-Simétrico ao `app/routers/identity.py`: recebe uma mensagem, chama a MESMA
-função de `app/usecases/identity.py`, devolve outra mensagem. Nenhuma decisão
-acontece neste arquivo — nem autorização, nem chamada ao núcleo. Se aparecer
-aqui um `if ctx.role ==`, a duplicação começou.
+Symmetric to `app/routers/identity.py`: it receives a message, calls the SAME
+function from `app/usecases/identity.py`, returns another message. No decision
+happens in this file — neither authorization nor a call to the core. If an
+`if ctx.role ==` shows up here, the duplication has begun.
 
-Autenticação e conta ativa não aparecem na assinatura de nenhum RPC: o
-interceptor já resolveu o principal a partir do token e preencheu o mesmo
-ContextVar que o REST usa. Os decorators no caso de uso leem dali.
+Authentication and the active account appear in no RPC's signature: the
+interceptor has already resolved the principal from the token and filled in the
+same ContextVar REST uses. The decorators in the use case read from there.
 """
 
 from app.grpcapi import convert
@@ -65,16 +65,17 @@ class IdentityServicer(bff_grpc.IdentityServiceServicer):
                     display_name=request.display_name,
                     legal_id=request.legal_id,
                 ),
-                # A chave do cliente vence; vazia, o caso de uso gera a sua.
+                # The client's key wins; empty, the use case generates its own.
                 idempotency_key=request.idempotency_key,
             )
         )
 
     async def CreateInvite(self, request: bff.CreateInviteRequest, context) -> bff.InviteSummary:
-        # Papel ausente (ROLE_UNSPECIFIED) é OMITIDO em vez de virar string
-        # vazia: assim quem escolhe o padrão é o modelo do caso de uso, o mesmo
-        # que o REST usa. Traduzir para "" aqui daria um convite sem papel no
-        # gRPC e com "developer" no REST — divergência silenciosa.
+        # An absent role (ROLE_UNSPECIFIED) is OMITTED rather than becoming an
+        # empty string: that way the one that chooses the default is the use
+        # case's model, the same one REST uses. Translating it to "" here would
+        # give an invite with no role in gRPC and with "developer" in REST — a
+        # silent divergence.
         campos: dict = {
             "email": request.email,
             "grants": [

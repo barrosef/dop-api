@@ -1,8 +1,8 @@
-"""Servicer gRPC de hierarquia — adaptador protobuf sobre os casos de uso.
+"""The hierarchy gRPC servicer — a protobuf adapter over the use cases.
 
-Simétrico a `app/routers/hierarchy.py`: recebe mensagem, chama a MESMA função
-de `app/usecases/hierarchy.py`, devolve mensagem. Nenhuma decisão aqui — nem
-autorização, nem chamada ao núcleo.
+Symmetric to `app/routers/hierarchy.py`: it receives a message, calls the SAME
+function from `app/usecases/hierarchy.py`, returns a message. No decisions here
+— neither authorization nor a call to the core.
 """
 
 from app.grpcapi.gen.dop.bff.v1 import hierarchy_pb2 as bff
@@ -24,8 +24,9 @@ def _project(p: uc.ProjectSummary) -> bff.Project:
         description=p.description,
         rules=p.rules,
     )
-    # Só preenche quando existe: campo de mensagem ausente e zerado são coisas
-    # diferentes, e atribuir um vazio inventaria vínculo onde não há.
+    # It only fills in when it exists: an absent message field and a zeroed one
+    # are different things, and assigning an empty one would invent a binding
+    # where there is none.
     if p.task_manager is not None:
         msg.task_manager.CopyFrom(
             bff.TaskManagerBinding(

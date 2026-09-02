@@ -1,24 +1,24 @@
-"""Servicer gRPC de fluxo — adaptador protobuf sobre os casos de uso.
+"""The workflow gRPC servicer — a protobuf adapter over the use cases.
 
-Simétrico a `app/routers/workflow.py`: recebe mensagem, chama a MESMA função de
-`app/usecases/workflow.py`, devolve mensagem. Nenhuma decisão aqui — nem
-autorização, nem chamada ao núcleo.
+Symmetric to `app/routers/workflow.py`: it receives a message, calls the SAME
+function from `app/usecases/workflow.py`, returns a message. No decisions here —
+neither authorization nor a call to the core.
 
-As tabelas de enum deste módulo são o vocabulário de ETAPA do lado do contrato
-da borda, e `app/grpcapi/demand.py` importa daqui em vez de repetir: em
-dop.bff.v1 a etapa da demanda usa os enums declarados em workflow.proto, e duas
-tabelas para o mesmo enum é como as pontas passam a discordar sobre o que é uma
-etapa de "spec".
+This module's enum tables are the STAGE vocabulary on the edge contract's side,
+and `app/grpcapi/demand.py` imports from here instead of repeating: in
+dop.bff.v1 the demand's stage uses the enums declared in workflow.proto, and two
+tables for the same enum is how the ends start disagreeing about what a "spec"
+stage is.
 """
 
 from app.grpcapi.gen.dop.bff.v1 import workflow_pb2 as bff
 from app.grpcapi.gen.dop.bff.v1 import workflow_pb2_grpc as bff_grpc
 from app.usecases import workflow as uc
 
-# Os números são os mesmos de dop.v1, mas a conversão é EXPLÍCITA: depender da
-# coincidência funcionaria hoje e quebraria em silêncio no dia em que uma das
-# pontas inserisse um valor no meio.
-TIPO_POR_ENUM: dict[int, str] = {
+# The numbers are the same as dop.v1's, but the conversion is EXPLICIT: relying
+# on the coincidence would work today and break silently the day one of the ends
+# inserted a value in the middle.
+TYPE_BY_ENUM: dict[int, str] = {
     bff.STAGE_TYPE_CONTEXT: "context",
     bff.STAGE_TYPE_SPEC: "spec",
     bff.STAGE_TYPE_PLAN: "plan",
@@ -28,9 +28,9 @@ TIPO_POR_ENUM: dict[int, str] = {
     bff.STAGE_TYPE_FINALIZATION: "finalization",
     bff.STAGE_TYPE_GENERIC: "generic",
 }
-ENUM_POR_TIPO = {nome: valor for valor, nome in TIPO_POR_ENUM.items()}
+ENUM_BY_TYPE = {name: value for value, name in TYPE_BY_ENUM.items()}
 
-ARTEFATO_POR_ENUM: dict[int, str] = {
+ARTIFACT_BY_ENUM: dict[int, str] = {
     bff.ARTIFACT_KIND_DOCUMENT: "document",
     bff.ARTIFACT_KIND_SPEC: "spec",
     bff.ARTIFACT_KIND_PLAN: "plan",
@@ -38,34 +38,34 @@ ARTEFATO_POR_ENUM: dict[int, str] = {
     bff.ARTIFACT_KIND_DIAGRAM: "diagram",
     bff.ARTIFACT_KIND_REPORT: "report",
 }
-ENUM_POR_ARTEFATO = {nome: valor for valor, nome in ARTEFATO_POR_ENUM.items()}
+ENUM_BY_ARTIFACT = {name: value for value, name in ARTIFACT_BY_ENUM.items()}
 
-PORTAO_POR_ENUM: dict[int, str] = {
+GATE_BY_ENUM: dict[int, str] = {
     bff.GATE_NONE: "none",
     bff.GATE_HUMAN: "human",
 }
-ENUM_POR_PORTAO = {nome: valor for valor, nome in PORTAO_POR_ENUM.items()}
+ENUM_BY_GATE = {name: value for value, name in GATE_BY_ENUM.items()}
 
 
-def tipo_enum(nome: str) -> int:
-    return ENUM_POR_TIPO.get(nome, bff.STAGE_TYPE_UNSPECIFIED)
+def stage_type_enum(name: str) -> int:
+    return ENUM_BY_TYPE.get(name, bff.STAGE_TYPE_UNSPECIFIED)
 
 
-def artefato_enum(nome: str) -> int:
-    return ENUM_POR_ARTEFATO.get(nome, bff.ARTIFACT_KIND_UNSPECIFIED)
+def artifact_enum(name: str) -> int:
+    return ENUM_BY_ARTIFACT.get(name, bff.ARTIFACT_KIND_UNSPECIFIED)
 
 
-def portao_enum(nome: str) -> int:
-    return ENUM_POR_PORTAO.get(nome, bff.GATE_UNSPECIFIED)
+def gate_enum(name: str) -> int:
+    return ENUM_BY_GATE.get(name, bff.GATE_UNSPECIFIED)
 
 
 def _stage_spec(s: uc.StageSpec) -> bff.StageSpec:
     return bff.StageSpec(
         key=s.key,
         name=s.name,
-        type=tipo_enum(s.type),
-        artifacts=[artefato_enum(a) for a in s.artifacts],
-        gate=portao_enum(s.gate),
+        type=stage_type_enum(s.type),
+        artifacts=[artifact_enum(a) for a in s.artifacts],
+        gate=gate_enum(s.gate),
         subtypes=s.subtypes,
     )
 
@@ -92,9 +92,9 @@ def _new_flow(f: bff.Flow) -> uc.NewFlow:
             uc.StageSpec(
                 key=s.key,
                 name=s.name,
-                type=TIPO_POR_ENUM.get(s.type, "generic"),
-                artifacts=[ARTEFATO_POR_ENUM.get(a, "") for a in s.artifacts],
-                gate=PORTAO_POR_ENUM.get(s.gate, "none"),
+                type=TYPE_BY_ENUM.get(s.type, "generic"),
+                artifacts=[ARTIFACT_BY_ENUM.get(a, "") for a in s.artifacts],
+                gate=GATE_BY_ENUM.get(s.gate, "none"),
                 subtypes=list(s.subtypes),
             )
             for s in f.stages
@@ -137,8 +137,8 @@ class WorkflowServicer(bff_grpc.WorkflowServiceServicer):
                 truncated=p.truncated,
             )
         )
-        # Só preenche quando existe: nenhum nível declarou fluxo é diferente de
-        # um fluxo sem nome e sem etapas.
+        # It only fills in when it exists: no level having declared a flow is
+        # different from a flow with no name and no stages.
         if eff.flow is not None:
             msg.flow.CopyFrom(_flow(eff.flow))
         return msg
