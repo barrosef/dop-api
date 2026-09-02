@@ -1,28 +1,29 @@
-"""Casos de uso de demanda — a unidade de trabalho do cockpit.
+"""Demand use cases — the cockpit's unit of work.
 
-Mesma disciplina de `identity` e `hierarchy`: a regra vive aqui e só aqui;
-`app/routers/demand.py` traduz HTTP e `app/grpcapi/demand.py` traduz protobuf,
-os dois chamando estas MESMAS funções. Os decorators moram no caso de uso, não
-no adaptador — ver o docstring de `app/usecases/identity.py`.
+The same discipline as `identity` and `hierarchy`: the rule lives here and only
+here; `app/routers/demand.py` translates HTTP and `app/grpcapi/demand.py`
+translates protobuf, both calling these SAME functions. The decorators live in
+the use case, not in the adapter — see `app/usecases/identity.py`'s docstring.
 
-Duas coisas este módulo faz que o núcleo não faz, e é por elas que a borda
-existe:
+Two things this module does that the core does not, and they are why the edge
+exists:
 
-1. **O cockpit numa chamada.** `get_cockpit` pede demanda, threads e achados em
-   PARALELO e devolve os três juntos. Em série, a tela montaria em três tempos;
-   pedidos por RPCs separadas pelo cliente, o cockpit, o dop-cli e o agente
-   fariam cada um a sua orquestração.
+1. **The cockpit in one call.** `get_cockpit` asks for the demand, the threads
+   and the findings in PARALLEL and returns all three together. In series, the
+   screen would assemble in three beats; asked for through separate RPCs by the
+   client, the cockpit, dop-cli and the agent would each do their own
+   orchestration.
 
-2. **Os derivados de "onde a demanda está".** `current_stage_key`, `blocked` e
-   `awaiting_decision` são a mesma regrinha de leitura das etapas que cada
-   cliente escreveria do seu jeito — e três leituras diferentes é como a lista
-   de demandas e a tela da demanda passam a discordar. A condição de
-   `awaiting_decision` é a MESMA que o núcleo aceita em `DecideGate`: portão
-   humano, etapa começada e não concluída.
+2. **The derived fields of "where the demand is".** `current_stage_key`,
+   `blocked` and `awaiting_decision` are the same little stage-reading rule each
+   client would write its own way — and three different readings is how the
+   demand list and the demand screen start disagreeing. `awaiting_decision`'s
+   condition is the SAME one the core accepts in `DecideGate`: a human gate, a
+   stage started and not finished.
 
-O vocabulário de etapa (tipo, artefato, portão) vem de `usecases.workflow`,
-como em dop.v1 a demanda importa os enums de workflow.proto: a etapa da demanda
-é a instância do que a especificação do fluxo descreve.
+The stage vocabulary (type, artifact, gate) comes from `usecases.workflow`, just
+as in dop.v1 the demand imports workflow.proto's enums: the demand's stage is
+the instance of what the flow's specification describes.
 """
 
 import asyncio
@@ -42,69 +43,72 @@ from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
 from app.usecases.workflow import artifact_name, gate_name, stage_type_name
 
-# Situação da demanda no NOSSO vocabulário. A do provedor viaja crua, em
-# `provider_status`: normalizar as duas no mesmo campo apagaria a diferença
-# entre o que a plataforma sabe e o que o quadro do cliente diz.
-_STATUS_POR_ENUM: dict[int, str] = {
+# The demand's situation in OUR vocabulary. The provider's travels raw, in
+# `provider_status`: normalizing the two into the same field would erase the
+# difference between what the platform knows and what the client's board says.
+_STATUS_BY_ENUM: dict[int, str] = {
     demand_pb2.DOP_STATUS_NEW: "new",
     demand_pb2.DOP_STATUS_DOING: "doing",
     demand_pb2.DOP_STATUS_DONE: "done",
     demand_pb2.DOP_STATUS_DELIVERED: "delivered",
 }
 
-_ETAPA_POR_ENUM: dict[int, str] = {
+_STAGE_BY_ENUM: dict[int, str] = {
     demand_pb2.STAGE_STATUS_PENDING: "pending",
     demand_pb2.STAGE_STATUS_RUNNING: "running",
     demand_pb2.STAGE_STATUS_BLOCKED: "blocked",
     demand_pb2.STAGE_STATUS_DONE: "done",
 }
-_ENUM_POR_ETAPA = {nome: valor for valor, nome in _ETAPA_POR_ENUM.items()}
+_ENUM_BY_STAGE = {name: value for value, name in _STAGE_BY_ENUM.items()}
 
-_ATOR_POR_ENUM: dict[int, str] = {
+_ACTOR_BY_ENUM: dict[int, str] = {
     common_pb2.ActorRef.KIND_USER: "user",
     common_pb2.ActorRef.KIND_AGENT: "agent",
     common_pb2.ActorRef.KIND_SUBAGENT: "subagent",
     common_pb2.ActorRef.KIND_SYSTEM: "system",
 }
 
-# Etapa que espera GENTE: portão humano, começada e não concluída. É a condição
-# que o núcleo exige em DecideGate — repetida aqui como LEITURA (a decisão
-# continua sendo dele), para que a tela saiba o que pedir antes de pedir.
-_ETAPAS_EM_ABERTO = (demand_pb2.STAGE_STATUS_RUNNING, demand_pb2.STAGE_STATUS_BLOCKED)
+# A stage waiting for a PERSON: a human gate, started and not finished. It is
+# the condition the core requires in DecideGate — repeated here as a READ (the
+# decision is still the core's), so the screen knows what to ask for before
+# asking.
+_OPEN_STAGES = (demand_pb2.STAGE_STATUS_RUNNING, demand_pb2.STAGE_STATUS_BLOCKED)
 
 
-def status_etapa_valor(nome: str) -> int:
-    return _ENUM_POR_ETAPA.get(nome, demand_pb2.STAGE_STATUS_UNSPECIFIED)
+def stage_status_value(name: str) -> int:
+    return _ENUM_BY_STAGE.get(name, demand_pb2.STAGE_STATUS_UNSPECIFIED)
 
 
 def _deadline() -> float:
     return settings.core_deadline_s
 
 
-def _idempotency(chave: str = "") -> str:
-    return chave or core.idempotency_key()
+def _idempotency(key: str = "") -> str:
+    return key or core.idempotency_key()
 
 
-def _instante(msg, campo: str) -> datetime | None:
-    """Timestamp do protobuf, ou None quando o campo não veio.
+def _instant(msg, field: str) -> datetime | None:
+    """Protobuf's timestamp, or None when the field did not come.
 
-    HasField, e não `!= 0`: etapa que não começou não tem início, e um zero
-    traduzido virava 1970 na tela — data errada é pior que data nenhuma.
+    HasField, and not `!= 0`: a stage that has not started has no start, and a
+    translated zero became 1970 on the screen — a wrong date is worse than no
+    date.
     """
-    if not msg.HasField(campo):
+    if not msg.HasField(field):
         return None
-    return getattr(msg, campo).ToDatetime()
+    return getattr(msg, field).ToDatetime()
 
 
-# ── modelos da borda ────────────────────────────────────────────────────────
+# ── the edge's models ───────────────────────────────────────────────────────
 
 
 class Artifact(BaseModel):
     id: str
     kind: str = ""
     name: str = ""
-    # Ponteiro no ObjectStore. O conteúdo NÃO passa por aqui: a borda entrega a
-    # referência e quem precisa do bytes vai buscá-lo com URL assinada.
+    # An ObjectStore pointer. The content does NOT pass through here: the edge
+    # delivers the reference and whoever needs the bytes fetches them with a
+    # signed URL.
     object_ref: str = ""
     version: int = 0
 
@@ -132,7 +136,7 @@ class Demand(BaseModel):
     flow_id: str = ""
     flow_version: int = 0
     stages: list[Stage] = Field(default_factory=list)
-    # Derivados — ver o docstring do módulo.
+    # Derived — see the module's docstring.
     current_stage_key: str = ""
     blocked: bool = False
     awaiting_decision: bool = False
@@ -155,8 +159,8 @@ class Thread(BaseModel):
     id: str
     key: str = ""
     blocked: bool = False
-    # Ausente ≠ zerada: thread sem ficha não tem agente atrás; ficha vazia seria
-    # um agente sem propósito, sem ferramentas e sem orçamento.
+    # Absent ≠ zeroed: a thread with no brief has no agent behind it; an empty
+    # brief would be an agent with no purpose, no tools and no budget.
     card: AgentCard | None = None
 
 
@@ -180,22 +184,23 @@ class Finding(BaseModel):
 class DemandCockpit(BaseModel):
     demand: Demand
     threads: list[Thread] = Field(default_factory=list)
-    # Lista vazia aqui significa "esta demanda não tem achados", e só isso —
-    # ver `get_cockpit` para o porquê de não haver mais uma bandeira ao lado.
+    # An empty list here means "this demand has no findings", and only that —
+    # see `get_cockpit` for why there is no longer a flag alongside.
     findings: list[Finding] = Field(default_factory=list)
 
 
 class NewDemand(BaseModel):
     project_id: str = Field(min_length=1)
-    # A identidade da demanda lá fora, no quadro do provedor (SUOPT-1315). O
-    # fluxo NÃO é escolhido aqui: é resolvido pela cadeia e congelado.
+    # The demand's identity out there, on the provider's board (SUOPT-1315). The
+    # flow is NOT chosen here: it is resolved by the chain and frozen.
     external_key: str = Field(min_length=1)
 
 
 class StageTransition(BaseModel):
-    """Para onde a etapa vai. O vocabulário é fechado e validado AQUI, no caso
-    de uso: assim a recusa de um status inventado vale nos dois transportes —
-    422 no REST, INVALID_ARGUMENT no gRPC — sem checagem repetida no adaptador."""
+    """Where the stage goes. The vocabulary is closed and validated HERE, in the
+    use case: that way the refusal of an invented status holds on both
+    transports — a 422 in REST, INVALID_ARGUMENT in gRPC — with no repeated check
+    in the adapter."""
 
     status: str = Field(pattern="^(pending|running|blocked|done)$")
 
@@ -220,7 +225,7 @@ class NewFinding(BaseModel):
     payload: dict = Field(default_factory=dict)
 
 
-# ── tradução do núcleo para a borda ─────────────────────────────────────────
+# ── translating the core into the edge ──────────────────────────────────────
 
 
 def _artifact(a: demand_pb2.Artifact) -> Artifact:
@@ -238,24 +243,24 @@ def _stage(s: demand_pb2.DemandStage) -> Stage:
         key=s.key,
         name=s.name,
         type=stage_type_name(s.type),
-        status=_ETAPA_POR_ENUM.get(s.status, ""),
+        status=_STAGE_BY_ENUM.get(s.status, ""),
         gate=gate_name(s.gate),
         artifacts=[_artifact(a) for a in s.artifacts],
-        started_at=_instante(s, "started_at"),
-        finished_at=_instante(s, "finished_at"),
-        awaiting_decision=_espera_decisao(s),
+        started_at=_instant(s, "started_at"),
+        finished_at=_instant(s, "finished_at"),
+        awaiting_decision=_awaits_decision(s),
     )
 
 
-def _espera_decisao(s: demand_pb2.DemandStage) -> bool:
-    return s.gate == workflow_pb2.GATE_HUMAN and s.status in _ETAPAS_EM_ABERTO
+def _awaits_decision(s: demand_pb2.DemandStage) -> bool:
+    return s.gate == workflow_pb2.GATE_HUMAN and s.status in _OPEN_STAGES
 
 
 def _demand(d: demand_pb2.Demand) -> Demand:
-    etapas = [_stage(s) for s in d.stages]
-    # A primeira não concluída é "onde a demanda está". Percorrer na ordem do
-    # fluxo importa: é a ordem em que o núcleo cobra o progresso.
-    atual = next((e for e in etapas if e.status != "done"), None)
+    stages = [_stage(s) for s in d.stages]
+    # The first one not finished is "where the demand is". Walking in the flow's
+    # order matters: it is the order in which the core demands progress.
+    current = next((e for e in stages if e.status != "done"), None)
     return Demand(
         id=d.id,
         project_id=d.project.id,
@@ -263,52 +268,52 @@ def _demand(d: demand_pb2.Demand) -> Demand:
         title=d.title,
         card_type=d.card_type,
         provider_status=d.provider_status,
-        dop_status=_STATUS_POR_ENUM.get(d.dop_status, ""),
+        dop_status=_STATUS_BY_ENUM.get(d.dop_status, ""),
         flow_id=d.flow_id,
         flow_version=d.flow_version,
-        stages=etapas,
-        current_stage_key=atual.key if atual else "",
-        blocked=any(e.status == "blocked" for e in etapas),
-        awaiting_decision=any(e.awaiting_decision for e in etapas),
+        stages=stages,
+        current_stage_key=current.key if current else "",
+        blocked=any(e.status == "blocked" for e in stages),
+        awaiting_decision=any(e.awaiting_decision for e in stages),
     )
 
 
 def _thread(t: demand_pb2.Thread) -> Thread:
-    ficha = None
+    card = None
     if t.HasField("card"):
         c = t.card
-        ficha = AgentCard(
+        card = AgentCard(
             purpose=c.purpose,
             tools=list(c.tools),
             model=c.model,
             effort=c.effort,
             budget_micros=c.budget_micros,
         )
-    return Thread(id=t.id, key=t.key, blocked=t.blocked, card=ficha)
+    return Thread(id=t.id, key=t.key, blocked=t.blocked, card=card)
 
 
 def _message(m: demand_pb2.Message) -> Message:
     return Message(
         id=m.id,
         thread_id=m.thread_id,
-        author_kind=_ATOR_POR_ENUM.get(m.author.kind, ""),
+        author_kind=_ACTOR_BY_ENUM.get(m.author.kind, ""),
         author_id=m.author.id,
         author_name=m.author.name,
         text=m.text,
-        at=_instante(m, "at"),
+        at=_instant(m, "at"),
     )
 
 
 def _finding(f: demand_pb2.Finding) -> Finding:
-    # MessageToDict converte a árvore INTEIRA para tipos Python. Iterar o
-    # Struct na mão devolveria submensagens do protobuf aninhadas, que o
-    # serializador JSON do REST não sabe escrever — e o achado é payload livre,
-    # então aninhado é o caso normal, não a exceção.
+    # MessageToDict converts the WHOLE tree into Python types. Iterating the
+    # Struct by hand would return nested protobuf submessages, which REST's JSON
+    # serializer cannot write — and a finding is a free payload, so nested is the
+    # normal case, not the exception.
     payload = MessageToDict(f.payload) if f.HasField("payload") else {}
     return Finding(id=f.id, thread_id=f.thread_id, title=f.title, payload=payload)
 
 
-# ── casos de uso ────────────────────────────────────────────────────────────
+# ── use cases ───────────────────────────────────────────────────────────────
 
 
 @log
@@ -317,14 +322,14 @@ async def list_demands(
     project_id: str = "", page_size: int = 0, page_token: str = ""
 ) -> DemandPage:
     ctx = auth_ctx.get()
-    pedido = demand_pb2.ListDemandsRequest(
+    request = demand_pb2.ListDemandsRequest(
         ctx=call_context_from(ctx),
         page=common_pb2.PageRequest(size=page_size, token=page_token),
     )
     if project_id:
-        pedido.project.id = project_id
+        request.project.id = project_id
     resp = await stubs.demand_stub().ListDemands(
-        pedido, metadata=core.metadata(), timeout=_deadline()
+        request, metadata=core.metadata(), timeout=_deadline()
     )
     return DemandPage(
         demands=[_demand(d) for d in resp.demands], next_page_token=resp.page.next_token
@@ -358,19 +363,21 @@ async def list_threads(demand_id: str) -> list[Thread]:
 @log
 @account_scoped
 async def list_findings(demand_id: str, thread_id: str = "") -> list[Finding]:
-    """O quadro de achados da demanda; com `thread_id`, os de uma thread só.
+    """The demand's board of findings; with `thread_id`, only one thread's.
 
-    É o registro durável de cada investigação concluída (ADR-0009) — e é ele
-    que impede um agente, ou um humano, de refazer o que outro já terminou.
+    It is the durable record of each concluded investigation (ADR-0009) — and it
+    is what stops an agent, or a human, from redoing what another already
+    finished.
 
-    Lê por `DemandService.ListFindings`, e NÃO pelo `BuildContextPackage` do
-    KnowledgeService: aquele pacote é SELECIONADO por orçamento de tokens
-    (mostraria parte dos achados como se fossem todos) e a montagem grava um
-    evento de medição — abrir uma tela viraria linha de custo de contexto.
+    It reads through `DemandService.ListFindings`, and NOT through
+    KnowledgeService's `BuildContextPackage`: that package is SELECTED by a token
+    budget (it would show part of the findings as if they were all of them) and
+    assembling it writes a measurement event — opening a screen would become a
+    line of context cost.
 
-    Sem paginação na borda: a página é a do núcleo. Quadro de achados é para
-    LER, não para navegar; se uma demanda tiver mais achados do que a página do
-    núcleo comporta, o problema a resolver não é a paginação da tela.
+    No pagination at the edge: the page is the core's. A board of findings is for
+    READING, not for navigating; if a demand has more findings than the core's
+    page holds, the problem to solve is not the screen's pagination.
     """
     ctx = auth_ctx.get()
     resp = await stubs.demand_stub().ListFindings(
@@ -386,38 +393,38 @@ async def list_findings(demand_id: str, thread_id: str = "") -> list[Finding]:
 @log
 @account_scoped
 async def get_cockpit(demand_id: str) -> DemandCockpit:
-    """A tela da demanda inteira: etapas, threads e achados.
+    """The demand's whole screen: stages, threads and findings.
 
-    Em PARALELO, não em série: as três chamadas não dependem umas das outras, e
-    somar as latências seria transformar a agregação num custo em vez de um
-    ganho. `gather` propaga a primeira falha — resposta pela metade sem dizer
-    que está pela metade é pior que erro.
+    In PARALLEL, not in series: the three calls do not depend on one another, and
+    adding the latencies would turn the aggregation into a cost rather than a
+    gain. `gather` propagates the first failure — a half response without saying
+    it is half is worse than an error.
 
-    **Por que não existe mais `findings_available`.** O campo nasceu quando o
-    contrato do núcleo só tinha `PublishFinding`: a lista vinha vazia e a
-    bandeira dizia "não dá para saber", porque "esta demanda não tem achados" e
-    "a borda não consegue ler achados" são fatos diferentes e a tela precisava
-    distinguir. Com `ListFindings` no contrato (P-19) o segundo fato deixou de
-    existir: ou a leitura funciona, e a lista é a resposta, ou ela falha, e o
-    `gather` faz a chamada inteira falhar com o status do núcleo. Não sobrou
-    estado para a bandeira descrever — ela seria `true` constante, e campo que
-    só sabe dizer uma coisa vira ruído que alguém um dia interpreta ao
-    contrário.
+    **Why `findings_available` no longer exists.** The field was born when the
+    core's contract only had `PublishFinding`: the list came back empty and the
+    flag said "there is no way to know", because "this demand has no findings"
+    and "the edge cannot read findings" are different facts and the screen needed
+    to tell them apart. With `ListFindings` in the contract (P-19) the second
+    fact stopped existing: either the read works, and the list is the answer, or
+    it fails, and the `gather` makes the whole call fail with the core's status.
+    There is no state left for the flag to describe — it would be a constant
+    `true`, and a field that can only say one thing becomes noise somebody one
+    day reads backwards.
     """
-    demanda, threads, achados = await asyncio.gather(
+    demand, threads, findings = await asyncio.gather(
         get_demand(demand_id), list_threads(demand_id), list_findings(demand_id)
     )
-    return DemandCockpit(demand=demanda, threads=threads, findings=achados)
+    return DemandCockpit(demand=demand, threads=threads, findings=findings)
 
 
 @log
 @account_scoped
 @require_role("owner", "admin", "developer")
 async def start_demand(body: NewDemand, idempotency_key: str = "") -> Demand:
-    """Iniciar RESOLVE e CONGELA o fluxo (ADR-0014 §4).
+    """Starting RESOLVES and FREEZES the flow (ADR-0014 §4).
 
-    Por isso é escrita com chave de idempotência e não com um GET-ou-cria: o
-    retry do canal sem chave abriria duas demandas para o mesmo card.
+    That is why it is a write with an idempotency key and not a GET-or-create:
+    the channel's retry with no key would open two demands for the same card.
     """
     ctx = auth_ctx.get()
     d = await stubs.demand_stub().StartDemand(
@@ -439,15 +446,16 @@ async def start_demand(body: NewDemand, idempotency_key: str = "") -> Demand:
 async def advance_stage(
     demand_id: str, stage_key: str, body: StageTransition, idempotency_key: str = ""
 ) -> Stage:
-    """Move a etapa. Quem valida a transição é o núcleo — a máquina de estados
-    é dele, e duplicá-la aqui criaria duas regras para a mesma pergunta."""
+    """Moves the stage. The one that validates the transition is the core — the
+    state machine is its own, and duplicating it here would create two rules for
+    the same question."""
     ctx = auth_ctx.get()
     s = await stubs.demand_stub().AdvanceStage(
         demand_pb2.AdvanceStageRequest(
             ctx=call_context_from(ctx),
             demand_id=demand_id,
             stage_key=stage_key,
-            status=status_etapa_valor(body.status),
+            status=stage_status_value(body.status),
             idempotency_key=_idempotency(idempotency_key),
         ),
         metadata=core.metadata(),
@@ -462,10 +470,10 @@ async def advance_stage(
 async def decide_gate(
     demand_id: str, stage_key: str, body: GateDecision, idempotency_key: str = ""
 ) -> Stage:
-    """Portão humano: aprovar conclui a etapa, reprovar a bloqueia com o comentário.
+    """A human gate: approving finishes the stage, rejecting blocks it with the comment.
 
-    Viewer não decide — e o núcleo ainda recusa qualquer ator que seja agente,
-    porque portão humano decidido por agente é o portão não existir.
+    A viewer does not decide — and the core also refuses any actor that is an
+    agent, because a human gate decided by an agent is the gate not existing.
     """
     ctx = auth_ctx.get()
     s = await stubs.demand_stub().DecideGate(
@@ -487,18 +495,18 @@ async def decide_gate(
 @account_scoped
 @require_role("owner", "admin", "developer")
 async def create_thread(demand_id: str, body: NewThread, idempotency_key: str = "") -> Thread:
-    """Lança uma thread (subagente) na demanda — ADR-0010."""
+    """Launches a thread (a subagent) on the demand — ADR-0010."""
     ctx = auth_ctx.get()
-    pedido = demand_pb2.CreateThreadRequest(
+    request = demand_pb2.CreateThreadRequest(
         ctx=call_context_from(ctx),
         demand_id=demand_id,
         key=body.key,
         idempotency_key=_idempotency(idempotency_key),
     )
-    # Só preenche a ficha quando ela veio: mandar uma zerada declararia um
-    # agente sem propósito, sem ferramentas e sem orçamento.
+    # It only fills the brief in when one came: sending a zeroed one would
+    # declare an agent with no purpose, no tools and no budget.
     if body.card is not None:
-        pedido.card.CopyFrom(
+        request.card.CopyFrom(
             demand_pb2.AgentCard(
                 purpose=body.card.purpose,
                 tools=body.card.tools,
@@ -508,7 +516,7 @@ async def create_thread(demand_id: str, body: NewThread, idempotency_key: str = 
             )
         )
     t = await stubs.demand_stub().CreateThread(
-        pedido, metadata=core.metadata(), timeout=_deadline()
+        request, metadata=core.metadata(), timeout=_deadline()
     )
     return _thread(t)
 
@@ -522,13 +530,13 @@ async def post_message(
     idempotency_key: str = "",
     actor_kind: str = "user",
 ) -> Message:
-    """Mensagem na thread. Toda mensagem é evento (ADR-0006).
+    """A message on the thread. Every message is an event (ADR-0006).
 
-    `actor_kind` decide a AUTORIA no log. O padrão é humano porque a rota REST
-    e o servicer só são chamados por gente; o runtime declara `agent` quando é
-    a resposta do modelo. Gravar a fala do agente como fala do humano faria o
-    log — que é a verdade da demanda — mentir sobre quem fez o quê, numa
-    plataforma cuja premissa inteira é distinguir os dois.
+    `actor_kind` decides the AUTHORSHIP in the log. The default is human because
+    the REST route and the servicer are only called by people; the runtime
+    declares `agent` when it is the model's answer. Recording the agent's speech
+    as the human's would make the log — which is the demand's truth — lie about
+    who did what, on a platform whose entire premise is telling the two apart.
     """
     ctx = auth_ctx.get()
     m = await stubs.demand_stub().PostMessage(
@@ -555,10 +563,11 @@ async def post_message(
 async def publish_finding(
     demand_id: str, body: NewFinding, idempotency_key: str = ""
 ) -> Finding:
-    """Publica um achado — o registro durável de uma investigação.
+    """Publishes a finding — the durable record of an investigation.
 
-    Concluir uma thread exige publicar o achado: a thread não morre em silêncio
-    (spec de conversação §1), e é o achado que entra no contexto dos irmãos.
+    Concluding a thread requires publishing the finding: the thread does not die
+    in silence (the conversation spec §1), and it is the finding that goes into
+    the siblings' context.
     """
     ctx = auth_ctx.get()
     payload = struct_pb2.Struct()
