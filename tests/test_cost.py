@@ -1,19 +1,19 @@
-"""Custo nos dois transportes, contra um núcleo fake.
+"""Cost on both transports, against a fake core.
 
-Dois testes carregam o arquivo, e os dois são escritos procurando no body
-serializado INTEIRO — a disciplina de `tests/test_resource.py`, aplicada aqui
-aos dois fatos que não podem se perder no caminho:
+Two tests carry this file, and both are written by searching the WHOLE
+serialized body — `tests/test_resource.py`'s discipline, applied here to the two
+facts that must not get lost on the way:
 
-  - **o dinheiro não pode virar `float`.** O value em micros tem de aparecer
-    como inteiro exato, e a representação decimal dele NÃO pode aparecer em
-    lugar nenhum da response: procurar campo por campo só pegaria o campo que
-    alguém lembrou de conferir, e basta um `/ 1_000_000` esquecido num campo
-    novo para o centavo começar a sumir;
-  - **a justificativa do roteamento não pode ser truncada.** Ela chega com a
-    proveniência na frente e é a única parte auditável da decisão.
+  - **money must not become a `float`.** The value in micros has to appear as an
+    exact integer, and its decimal representation must NOT appear anywhere in
+    the response: checking field by field would only catch the field somebody
+    remembered to check, and one forgotten `/ 1_000_000` in a new field is
+    enough for the cent to start disappearing;
+  - **the routing's justification must not be truncated.** It arrives with the
+    provenance up front and is the only auditable part of the decision.
 
-Fakes e fixtures ficam AQUI, e não no `conftest.py`: há outros agentes
-escrevendo neste repositório agora.
+The fakes and the fixtures live HERE, and not in `conftest.py`: there are other
+agents writing in this repository right now.
 """
 
 import grpc
@@ -40,30 +40,30 @@ from tests.conftest import PROJECT, FakeCall, metadata_for, token_for
 ACCOUNT = metadata_for(token_for())
 REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
-# 12,345678 USD. Escolhido de propósito com casas decimais que um float de 64
-# bits não representa exatamente e que uma divisão descuidada arredondaria.
-CUSTO_MICROS = 12_345_678
-# É esta a string que NÃO pode aparecer na response: ela é o que sobra quando
-# alguém "facilita para a screen" dividindo por um milhão.
-CUSTO_EM_DECIMAL = "12.345678"
+# 12.345678 USD. Chosen on purpose with decimal places a 64-bit float does not
+# represent exactly and that a careless division would round.
+COST_MICROS = 12_345_678
+# This is the string that must NOT appear in the response: it is what is left
+# when somebody "makes it easier for the screen" by dividing by a million.
+COST_AS_DECIMAL = "12.345678"
 
-# A justificativa como o núcleo a monta: proveniência + o porquê da linha.
-PROVENIENCIA = "ADR-0011 §3 (rascunho — calibrar com telemetria, P-7)"
-MOTIVO = (
-    "não se economiza no crítico — é o freio (ADR-0007); economizar no freio "
-    "returns o custo em PR reprovado, o retrabalho mais caro do flow"
+# The justification as the core builds it: provenance + the row's why.
+PROVENANCE = "ADR-0011 §3 (draft — calibrate with telemetry, P-7)"
+REASON = (
+    "you do not save on the critic — it is the brake (ADR-0007); saving on the "
+    "brake returns the cost as a rejected PR, the most expensive rework in the flow"
 )
-JUSTIFICATIVA = f"{PROVENIENCIA}: {MOTIVO}"
+JUSTIFICATIVA = f"{PROVENANCE}: {REASON}"
 
 
 # ── núcleo fake ────────────────────────────────────────────────────────────
 
 
 class OrcamentoPorEscopo(FakeCall):
-    """`GetBudget` que responde CONFORME o scope request — como o núcleo faz.
+    """A `GetBudget` that answers ACCORDING to the requested scope — as the core does.
 
-    Um double que devolvesse sempre o mesmo orçamento deixaria passar a borda
-    perguntando duas vezes pelo MESMO scope: a box de atenção mostraria o
+    A double that always returned the same budget would let through an edge
+    asking twice for the SAME scope: the attention box would show the
     teto da demand duas vezes e o da account nenhuma.
     """
 
@@ -77,27 +77,28 @@ class OrcamentoPorEscopo(FakeCall):
 
 
 class CustoFalso:
-    """Núcleo fake de custo.
+    """Núcleo fake de cost.
 
-    O `Budget` que ele returns TEM moeda, igual ao núcleo de verdade desde que
-    `dop.v1.Budget.currency` passou a existir (P-19). O caso do núcleo que não
+    The `Budget` it returns HAS a currency, just like the real core since
+    `dop.v1.Budget.currency` came to exist (P-19). The case of a core that does
+    not
     informa a moeda continua coberto — mas por um orçamento SEPARADO
-    (`orcamento_sem_moeda`), e não pelo double padrão: um double mudo faria o
-    teste de "a borda não inventa USD" passar por acidente, e nenhum teste
-    provaria que ela mostra a moeda quando ela vem.
+    (`budget_without_currency`), and not by the default double: a mute double
+    would make the "the edge does not invent USD" test pass by accident, and no
+    test would prove it shows the currency when one arrives.
     """
 
     def __init__(self):
-        self.orcamento = cost_pb2.Budget(
+        self.budget = cost_pb2.Budget(
             scope="demand",
             scope_id="dem-1",
             limit_micros=50_000_000,
-            spent_micros=CUSTO_MICROS,
+            spent_micros=COST_MICROS,
             currency="USD",
         )
-        # Sem moeda: o núcleo antigo, ou o scope que ainda não a tem.
-        self.orcamento_sem_moeda = cost_pb2.Budget(
-            scope="demand", scope_id="dem-1", limit_micros=50_000_000, spent_micros=CUSTO_MICROS
+        # With no currency: an older core, or a scope that does not have one yet.
+        self.budget_without_currency = cost_pb2.Budget(
+            scope="demand", scope_id="dem-1", limit_micros=50_000_000, spent_micros=COST_MICROS
         )
         self.uso = cost_pb2.UsageEvent(
             id="use-1",
@@ -108,7 +109,7 @@ class CustoFalso:
             output_tokens=340,
             cache_read_tokens=0,
             cache_creation_tokens=900,
-            cost=common_pb2.Money(currency="USD", amount_micros=CUSTO_MICROS),
+            cost=common_pb2.Money(currency="USD", amount_micros=COST_MICROS),
             at=timestamp_pb2.Timestamp(seconds=1_770_000_000),
         )
         self.RouteModel = FakeCall(
@@ -119,21 +120,21 @@ class CustoFalso:
                 reason=JUSTIFICATIVA,
             )
         )
-        self.GetBudget = FakeCall(self.orcamento)
-        self.SetBudget = FakeCall(self.orcamento)
+        self.GetBudget = FakeCall(self.budget)
+        self.SetBudget = FakeCall(self.budget)
         self.RecordUsage = FakeCall(
             cost_pb2.RecordUsageResponse(recorded=True, budget_exceeded=False)
         )
         self.SummarizeCost = FakeCall(
             cost_pb2.SummarizeCostResponse(
-                total=common_pb2.Money(currency="USD", amount_micros=CUSTO_MICROS),
+                total=common_pb2.Money(currency="USD", amount_micros=COST_MICROS),
                 cache_hit_ratio=0.42,
                 recent=[self.uso],
             )
         )
 
     def estourou(self):
-        """O núcleo avisando que o teto foi ultrapassado."""
+        """The core reporting that the ceiling was crossed."""
         self.RecordUsage.returns(
             cost_pb2.RecordUsageResponse(recorded=True, budget_exceeded=True)
         )
@@ -157,7 +158,7 @@ class CustoFalso:
     def sem_teto(self):
         self.GetBudget.returns(
             cost_pb2.Budget(scope="account", scope_id="acct-1", limit_micros=0,
-                            spent_micros=CUSTO_MICROS)
+                            spent_micros=COST_MICROS)
         )
 
 
@@ -165,7 +166,7 @@ class CustoFalso:
 
 
 @pytest.fixture
-def custo(core, monkeypatch):
+def cost(core, monkeypatch):
     fake = CustoFalso()
     monkeypatch.setattr(stubs, "cost_stub", lambda: fake)
     return fake
@@ -174,9 +175,10 @@ def custo(core, monkeypatch):
 def _app_com_rotas():
     """O app real do BFF, com as rotas deste domínio registradas.
 
-    `app/main.py` é do dono do repositório e ainda não inclui este router (ver o
+    `app/main.py` belongs to the repository's owner and does not include this
+    router yet (see the
     relatório). A checagem antes de incluir faz o teste continuar correto
-    depois que o registro entrar no `main`.
+    once the registration lands in `main`.
     """
     app = create_app()
     caminhos = {getattr(r, "path", "") for r in app.routes}
@@ -186,18 +188,19 @@ def _app_com_rotas():
 
 
 @pytest.fixture
-def client_cost(custo):
+def client_cost(cost):
     with TestClient(_app_com_rotas()) as c:
         yield c
 
 
 @pytest.fixture
-async def stub_cost(custo):
+async def stub_cost(cost):
     """Servidor gRPC real, em porta efêmera, com o servicer deste domínio.
 
-    Não reusa `grpc_server` do conftest porque `GrpcServer` ainda não
-    registra este servicer (o registro é do dono do repositório). A pilha de
-    interceptores é a mesma — é ela que faz token, context e decorators
+    It does not reuse conftest's `grpc_server` because `GrpcServer` does not
+    register this servicer yet (the registration is the repository owner's). The
+    interceptor stack is the same — it is what makes the token, the context and
+    the decorators
     valerem dentro do servicer.
     """
     server = grpc.aio.server(
@@ -226,11 +229,12 @@ class TestMoneyNeverBecomesAFloat:
     def test_rest_returns_exact_micros_and_no_decimal(self, client_cost):
         r = client_cost.get("/api/v1/cost/summary", headers=REST_HEADERS)
         assert r.status_code == 200
-        assert str(CUSTO_MICROS) in r.text
-        # Se alguém dividir por um milhão em QUALQUER campo, a representação
-        # decimal aparece aqui — inclusive num campo que este teste nem conhece.
-        assert CUSTO_EM_DECIMAL not in r.text
-        assert r.json()["total"] == {"currency": "USD", "amount_micros": CUSTO_MICROS}
+        assert str(COST_MICROS) in r.text
+        # If anybody divides by a million in ANY field, the decimal
+        # representation shows up here — including in a field this test does not
+        # even know about.
+        assert COST_AS_DECIMAL not in r.text
+        assert r.json()["total"] == {"currency": "USD", "amount_micros": COST_MICROS}
 
     def test_rest_carries_the_currency_alongside_the_value(self, client_cost):
         recente = client_cost.get(
@@ -243,16 +247,17 @@ class TestMoneyNeverBecomesAFloat:
         resp = await stub_cost.SummarizeCost(
             bff.SummarizeCostRequest(), metadata=ACCOUNT
         )
-        assert resp.total.amount_micros == CUSTO_MICROS
-        assert CUSTO_EM_DECIMAL.encode() not in resp.SerializeToString()
+        assert resp.total.amount_micros == COST_MICROS
+        assert COST_AS_DECIMAL.encode() not in resp.SerializeToString()
 
     def test_the_budget_currency_comes_from_the_cores_field(self, client_cost):
         """`dop.v1.Budget.currency` existe (P-19) e a borda o LÊ.
 
-        Antes ela lia com `getattr`, porque o campo não estava no contrato. O
-        que este teste garante é que a moeda chega junto dos três valores —
-        limite, gasto e sobra —, e não só de um deles: micros sem moeda é
-        número sem unidade em qualquer um dos três.
+        It used to read it with `getattr`, because the field was not in the
+        contract. What this test guarantees is that the currency arrives
+        alongside all three values — the limit, the spend and the remainder — and
+        not only one of them: micros with no currency is a number with no unit in
+        any of the three.
         """
         b = client_cost.get(
             "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=REST_HEADERS
@@ -262,15 +267,16 @@ class TestMoneyNeverBecomesAFloat:
         assert b["remaining"]["currency"] == "USD"
 
     def test_the_edge_invents_no_currency_when_the_core_is_silent(
-        self, client_cost, custo
+        self, client_cost, cost
     ):
-        """Moeda vazia diz "o núcleo não informou" — e continua dizendo isso.
+        """An empty currency says "the core did not report" — and keeps saying it.
 
-        O campo passar a existir não autoriza preencher o silêncio: chutar o
-        padrão do núcleo seria a borda afirmando algo que ela não sabe, e a
-        afirmação ficaria certa até a primeira account em BRL.
+        The field coming to exist does not authorize filling the silence:
+        guessing the core's default would be the edge asserting something it does
+        not know, and the assertion would be right until the first account in
+        another currency.
         """
-        custo.GetBudget.returns(custo.orcamento_sem_moeda)
+        cost.GetBudget.returns(cost.budget_without_currency)
         b = client_cost.get(
             "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=REST_HEADERS
         ).json()
@@ -279,7 +285,7 @@ class TestMoneyNeverBecomesAFloat:
 
 
 class TestTheRoutingJustification:
-    """A decisão vem COM o porquê e a proveniência, inteiros."""
+    """The decision comes WITH the why and the provenance, whole."""
 
     def test_rest_carries_the_whole_justification(self, client_cost):
         r = client_cost.get(
@@ -293,12 +299,12 @@ class TestTheRoutingJustification:
         assert r.json()["effort"] == "max"
 
     def test_the_provenance_says_the_policy_is_a_draft(self, client_cost):
-        """É esta frase que impede alguém de tratar a tabela como medida."""
-        razao = client_cost.get(
+        """It is this sentence that stops anybody from treating the table as measurement."""
+        reason = client_cost.get(
             "/api/v1/cost/routing?task_kind=critic", headers=REST_HEADERS
         ).json()["reason"]
-        assert razao.startswith(PROVENIENCIA)
-        assert "rascunho" in razao and "P-7" in razao
+        assert reason.startswith(PROVENANCE)
+        assert "draft" in reason and "P-7" in reason
 
     async def test_grpc_carries_the_whole_justification(self, stub_cost):
         resp = await stub_cost.RouteModel(
@@ -307,19 +313,19 @@ class TestTheRoutingJustification:
         assert resp.reason == JUSTIFICATIVA
         assert JUSTIFICATIVA.encode() in resp.SerializeToString()
 
-    def test_the_demand_crosses_for_the_calibration(self, client_cost, custo):
+    def test_the_demand_crosses_for_the_calibration(self, client_cost, cost):
         client_cost.get(
             "/api/v1/cost/routing?task_kind=critic&demand_id=dem-1",
             headers=REST_HEADERS,
         )
-        assert custo.RouteModel.requests[0].demand_id == "dem-1"
+        assert cost.RouteModel.requests[0].demand_id == "dem-1"
 
 
 class TestABlownBudget:
-    """Corte SUAVE (ADR-0011 §2): pausa e pergunta, não err seco."""
+    """A SOFT cut (ADR-0011 §2): it pauses and asks, not a bare error."""
 
-    def test_an_overrun_is_not_an_error_and_the_consumption_stays_recorded(self, client_cost, custo):
-        custo.estourou()
+    def test_an_overrun_is_not_an_error_and_the_consumption_stays_recorded(self, client_cost, cost):
+        cost.estourou()
         r = client_cost.post(
             "/api/v1/cost/usage",
             headers=REST_HEADERS,
@@ -330,9 +336,9 @@ class TestABlownBudget:
         assert body["recorded"] is True
         assert body["budget_exceeded"] is True
 
-    def test_the_notice_says_the_demand_pauses(self, client_cost, custo):
-        """Um "budget exceeded" seco faria cada client reinventar a explicação."""
-        custo.estourou()
+    def test_the_notice_says_the_demand_pauses(self, client_cost, cost):
+        """A bare "budget exceeded" would make every client reinvent the explanation."""
+        cost.estourou()
         body = client_cost.post(
             "/api/v1/cost/usage",
             headers=REST_HEADERS,
@@ -340,20 +346,20 @@ class TestABlownBudget:
         ).json()
         assert "PAUSES" in body["notice"]
         assert "ADR-0011" in body["notice"]
-        # E os números com que o humano decide vêm junto.
+        # And the numbers the human decides with come along.
         assert [b["scope"] for b in body["budgets"]] == ["demand", "account"]
         assert body["budgets"][0]["spent"]["amount_micros"] == 12_000_000
 
-    def test_with_no_overrun_it_spends_no_extra_round_trip_to_the_core(self, client_cost, custo):
+    def test_with_no_overrun_it_spends_no_extra_round_trip_to_the_core(self, client_cost, cost):
         client_cost.post(
             "/api/v1/cost/usage",
             headers=REST_HEADERS,
             json={"model": "claude-opus", "demand_id": "dem-1", "cost_micros": 1},
         )
-        assert custo.GetBudget.calls == []
+        assert cost.GetBudget.calls == []
 
-    async def test_grpc_answers_ok_too(self, stub_cost, custo):
-        custo.estourou()
+    async def test_grpc_answers_ok_too(self, stub_cost, cost):
+        cost.estourou()
         resp = await stub_cost.RecordUsage(
             bff.RecordUsageRequest(
                 usage=bff.UsageEvent(model="claude-opus", demand_id="dem-1")
@@ -364,14 +370,14 @@ class TestABlownBudget:
         assert resp.budget_exceeded is True
         assert "PAUSES" in resp.notice
 
-    def test_recording_carries_an_idempotency_key(self, client_cost, custo):
+    def test_recording_carries_an_idempotency_key(self, client_cost, cost):
         """Obrigatória no núcleo: duplicata aqui viraria consumo legítimo."""
         client_cost.post(
             "/api/v1/cost/usage",
             headers=REST_HEADERS,
             json={"model": "claude-opus", "cost_micros": 1},
         )
-        assert custo.RecordUsage.requests[0].idempotency_key != ""
+        assert cost.RecordUsage.requests[0].idempotency_key != ""
 
 
 class TestBudget:
@@ -379,17 +385,17 @@ class TestBudget:
         b = client_cost.get(
             "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=REST_HEADERS
         ).json()
-        assert b["remaining"]["amount_micros"] == 50_000_000 - CUSTO_MICROS
+        assert b["remaining"]["amount_micros"] == 50_000_000 - COST_MICROS
 
-    def test_with_no_ceiling_the_remainder_is_null_not_zero(self, client_cost, custo):
-        """Zero significaria "acabou o dinheiro", que é o oposto de "sem teto"."""
-        custo.sem_teto()
+    def test_with_no_ceiling_the_remainder_is_null_not_zero(self, client_cost, cost):
+        """Zero would mean "the money ran out", which is the opposite of "no ceiling"."""
+        cost.sem_teto()
         b = client_cost.get("/api/v1/cost/budget", headers=REST_HEADERS).json()
         assert b["limit"]["amount_micros"] == 0
         assert b["remaining"] is None
 
     def test_setting_the_ceiling_requires_a_role(self, client_cost, core):
-        """Orçamento é governança: quem gasta não decide quanto pode gastar."""
+        """A budget is governance: the one who spends does not decide how much may be spent."""
         core.demote_to_developer()
         r = client_cost.put(
             "/api/v1/cost/budget",
@@ -398,15 +404,15 @@ class TestBudget:
         )
         assert r.status_code == 403
 
-    def test_setting_the_ceiling_does_not_send_the_spend(self, client_cost, custo):
+    def test_setting_the_ceiling_does_not_send_the_spend(self, client_cost, cost):
         """Aceitar `spent` do client permitiria zerar o gasto pedindo."""
         client_cost.put(
             "/api/v1/cost/budget",
             headers=REST_HEADERS,
             json={"scope": "demand", "scope_id": "dem-1", "limit_micros": 1_000_000},
         )
-        assert custo.SetBudget.requests[0].budget.spent_micros == 0
-        assert custo.SetBudget.requests[0].budget.limit_micros == 1_000_000
+        assert cost.SetBudget.requests[0].budget.spent_micros == 0
+        assert cost.SetBudget.requests[0].budget.limit_micros == 1_000_000
 
     def test_an_unknown_scope_is_a_422(self, client_cost):
         r = client_cost.put(
@@ -441,8 +447,8 @@ class TestGRPC:
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_an_event_with_no_date_does_not_become_1970(self, stub_cost, custo):
-        custo.SummarizeCost.returns(
+    async def test_an_event_with_no_date_does_not_become_1970(self, stub_cost, cost):
+        cost.SummarizeCost.returns(
             cost_pb2.SummarizeCostResponse(
                 total=common_pb2.Money(currency="USD", amount_micros=1),
                 recent=[cost_pb2.UsageEvent(id="use-2", model="claude-haiku")],
@@ -453,8 +459,8 @@ class TestGRPC:
         )
         assert not resp.recent[0].HasField("at")
 
-    def test_an_event_with_no_date_is_null_in_rest(self, client_cost, custo):
-        custo.SummarizeCost.returns(
+    def test_an_event_with_no_date_is_null_in_rest(self, client_cost, cost):
+        cost.SummarizeCost.returns(
             cost_pb2.SummarizeCostResponse(
                 total=common_pb2.Money(currency="USD", amount_micros=1),
                 recent=[cost_pb2.UsageEvent(id="use-2", model="claude-haiku")],
@@ -467,7 +473,7 @@ class TestGRPC:
 
 
 class TestParityBetweenTransports:
-    """O alarme que dispara se alguém reimplementar o caso de uso num adaptador."""
+    """The alarm that fires if anybody reimplements the use case in an adapter."""
 
     async def test_the_budget_is_the_same_on_both_ports(self, client_cost, stub_cost):
         rest = client_cost.get(
