@@ -159,10 +159,10 @@ async def stub_ent(entregas):
         await server.stop(0)
 
 
-class TestSemVerde:
+class TestWithoutGreen:
     """A recusa da queue — o que o dev precisa ler, inteiro."""
 
-    def test_rest_devolve_412_com_a_lista_do_que_falta(self, client_del, entregas):
+    def test_rest_returns_a_412_with_the_list_of_what_is_missing(self, client_del, entregas):
         entregas.sem_verde()
         r = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
@@ -179,7 +179,7 @@ class TestSemVerde:
         # código se está falando — e o verde é sempre sobre um commit.
         assert "abc1234" in detalhe["reason"]
 
-    async def test_grpc_devolve_a_recusa_como_resposta(self, stub_ent, entregas):
+    async def test_grpc_returns_the_refusal_as_a_response(self, stub_ent, entregas):
         """Para o agente, 'ainda não, falta isto' é trabalho a fazer, não falha
         (ADR-0007 §2) — por isso a recusa é campo, e não status de err."""
         entregas.sem_verde()
@@ -190,7 +190,7 @@ class TestSemVerde:
         assert not resp.HasField("entry")
         assert len(resp.refusal.missing) == 2
 
-    def test_recusa_sem_lista_nao_inventa_itens(self, client_del, entregas):
+    def test_a_refusal_with_no_list_invents_no_items(self, client_del, entregas):
         """Nem toda precondição é sobre verde: PR já mergeado tem razão e mais
         nada. Uma lista de um item repetindo a razão seria ruído."""
         entregas.EnqueueMerge.fails_with(
@@ -207,7 +207,7 @@ class TestSemVerde:
             "missing": [],
         }
 
-    def test_outro_erro_do_nucleo_nao_vira_recusa(self, client_del, entregas):
+    def test_another_core_error_does_not_become_a_refusal(self, client_del, entregas):
         """Um `except` largo transformaria NOT_FOUND em 'falta verde' — e o dev
         procuraria uma execução de teste para um repositório que não existe."""
         entregas.EnqueueMerge.fails_with(grpc.StatusCode.NOT_FOUND, "repositório não encontrado")
@@ -218,7 +218,7 @@ class TestSemVerde:
         )
         assert r.status_code == 404
 
-    def test_detalhe_de_5xx_do_nucleo_nao_vaza(self, client_del, entregas):
+    def test_a_5xx_detail_from_the_core_does_not_leak(self, client_del, entregas):
         """Desviar o err do caminho normal não pode desviar o redator: falha
         interna do núcleo pode carregar host, query ou credencial."""
         entregas.EnqueueMerge.fails_with(grpc.StatusCode.INTERNAL, "dsn=postgres://user:senha@db")
@@ -230,7 +230,7 @@ class TestSemVerde:
         assert r.status_code == 500
         assert r.json()["detail"] == "internal error"
 
-    async def test_paridade_da_recusa_entre_as_portas(self, client_del, stub_ent, entregas):
+    async def test_the_refusals_parity_between_the_ports(self, client_del, stub_ent, entregas):
         """A lista é a MESMA nos dois transportes; só o invólucro muda."""
         entregas.sem_verde()
         rest = client_del.post(
@@ -246,7 +246,7 @@ class TestSemVerde:
 
 
 class TestREST:
-    def test_quadro_junta_prs_e_diretrizes(self, client_del, entregas):
+    def test_the_board_joins_prs_and_directives(self, client_del, entregas):
         r = client_del.get(
             "/api/v1/delivery/board?project_id=prj-1", headers=REST_HEADERS
         )
@@ -258,7 +258,7 @@ class TestREST:
         assert len(entregas.ListPullRequests.calls) == 1
         assert len(entregas.ListDirectives.calls) == 1
 
-    def test_revisao_pendente_vem_contada(self, client_del):
+    def test_pending_reviews_come_counted(self, client_del):
         """O número que ordena a box de atenção sai pronto — contar em cada
         client é a mesma regra escrita três vezes."""
         prs = client_del.get(
@@ -266,13 +266,13 @@ class TestREST:
         ).json()
         assert prs[0]["pending_reviews"] == 2
 
-    def test_fila_e_de_um_repositorio(self, client_del, entregas):
+    def test_the_queue_belongs_to_one_repository(self, client_del, entregas):
         r = client_del.get("/api/v1/repos/repo-1/merge-queue", headers=REST_HEADERS)
         assert r.status_code == 200
         assert r.json()[0]["state"] == "queued"
         assert entregas.GetMergeQueue.requests[0].repo_id == "repo-1"
 
-    def test_entrada_na_fila_carrega_idempotencia(self, client_del, entregas):
+    def test_entering_the_queue_carries_an_idempotency_key(self, client_del, entregas):
         r = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
             headers=REST_HEADERS,
@@ -282,7 +282,7 @@ class TestREST:
         assert r.json()["position"] == 1
         assert entregas.EnqueueMerge.requests[0].idempotency_key != ""
 
-    def test_payload_da_diretriz_atravessa_inteiro(self, client_del):
+    def test_the_directives_payload_crosses_whole(self, client_del):
         """O formato de cada tipo de diretriz é do techlead (ADR-0015): a borda
         repassa, não interpreta."""
         d = client_del.get(
@@ -291,7 +291,7 @@ class TestREST:
         assert d[0]["payload"] == {"de": "dem-0", "para": "dem-1"}
         assert d[0]["decided_by_name"] == "Dev"
 
-    def test_viewer_nao_empurra_a_fila(self, client_del, core):
+    def test_a_viewer_does_not_push_the_queue(self, client_del, core):
         viewer_role(core)
         r = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
@@ -300,7 +300,7 @@ class TestREST:
         )
         assert r.status_code == 403
 
-    def test_sem_conta_ativa_e_recusado(self, client_del):
+    def test_with_no_active_account_it_is_refused(self, client_del):
         r = client_del.get(
             "/api/v1/repos/repo-1/merge-queue", headers={"authorization": token_for()}
         )
@@ -308,7 +308,7 @@ class TestREST:
 
 
 class TestGRPC:
-    async def test_quadro_de_entrega(self, stub_ent):
+    async def test_the_delivery_board(self, stub_ent):
         resp = await stub_ent.GetDeliveryBoard(
             bff.GetDeliveryBoardRequest(project_id="prj-1"), metadata=ACCOUNT
         )
@@ -316,7 +316,7 @@ class TestGRPC:
         assert resp.pull_requests[0].pending_reviews == 2
         assert resp.directives[0].kind == bff.Directive.KIND_CHERRY_PICK
 
-    async def test_entrada_na_fila_vem_como_entry(self, stub_ent):
+    async def test_entering_the_queue_comes_back_as_an_entry(self, stub_ent):
         resp = await stub_ent.EnqueueMerge(
             bff.EnqueueMergeRequest(repo_id="repo-1", demand_id="dem-1"), metadata=ACCOUNT
         )
@@ -324,7 +324,7 @@ class TestGRPC:
         assert not resp.HasField("refusal")
         assert resp.entry.state == bff.MergeQueueEntry.STATE_QUEUED
 
-    async def test_cliente_pode_mandar_a_propria_idempotencia(self, stub_ent, entregas):
+    async def test_the_client_may_send_its_own_idempotency_key(self, stub_ent, entregas):
         await stub_ent.EnqueueMerge(
             bff.EnqueueMergeRequest(
                 repo_id="repo-1", demand_id="dem-1", idempotency_key="minha-key"
@@ -333,7 +333,7 @@ class TestGRPC:
         )
         assert entregas.EnqueueMerge.requests[0].idempotency_key == "minha-key"
 
-    async def test_viewer_nao_decide_diretriz(self, stub_ent, core):
+    async def test_a_viewer_does_not_decide_a_directive(self, stub_ent, core):
         viewer_role(core)
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_ent.DecideDirective(
@@ -341,7 +341,7 @@ class TestGRPC:
             )
         assert e.value.code() == grpc.StatusCode.PERMISSION_DENIED
 
-    async def test_sem_token_e_unauthenticated(self, stub_ent):
+    async def test_with_no_token_it_is_unauthenticated(self, stub_ent):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_ent.GetMergeQueue(
                 bff.GetMergeQueueRequest(repo_id="repo-1"), metadata=metadata_for(None)
@@ -349,10 +349,10 @@ class TestGRPC:
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
 
-class TestParidadeEntreTransportes:
+class TestParityBetweenTransports:
     """Uma função, dois adaptadores — e a prova de que continua assim."""
 
-    async def test_quadro_igual_nas_duas_portas(self, client_del, stub_ent):
+    async def test_the_board_is_the_same_on_both_ports(self, client_del, stub_ent):
         rest = client_del.get(
             "/api/v1/delivery/board?project_id=prj-1", headers=REST_HEADERS
         ).json()

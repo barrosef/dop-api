@@ -220,10 +220,10 @@ async def stub_cost(custo):
 # ── testes ──────────────────────────────────────────────────────────────────
 
 
-class TestDinheiroNaoViraFloat:
+class TestMoneyNeverBecomesAFloat:
     """Micros inteiros, com a moeda junto. Procurado no body inteiro."""
 
-    def test_rest_devolve_micros_exatos_e_nenhum_decimal(self, client_cost):
+    def test_rest_returns_exact_micros_and_no_decimal(self, client_cost):
         r = client_cost.get("/api/v1/cost/summary", headers=REST_HEADERS)
         assert r.status_code == 200
         assert str(CUSTO_MICROS) in r.text
@@ -232,21 +232,21 @@ class TestDinheiroNaoViraFloat:
         assert CUSTO_EM_DECIMAL not in r.text
         assert r.json()["total"] == {"currency": "USD", "amount_micros": CUSTO_MICROS}
 
-    def test_rest_leva_a_moeda_junto_do_valor(self, client_cost):
+    def test_rest_carries_the_currency_alongside_the_value(self, client_cost):
         recente = client_cost.get(
             "/api/v1/cost/summary", headers=REST_HEADERS
         ).json()["recent"][0]
         assert recente["cost"]["currency"] == "USD"
         assert isinstance(recente["cost"]["amount_micros"], int)
 
-    async def test_grpc_devolve_int64_em_micros(self, stub_cost):
+    async def test_grpc_returns_an_int64_in_micros(self, stub_cost):
         resp = await stub_cost.SummarizeCost(
             bff.SummarizeCostRequest(), metadata=ACCOUNT
         )
         assert resp.total.amount_micros == CUSTO_MICROS
         assert CUSTO_EM_DECIMAL.encode() not in resp.SerializeToString()
 
-    def test_a_moeda_do_orcamento_vem_do_campo_do_nucleo(self, client_cost):
+    def test_the_budget_currency_comes_from_the_cores_field(self, client_cost):
         """`dop.v1.Budget.currency` existe (P-19) e a borda o LÊ.
 
         Antes ela lia com `getattr`, porque o campo não estava no contrato. O
@@ -261,7 +261,7 @@ class TestDinheiroNaoViraFloat:
         assert b["spent"]["currency"] == "USD"
         assert b["remaining"]["currency"] == "USD"
 
-    def test_a_borda_nao_inventa_moeda_quando_o_nucleo_cala(
+    def test_the_edge_invents_no_currency_when_the_core_is_silent(
         self, client_cost, custo
     ):
         """Moeda vazia diz "o núcleo não informou" — e continua dizendo isso.
@@ -278,10 +278,10 @@ class TestDinheiroNaoViraFloat:
         assert b["limit"]["amount_micros"] == 50_000_000
 
 
-class TestJustificativaDoRoteamento:
+class TestTheRoutingJustification:
     """A decisão vem COM o porquê e a proveniência, inteiros."""
 
-    def test_rest_carrega_a_justificativa_inteira(self, client_cost):
+    def test_rest_carries_the_whole_justification(self, client_cost):
         r = client_cost.get(
             "/api/v1/cost/routing?task_kind=critic", headers=REST_HEADERS
         )
@@ -292,7 +292,7 @@ class TestJustificativaDoRoteamento:
         assert r.json()["model"] == "claude-opus"
         assert r.json()["effort"] == "max"
 
-    def test_a_proveniencia_diz_que_a_politica_e_rascunho(self, client_cost):
+    def test_the_provenance_says_the_policy_is_a_draft(self, client_cost):
         """É esta frase que impede alguém de tratar a tabela como medida."""
         razao = client_cost.get(
             "/api/v1/cost/routing?task_kind=critic", headers=REST_HEADERS
@@ -300,14 +300,14 @@ class TestJustificativaDoRoteamento:
         assert razao.startswith(PROVENIENCIA)
         assert "rascunho" in razao and "P-7" in razao
 
-    async def test_grpc_carrega_a_justificativa_inteira(self, stub_cost):
+    async def test_grpc_carries_the_whole_justification(self, stub_cost):
         resp = await stub_cost.RouteModel(
             bff.RouteModelRequest(task_kind="critic"), metadata=ACCOUNT
         )
         assert resp.reason == JUSTIFICATIVA
         assert JUSTIFICATIVA.encode() in resp.SerializeToString()
 
-    def test_demanda_atravessa_para_a_calibracao(self, client_cost, custo):
+    def test_the_demand_crosses_for_the_calibration(self, client_cost, custo):
         client_cost.get(
             "/api/v1/cost/routing?task_kind=critic&demand_id=dem-1",
             headers=REST_HEADERS,
@@ -315,10 +315,10 @@ class TestJustificativaDoRoteamento:
         assert custo.RouteModel.requests[0].demand_id == "dem-1"
 
 
-class TestOrcamentoEstourado:
+class TestABlownBudget:
     """Corte SUAVE (ADR-0011 §2): pausa e pergunta, não err seco."""
 
-    def test_estouro_nao_e_erro_e_o_consumo_fica_registrado(self, client_cost, custo):
+    def test_an_overrun_is_not_an_error_and_the_consumption_stays_recorded(self, client_cost, custo):
         custo.estourou()
         r = client_cost.post(
             "/api/v1/cost/usage",
@@ -330,7 +330,7 @@ class TestOrcamentoEstourado:
         assert body["recorded"] is True
         assert body["budget_exceeded"] is True
 
-    def test_o_aviso_diz_que_a_demanda_pausa(self, client_cost, custo):
+    def test_the_notice_says_the_demand_pauses(self, client_cost, custo):
         """Um "budget exceeded" seco faria cada client reinventar a explicação."""
         custo.estourou()
         body = client_cost.post(
@@ -344,7 +344,7 @@ class TestOrcamentoEstourado:
         assert [b["scope"] for b in body["budgets"]] == ["demand", "account"]
         assert body["budgets"][0]["spent"]["amount_micros"] == 12_000_000
 
-    def test_sem_estouro_nao_gasta_ida_extra_ao_nucleo(self, client_cost, custo):
+    def test_with_no_overrun_it_spends_no_extra_round_trip_to_the_core(self, client_cost, custo):
         client_cost.post(
             "/api/v1/cost/usage",
             headers=REST_HEADERS,
@@ -352,7 +352,7 @@ class TestOrcamentoEstourado:
         )
         assert custo.GetBudget.calls == []
 
-    async def test_grpc_tambem_responde_ok(self, stub_cost, custo):
+    async def test_grpc_answers_ok_too(self, stub_cost, custo):
         custo.estourou()
         resp = await stub_cost.RecordUsage(
             bff.RecordUsageRequest(
@@ -364,7 +364,7 @@ class TestOrcamentoEstourado:
         assert resp.budget_exceeded is True
         assert "PAUSES" in resp.notice
 
-    def test_registro_carrega_idempotencia(self, client_cost, custo):
+    def test_recording_carries_an_idempotency_key(self, client_cost, custo):
         """Obrigatória no núcleo: duplicata aqui viraria consumo legítimo."""
         client_cost.post(
             "/api/v1/cost/usage",
@@ -374,21 +374,21 @@ class TestOrcamentoEstourado:
         assert custo.RecordUsage.requests[0].idempotency_key != ""
 
 
-class TestOrcamento:
-    def test_sobra_e_aritmetica_de_inteiro(self, client_cost):
+class TestBudget:
+    def test_the_remainder_is_integer_arithmetic(self, client_cost):
         b = client_cost.get(
             "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=REST_HEADERS
         ).json()
         assert b["remaining"]["amount_micros"] == 50_000_000 - CUSTO_MICROS
 
-    def test_sem_teto_a_sobra_e_nula_nao_zero(self, client_cost, custo):
+    def test_with_no_ceiling_the_remainder_is_null_not_zero(self, client_cost, custo):
         """Zero significaria "acabou o dinheiro", que é o oposto de "sem teto"."""
         custo.sem_teto()
         b = client_cost.get("/api/v1/cost/budget", headers=REST_HEADERS).json()
         assert b["limit"]["amount_micros"] == 0
         assert b["remaining"] is None
 
-    def test_definir_teto_exige_papel(self, client_cost, core):
+    def test_setting_the_ceiling_requires_a_role(self, client_cost, core):
         """Orçamento é governança: quem gasta não decide quanto pode gastar."""
         core.demote_to_developer()
         r = client_cost.put(
@@ -398,7 +398,7 @@ class TestOrcamento:
         )
         assert r.status_code == 403
 
-    def test_definir_teto_nao_manda_o_gasto(self, client_cost, custo):
+    def test_setting_the_ceiling_does_not_send_the_spend(self, client_cost, custo):
         """Aceitar `spent` do client permitiria zerar o gasto pedindo."""
         client_cost.put(
             "/api/v1/cost/budget",
@@ -408,7 +408,7 @@ class TestOrcamento:
         assert custo.SetBudget.requests[0].budget.spent_micros == 0
         assert custo.SetBudget.requests[0].budget.limit_micros == 1_000_000
 
-    def test_escopo_desconhecido_e_422(self, client_cost):
+    def test_an_unknown_scope_is_a_422(self, client_cost):
         r = client_cost.put(
             "/api/v1/cost/budget",
             headers=REST_HEADERS,
@@ -416,7 +416,7 @@ class TestOrcamento:
         )
         assert r.status_code == 422
 
-    def test_limite_negativo_e_422(self, client_cost):
+    def test_a_negative_limit_is_a_422(self, client_cost):
         r = client_cost.put(
             "/api/v1/cost/budget",
             headers=REST_HEADERS,
@@ -424,7 +424,7 @@ class TestOrcamento:
         )
         assert r.status_code == 422
 
-    async def test_definir_teto_exige_papel_no_grpc(self, stub_cost, core):
+    async def test_setting_the_ceiling_requires_a_role_over_grpc(self, stub_cost, core):
         core.demote_to_developer()
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_cost.SetBudget(
@@ -434,14 +434,14 @@ class TestOrcamento:
 
 
 class TestGRPC:
-    async def test_sem_token(self, stub_cost):
+    async def test_with_no_token(self, stub_cost):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_cost.GetBudget(
                 bff.GetBudgetRequest(), metadata=metadata_for(None)
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_evento_sem_data_nao_vira_1970(self, stub_cost, custo):
+    async def test_an_event_with_no_date_does_not_become_1970(self, stub_cost, custo):
         custo.SummarizeCost.returns(
             cost_pb2.SummarizeCostResponse(
                 total=common_pb2.Money(currency="USD", amount_micros=1),
@@ -453,7 +453,7 @@ class TestGRPC:
         )
         assert not resp.recent[0].HasField("at")
 
-    def test_evento_sem_data_e_nulo_no_rest(self, client_cost, custo):
+    def test_an_event_with_no_date_is_null_in_rest(self, client_cost, custo):
         custo.SummarizeCost.returns(
             cost_pb2.SummarizeCostResponse(
                 total=common_pb2.Money(currency="USD", amount_micros=1),
@@ -466,10 +466,10 @@ class TestGRPC:
         assert recente["at"] is None
 
 
-class TestParidadeEntreTransportes:
+class TestParityBetweenTransports:
     """O alarme que dispara se alguém reimplementar o caso de uso num adaptador."""
 
-    async def test_orcamento_igual_nas_duas_portas(self, client_cost, stub_cost):
+    async def test_the_budget_is_the_same_on_both_ports(self, client_cost, stub_cost):
         rest = client_cost.get(
             "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=REST_HEADERS
         ).json()
@@ -482,7 +482,7 @@ class TestParidadeEntreTransportes:
         assert resp.remaining.amount_micros == rest["remaining"]["amount_micros"]
         assert resp.HasField("remaining") is (rest["remaining"] is not None)
 
-    async def test_decisao_de_roteamento_igual_nas_duas_portas(
+    async def test_the_routing_decision_is_the_same_on_both_ports(
         self, client_cost, stub_cost
     ):
         rest = client_cost.get(

@@ -97,26 +97,26 @@ def _forjado(**override):
     return f"{h}.{p}.{base64.urlsafe_b64encode(b'lixo').decode().rstrip('=')}"
 
 
-class TestAssinatura:
-    async def test_token_legitimo_passa(self, verificador):
+class TestSignature:
+    async def test_a_legitimate_token_passes(self, verificador):
         v, key = verificador
         p = await v.verify(_token(key))
         assert p.subject == "usuario-1"
         assert p.providers == ["password"]
 
-    async def test_assinatura_forjada_e_recusada(self, verificador):
+    async def test_a_forged_signature_is_refused(self, verificador):
         """O bypass que existia. Se este teste passar a falhar, ele voltou."""
         v, _ = verificador
         with pytest.raises(InvalidToken):
             await v.verify(_forjado())
 
-    async def test_assinatura_de_outra_chave_e_recusada(self, verificador):
+    async def test_a_signature_from_another_key_is_refused(self, verificador):
         v, _ = verificador
         intrusa, _pem = _key_pair()
         with pytest.raises(InvalidToken):
             await v.verify(_token(intrusa))
 
-    async def test_alg_none_e_recusado(self, verificador):
+    async def test_alg_none_is_refused(self, verificador):
         """Confusão de algoritmo: o token não escolhe como é validado."""
         v, _ = verificador
 
@@ -127,7 +127,7 @@ class TestAssinatura:
         with pytest.raises(InvalidToken):
             await v.verify(sem_alg)
 
-    async def test_hs256_e_recusado(self, verificador):
+    async def test_hs256_is_refused(self, verificador):
         """HS256 usando a key PÚBLICA como segredo — o ataque clássico.
 
         O token é montado à mão porque o próprio PyJWT se recusa a criá-lo: ele
@@ -150,23 +150,23 @@ class TestAssinatura:
 
 
 class TestClaims:
-    async def test_expirado_e_recusado(self, verificador):
+    async def test_an_expired_token_is_refused(self, verificador):
         v, key = verificador
         antigo = int(time.time()) - 7200
         with pytest.raises(InvalidToken):
             await v.verify(_token(key, exp=antigo, iat=antigo - 60))
 
-    async def test_outro_projeto_e_recusado(self, verificador):
+    async def test_another_project_is_refused(self, verificador):
         v, key = verificador
         with pytest.raises(InvalidToken):
             await v.verify(_token(key, aud="outro-project"))
 
-    async def test_outro_emissor_e_recusado(self, verificador):
+    async def test_another_issuer_is_refused(self, verificador):
         v, key = verificador
         with pytest.raises(InvalidToken):
             await v.verify(_token(key, iss="https://evil.example.com"))
 
-    async def test_sem_projeto_falha_fechado(self):
+    async def test_with_no_project_it_fails_closed(self):
         """Sem project não há audiência para conferir; aceitar seria não conferir."""
         key, pem = _key_pair()
         v = FirebaseVerifier("", emulator_host="")
@@ -175,8 +175,8 @@ class TestClaims:
             await v.verify(_token(key))
 
 
-class TestVazamento:
-    async def test_mensagem_de_erro_nao_carrega_o_token(self, verificador):
+class TestLeaking:
+    async def test_the_error_message_does_not_carry_the_token(self, verificador):
         """Token em mensagem de err é credencial em repouso, indo para o log."""
         v, _ = verificador
         forjado = _forjado()
@@ -189,10 +189,10 @@ class TestVazamento:
         assert "vitima" not in text
 
 
-class TestEmulador:
+class TestEmulator:
     """O emulador emite `alg: none`; a assinatura é pulada — mas só ela."""
 
-    async def test_token_do_emulador_passa(self):
+    async def test_the_emulators_token_passes(self):
         v = FirebaseVerifier(PROJETO, emulator_host="localhost:9099")
 
         def b64(d):
@@ -205,7 +205,7 @@ class TestEmulador:
         p = await v.verify(t)
         assert p.subject == "emu-1"
 
-    async def test_emulador_ainda_recusa_outro_projeto(self):
+    async def test_the_emulator_still_refuses_another_project(self):
         """Pular assinatura não é desculpa para aceitar qualquer coisa."""
         v = FirebaseVerifier(PROJETO, emulator_host="localhost:9099")
 

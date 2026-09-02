@@ -17,8 +17,8 @@ ACCOUNT = {"authorization": token_for(), "x-account-id": "acct-1"}
 SEM_CONTA = {"authorization": token_for()}
 
 
-class TestResolverDeAutorizacao:
-    def test_ensure_user_roda_em_todo_login(self, client, core):
+class TestTheAuthorizationResolver:
+    def test_ensure_user_runs_on_every_login(self, client, core):
         """Idempotente por desenho: não é só no primeiro acesso."""
         client.get("/api/v1/me", headers=ACCOUNT)
         client.get("/api/v1/me", headers=ACCOUNT)
@@ -29,7 +29,7 @@ class TestResolverDeAutorizacao:
         assert req.provider == "email"  # normalizado, não claim de Firebase
         assert req.idempotency_key
 
-    def test_me_traz_o_user_id_do_core(self, client):
+    def test_me_brings_the_cores_user_id(self, client):
         r = client.get("/api/v1/me", headers=ACCOUNT)
         assert r.status_code == 200
         body = r.json()
@@ -38,7 +38,7 @@ class TestResolverDeAutorizacao:
         assert body["role"] == "admin"
         assert body["account_id"] == "acct-1"
 
-    def test_sem_vinculo_com_a_conta_da_403(self, client, core):
+    def test_no_membership_in_the_account_gives_a_403(self, client, core):
         """Pedir uma account de que não se é membro não é 404: é 403."""
         core.ListAccounts.returns(
             identity_pb2.ListAccountsResponse(
@@ -48,7 +48,7 @@ class TestResolverDeAutorizacao:
         r = client.get("/api/v1/me", headers=ACCOUNT)
         assert r.status_code == 403
 
-    def test_papel_nao_resolvido_nao_derruba_a_requisicao(self, client, core):
+    def test_an_unresolved_role_does_not_bring_the_request_down(self, client, core):
         """ListMemberships indisponível degrada para role vazio, não para 500.
 
         O vínculo já foi provado por ListAccounts; o que falta é só o role — e
@@ -62,11 +62,11 @@ class TestResolverDeAutorizacao:
         r = client.get("/api/v1/accounts/current/members", headers=ACCOUNT)
         assert r.status_code == 403
 
-    def test_nucleo_fora_do_ar_vira_503(self, client, core):
+    def test_a_core_that_is_down_becomes_a_503(self, client, core):
         core.EnsureUser.fails_with(grpc.StatusCode.UNAVAILABLE)
         assert client.get("/api/v1/me", headers=ACCOUNT).status_code == 503
 
-    def test_sem_conta_ativa_o_login_ainda_funciona(self, client, core):
+    def test_with_no_active_account_login_still_works(self, client, core):
         """É assim que o cockpit carrega o seletor de contas."""
         r = client.get("/api/v1/me", headers=SEM_CONTA)
         assert r.status_code == 200
@@ -74,8 +74,8 @@ class TestResolverDeAutorizacao:
         assert not core.ListMemberships.calls
 
 
-class TestPropagacaoDeContexto:
-    def test_metadado_leva_a_conta_ativa_e_o_ator(self, client, core):
+class TestContextPropagation:
+    def test_the_metadata_carries_the_active_account_and_the_actor(self, client, core):
         client.get("/api/v1/accounts", headers={**ACCOUNT, "x-request-id": "trace-1"})
         md = core.ListAccounts.metadata()
         assert md["x-account-id"] == "acct-1"
@@ -83,19 +83,19 @@ class TestPropagacaoDeContexto:
         assert md["x-actor-kind"] == "user"
         assert md["x-request-id"] == "trace-1"  # mesmo rastro do BFF ao core
 
-    def test_call_context_vai_no_corpo_da_requisicao(self, client, core):
+    def test_the_call_context_goes_in_the_requests_body(self, client, core):
         client.get("/api/v1/accounts/current/members", headers=ACCOUNT)
         req = core.ListMemberships.last["request"]
         assert req.ctx.account.id == "acct-1"
         assert req.ctx.actor.id == "u-1"
         assert req.account.id == "acct-1"
 
-    def test_chamada_carrega_deadline(self, client, core):
+    def test_the_call_carries_a_deadline(self, client, core):
         client.get("/api/v1/accounts", headers=ACCOUNT)
         assert core.ListAccounts.last["timeout"] == 10.0
 
 
-class TestTraducaoDeErro:
+class TestErrorTranslation:
     """O BFF traduz a semântica do core — não inventa a sua.
 
     Dois caminhos independentes precisam traduzir igual: o handler da aplicação
@@ -111,24 +111,24 @@ class TestTraducaoDeErro:
     ]
 
     @pytest.mark.parametrize(("code", "http"), CASOS)
-    def test_erro_na_rota_vira_status_http(self, client, core, code, http):
+    def test_an_error_in_the_route_becomes_an_http_status(self, client, core, code, http):
         core.CreateInvite.fails_with(code)
         r = client.post("/api/v1/invites", headers=ACCOUNT, json={"email": "x@dop.local"})
         assert r.status_code == http
         assert r.json()["detail"] == "came from the core"
 
     @pytest.mark.parametrize(("code", "http"), CASOS)
-    def test_erro_no_resolver_vira_status_http(self, client, core, code, http):
+    def test_an_error_in_the_resolver_becomes_an_http_status(self, client, core, code, http):
         core.EnsureUser.fails_with(code)
         assert client.get("/api/v1/me", headers=ACCOUNT).status_code == http
 
-    def test_erro_interno_da_rota_nao_vaza_detalhe(self, client, core):
+    def test_an_internal_error_in_the_route_leaks_no_detail(self, client, core):
         core.CreateInvite.fails_with(grpc.StatusCode.INTERNAL, "senha do banco no log")
         r = client.post("/api/v1/invites", headers=ACCOUNT, json={"email": "x@dop.local"})
         assert r.status_code == 500
         assert "senha" not in r.text
 
-    def test_erro_interno_do_resolver_tambem_nao_vaza(self, client, core):
+    def test_an_internal_error_in_the_resolver_does_not_leak_either(self, client, core):
         """O middleware traduz na mão — e precisa redigir igual ao handler."""
         core.EnsureUser.fails_with(grpc.StatusCode.INTERNAL, "senha do banco no log")
         r = client.get("/api/v1/me", headers=ACCOUNT)
@@ -136,13 +136,13 @@ class TestTraducaoDeErro:
         assert "senha" not in r.text
 
 
-class TestRotasProtegidas:
-    def test_sem_conta_ativa_da_400(self, client):
+class TestProtectedRoutes:
+    def test_with_no_active_account_it_gives_a_400(self, client):
         """Regra do SP-0, cobrada pelo @account_scoped na borda."""
         r = client.get("/api/v1/accounts/current/members", headers=SEM_CONTA)
         assert r.status_code == 400
 
-    def test_papel_insuficiente_da_403(self, client, core):
+    def test_an_insufficient_role_gives_a_403(self, client, core):
         core.ListMemberships.returns(
             identity_pb2.ListMembershipsResponse(
                 memberships=[
@@ -156,12 +156,12 @@ class TestRotasProtegidas:
         )
         assert client.get("/api/v1/accounts/current/members", headers=ACCOUNT).status_code == 403
 
-    def test_sem_token_da_401(self, client):
+    def test_with_no_token_it_gives_a_401(self, client):
         assert client.get("/api/v1/accounts").status_code == 401
 
 
-class TestListagens:
-    def test_accounts_traduz_o_proto(self, client):
+class TestListings:
+    def test_accounts_translates_the_proto(self, client):
         r = client.get("/api/v1/accounts", headers=ACCOUNT)
         assert r.status_code == 200
         assert r.json() == [
@@ -174,14 +174,14 @@ class TestListagens:
             }
         ]
 
-    def test_members_traduz_o_papel_para_string(self, client):
+    def test_members_translates_the_role_into_a_string(self, client):
         r = client.get("/api/v1/accounts/current/members", headers=ACCOUNT)
         assert r.status_code == 200
         assert r.json() == [{"id": "m-1", "user_id": "u-1", "role": "admin"}]
 
 
-class TestEscritas:
-    def test_cria_organizacao_com_chave_de_idempotencia(self, client, core):
+class TestWrites:
+    def test_it_creates_an_organization_with_an_idempotency_key(self, client, core):
         r = client.post(
             "/api/v1/accounts",
             headers=ACCOUNT,
@@ -193,13 +193,13 @@ class TestEscritas:
         assert req.handle == "acme"
         assert req.idempotency_key  # repetir não pode duplicar (ADR-0017)
 
-    def test_criar_organizacao_exige_conta_ativa(self, client):
+    def test_creating_an_organization_requires_an_active_account(self, client):
         r = client.post(
             "/api/v1/accounts", headers=SEM_CONTA, json={"handle": "a", "display_name": "A"}
         )
         assert r.status_code == 400
 
-    def test_cria_convite_com_papel_e_concessoes(self, client, core):
+    def test_it_creates_an_invite_with_a_role_and_grants(self, client, core):
         r = client.post(
             "/api/v1/invites",
             headers=ACCOUNT,
@@ -217,7 +217,7 @@ class TestEscritas:
         assert req.grants[0].level == "use"
         assert req.ctx.account.id == "acct-1"
 
-    def test_convite_exige_papel_de_gestao(self, monkeypatch, core):
+    def test_an_invite_requires_a_management_role(self, monkeypatch, core):
         core.ListMemberships.returns(
             identity_pb2.ListMembershipsResponse(
                 memberships=[

@@ -19,7 +19,7 @@ def _ctx(account_id="", role="", grants=None):
 
 
 class TestAccountScoped:
-    async def test_recusa_sem_conta_ativa(self):
+    async def test_it_refuses_with_no_active_account(self):
         """Regra do SP-0: requisição sem account ativa é inválida."""
         token = auth_ctx.set(_ctx(account_id=""))
 
@@ -32,7 +32,7 @@ class TestAccountScoped:
         assert exc.value.status_code == 400
         auth_ctx.reset(token)
 
-    async def test_aceita_com_conta_ativa(self):
+    async def test_it_accepts_with_an_active_account(self):
         token = auth_ctx.set(_ctx(account_id="acct-1"))
 
         @account_scoped
@@ -42,7 +42,7 @@ class TestAccountScoped:
         assert await handler() == "ok"
         auth_ctx.reset(token)
 
-    async def test_recusa_sem_autenticacao(self):
+    async def test_it_refuses_with_no_authentication(self):
         token = auth_ctx.set(None)
 
         @account_scoped
@@ -56,7 +56,7 @@ class TestAccountScoped:
 
 
 class TestRequireRole:
-    async def test_recusa_papel_insuficiente(self):
+    async def test_it_refuses_an_insufficient_role(self):
         token = auth_ctx.set(_ctx(account_id="acct-1", role="developer"))
 
         @require_role("owner", "admin")
@@ -68,7 +68,7 @@ class TestRequireRole:
         assert exc.value.status_code == 403
         auth_ctx.reset(token)
 
-    async def test_aceita_papel_valido(self):
+    async def test_it_accepts_a_valid_role(self):
         token = auth_ctx.set(_ctx(account_id="acct-1", role="admin"))
 
         @require_role("owner", "admin")
@@ -80,7 +80,7 @@ class TestRequireRole:
 
 
 class TestRequireGrant:
-    async def test_owner_tem_manage_implicito(self):
+    async def test_an_owner_has_implicit_manage(self):
         """Sem isso, ninguém conserta uma integração quebrada."""
         token = auth_ctx.set(_ctx(account_id="acct-1", role="owner"))
 
@@ -91,7 +91,7 @@ class TestRequireGrant:
         assert await handler(resource_id="res-1") == "ok"
         auth_ctx.reset(token)
 
-    async def test_developer_sem_concessao_e_recusado(self):
+    async def test_a_developer_with_no_grant_is_refused(self):
         token = auth_ctx.set(_ctx(account_id="acct-1", role="developer", grants={}))
 
         @require_grant("use")
@@ -103,7 +103,7 @@ class TestRequireGrant:
         assert exc.value.status_code == 403
         auth_ctx.reset(token)
 
-    async def test_developer_com_concessao_passa(self):
+    async def test_a_developer_with_a_grant_passes(self):
         token = auth_ctx.set(
             _ctx(account_id="acct-1", role="developer", grants={"res-1": "use"})
         )
@@ -115,7 +115,7 @@ class TestRequireGrant:
         assert await handler(resource_id="res-1") == "ok"
         auth_ctx.reset(token)
 
-    async def test_manage_satisfaz_requisito_de_use(self):
+    async def test_manage_satisfies_a_use_requirement(self):
         token = auth_ctx.set(
             _ctx(account_id="acct-1", role="developer", grants={"res-1": "manage"})
         )
@@ -127,7 +127,7 @@ class TestRequireGrant:
         assert await handler(resource_id="res-1") == "ok"
         auth_ctx.reset(token)
 
-    async def test_use_nao_satisfaz_requisito_de_manage(self):
+    async def test_use_does_not_satisfy_a_manage_requirement(self):
         token = auth_ctx.set(
             _ctx(account_id="acct-1", role="developer", grants={"res-1": "use"})
         )
@@ -141,25 +141,25 @@ class TestRequireGrant:
         auth_ctx.reset(token)
 
 
-class TestMascaraDeSegredos:
+class TestSecretMasking:
     """Redação de segredos é requisito (F-10), não conveniência."""
 
-    def test_mascara_chaves_sensiveis(self):
+    def test_it_masks_sensitive_keys(self):
         out = _mask_processor(None, None, {"password": "abc", "user": "ed"})
         assert out["password"] == REDACTED
         assert out["user"] == "ed"
 
-    def test_mascara_em_profundidade(self):
+    def test_it_masks_at_depth(self):
         out = _mask_processor(
             None, None, {"payload": {"nested": {"api_key": "sk-123", "ok": 1}}}
         )
         assert out["payload"]["nested"]["api_key"] == REDACTED
         assert out["payload"]["nested"]["ok"] == 1
 
-    def test_mascara_dentro_de_lista(self):
+    def test_it_masks_inside_a_list(self):
         out = _mask_processor(None, None, {"items": [{"token": "t1"}, {"token": "t2"}]})
         assert all(i["token"] == REDACTED for i in out["items"])
 
-    def test_cobre_as_chaves_do_dominio(self):
+    def test_it_covers_the_domains_keys(self):
         for k in ("api_key", "private_key", "client_secret", "id_token", "cnpj"):
             assert k in AUTO_MASK, f"{k} deveria estar mascarada"

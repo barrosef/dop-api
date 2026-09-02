@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 
-def test_healthz_e_publico_sem_token():
+def test_healthz_is_public_with_no_token():
     """@public isenta de autenticação — sem ele, a sonda do k8s falharia."""
     with TestClient(create_app()) as client:
         r = client.get("/healthz")
@@ -15,26 +15,26 @@ def test_healthz_e_publico_sem_token():
         assert r.json() == {"status": "ok"}
 
 
-def test_rota_protegida_recusa_sem_token():
+def test_a_protected_route_refuses_with_no_token():
     with TestClient(create_app()) as client:
         r = client.get("/api/v1/me")
         assert r.status_code == 401
 
 
-def test_request_id_volta_no_cabecalho():
+def test_the_request_id_comes_back_in_the_header():
     """Rastro entre serviços: o mesmo id aparece no log do BFF e do core."""
     with TestClient(create_app()) as client:
         r = client.get("/healthz", headers={"x-request-id": "trace-abc-123"})
         assert r.headers["x-request-id"] == "trace-abc-123"
 
 
-def test_request_id_e_gerado_quando_ausente():
+def test_the_request_id_is_generated_when_absent():
     with TestClient(create_app()) as client:
         r = client.get("/healthz")
         assert len(r.headers.get("x-request-id", "")) == 32
 
 
-def test_log_sai_em_json_valido(capsys):
+def test_the_log_goes_out_as_valid_json(capsys):
     """As duas pontas escrevem JSON com os mesmos campos canônicos."""
     with TestClient(create_app()) as client:
         client.get("/healthz")

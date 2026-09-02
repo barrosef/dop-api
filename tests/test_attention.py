@@ -304,10 +304,10 @@ def atencoes(text: str) -> list[dict]:
 # ── a queue ──────────────────────────────────────────────────────────────────
 
 
-class TestOrdemEBadge:
+class TestOrderAndBadge:
     """As duas coisas que a borda NÃO decide: a ordem e o badge."""
 
-    def test_a_ordem_e_a_do_nucleo(self, client):
+    def test_the_order_is_the_cores(self, client):
         """A prioridade é derivada lá; uma segunda régua aqui furaria a queue.
 
         A queue do double é embaralhada de propósito em relação a demand e id: se
@@ -322,7 +322,7 @@ class TestOrdemEBadge:
             10_100, 20_100, 40_050, 70_010, 70_120
         ]
 
-    def test_a_prioridade_atravessa_sem_ser_recalculada(self, client, attention):
+    def test_the_priority_crosses_without_being_recomputed(self, client, attention):
         """Prioridade absurda continua absurda: a borda não conserta a régua.
 
         Se ela recalculasse (por idade, por tipo, por qualquer coisa), este
@@ -337,14 +337,14 @@ class TestOrdemEBadge:
         box = client.get("/api/v1/attention", headers=HEADERS).json()
         assert box["items"][0]["priority"] == 999_999
 
-    def test_o_badge_e_do_nucleo_e_nao_a_contagem_da_pagina(self, client):
+    def test_the_badge_is_the_cores_and_not_the_pages_count(self, client):
         """Contar a página daria um badge que muda ao paginar."""
         box = client.get("/api/v1/attention", headers=HEADERS).json()
         assert box["open_total"] == AtencaoFalsa.OPEN_TOTAL
         assert len(box["items"]) == 5
         assert box["open_total"] != len(box["items"])
 
-    def test_filtrar_por_demanda_nao_mexe_no_badge(self, client, attention):
+    def test_filtering_by_demand_does_not_touch_the_badge(self, client, attention):
         """`open_total` é da ACCOUNT — é o número do sino, não o da screen aberta."""
         box = client.get(
             "/api/v1/attention?demand_id=dem-1", headers=HEADERS
@@ -352,27 +352,27 @@ class TestOrdemEBadge:
         assert box["open_total"] == AtencaoFalsa.OPEN_TOTAL
         assert attention.ListAttention.requests[0].demand.id == "dem-1"
 
-    def test_sem_filtro_a_demanda_nao_e_preenchida(self, client, attention):
+    def test_with_no_filter_the_demand_is_not_filled_in(self, client, attention):
         """Um DemandRef vazio seria uma demand de id "" — filtro, não ausência
         de filtro."""
         client.get("/api/v1/attention", headers=HEADERS)
         assert not attention.ListAttention.requests[0].HasField("demand")
 
-    def test_resolvidos_so_por_pedido_explicito(self, client, attention):
+    def test_resolved_items_only_on_an_explicit_request(self, client, attention):
         client.get("/api/v1/attention", headers=HEADERS)
         assert attention.ListAttention.requests[0].include_resolved is False
         client.get("/api/v1/attention?include_resolved=true", headers=HEADERS)
         assert attention.ListAttention.requests[1].include_resolved is True
 
-    def test_tamanho_de_pagina_atravessa(self, client, attention):
+    def test_the_page_size_crosses(self, client, attention):
         client.get("/api/v1/attention?page_size=20", headers=HEADERS)
         assert attention.ListAttention.requests[0].page.size == 20
 
 
-class TestAgrupamentoPorDemanda:
+class TestGroupingByDemand:
     """O que a borda ACRESCENTA — e o que ela não deixa de preservar."""
 
-    def test_agrupa_por_demanda_preservando_a_ordem(self, client):
+    def test_it_groups_by_demand_preserving_the_order(self, client):
         """Os grupos saem na ordem do item mais urgente de cada um.
 
         Que é a ordem da primeira aparição na queue — nenhuma comparação nova. Um
@@ -385,7 +385,7 @@ class TestAgrupamentoPorDemanda:
         assert por_demanda["dem-2"] == ["at-1", "at-4"]
         assert por_demanda["dem-1"] == ["at-3", "at-5"]
 
-    def test_item_de_conta_e_um_grupo_e_nao_um_resto(self, client):
+    def test_an_account_item_is_a_group_and_not_a_leftover(self, client):
         """Integração quebrada para a account inteira: é dos mais urgentes que
         existem, e jogá-lo num rodapé "outros" o esconderia justamente quando
         nada mais anda."""
@@ -396,7 +396,7 @@ class TestAgrupamentoPorDemanda:
         # E o item continua na queue plana também: agrupar não é mover.
         assert "at-2" in [i["id"] for i in box["items"]]
 
-    def test_os_grupos_contem_os_mesmos_itens_da_fila(self, client):
+    def test_the_groups_contain_the_same_items_as_the_queue(self, client):
         """Agrupar não pode perder nem duplicar item — seria uma queue mentindo
         sobre si mesma em dois lugares da mesma response."""
         box = client.get("/api/v1/attention", headers=HEADERS).json()
@@ -404,7 +404,7 @@ class TestAgrupamentoPorDemanda:
         assert sorted(agrupados) == sorted(i["id"] for i in box["items"])
 
 
-class TestOQueOContratoNaoOferece:
+class TestWhatTheContractDoesNotOffer:
     """A ausência é a decisão, e por isso é testada.
 
     A box é PROJEÇÃO: item nasce de evento e morre de evento, e quem fecha é o
@@ -422,32 +422,32 @@ class TestOQueOContratoNaoOferece:
             ("patch", "/api/v1/attention/at-1"),
         ],
     )
-    def test_nao_existe_marcar_como_lido_nem_descartar(self, client, metodo, caminho):
+    def test_there_is_no_mark_as_read_and_no_dismiss(self, client, metodo, caminho):
         r = getattr(client, metodo)(caminho, headers=HEADERS)
         assert r.status_code in (404, 405)
 
-    def test_o_servico_grpc_so_tem_leitura(self):
+    def test_the_grpc_service_is_read_only(self):
         """O mesmo, no contrato: dois RPCs, os dois de leitura."""
         servico = bff.DESCRIPTOR.services_by_name["AttentionService"]
         assert {m.name for m in servico.methods} == {"ListAttention", "WatchAttention"}
 
 
-class TestItemNaBorda:
-    def test_alvo_e_par_e_nao_rota_pronta(self, client):
+class TestTheItemAtTheEdge:
+    def test_the_target_is_a_pair_and_not_a_finished_route(self, client):
         """Guardar a rota pronta amarraria o backend ao desenho da screen."""
         box = client.get("/api/v1/attention", headers=HEADERS).json()
         portao = [i for i in box["items"] if i["id"] == "at-3"][0]
         assert (portao["target_kind"], portao["target_id"]) == ("stage", "spec")
         assert portao["kind"] == "gate_pending"
 
-    def test_item_aberto_nao_tem_data_de_resolucao(self, client):
+    def test_an_open_item_has_no_resolution_date(self, client):
         """None, não a época zero: 1970 numa queue ordenada por idade apareceria
         como o item mais antigo do mundo."""
         box = client.get("/api/v1/attention", headers=HEADERS).json()
         assert all(i["resolved_at"] is None for i in box["items"])
         assert all(i["opened_at"] is not None for i in box["items"])
 
-    def test_item_resolvido_traz_a_data(self, client, attention):
+    def test_a_resolved_item_brings_the_date(self, client, attention):
         """Item resolvido sai da box mas permanece na projeção: é dele que sai
         quanto tempo o dev levou para responder."""
         attention.ListAttention.returns(
@@ -468,7 +468,7 @@ class TestItemNaBorda:
 
 
 class TestSSE:
-    def test_responde_text_event_stream(self, core, monkeypatch):
+    def test_it_answers_text_event_stream(self, core, monkeypatch):
         com_stream(monkeypatch, [aberto(FILA[0])])
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=HEADERS)
@@ -478,13 +478,13 @@ class TestSSE:
         # em lote, e a box fica parada até a conexão fechar.
         assert r.headers["x-accel-buffering"] == "no"
 
-    def test_abre_dizendo_de_quanto_em_quanto_reconectar(self, core, monkeypatch):
+    def test_it_opens_saying_how_often_to_reconnect(self, core, monkeypatch):
         com_stream(monkeypatch, [aberto(FILA[0])])
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=HEADERS)
         assert frames(r.text)[0]["retry"] == str(settings.sse_retry_ms)
 
-    def test_nome_de_evento_proprio(self, core, monkeypatch):
+    def test_its_own_event_name(self, core, monkeypatch):
         """`attention` e não `event`: o body é uma MUDANÇA na queue, não um
         evento do log. São renderizadores diferentes na screen — a mesma razão
         pela qual `log` já é separado de `event`."""
@@ -493,7 +493,7 @@ class TestSSE:
             r = c.get("/api/v1/stream/attention", headers=HEADERS)
         assert [q.get("event") for q in frames(r.text) if q.get("event")] == ["attention"]
 
-    def test_abertura_traz_o_item_inteiro(self, core, monkeypatch):
+    def test_the_opening_brings_the_whole_item(self, core, monkeypatch):
         com_stream(monkeypatch, [aberto(FILA[2])])
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=HEADERS)
@@ -503,7 +503,7 @@ class TestSSE:
         assert upd["item"]["kind"] == "gate_pending"
         assert upd["item"]["demand_id"] == "dem-1"
 
-    def test_fechamento_identifica_pelo_alvo_e_a_borda_nao_inventa_id(
+    def test_the_close_identifies_by_target_and_the_edge_invents_no_id(
         self, core, monkeypatch
     ):
         """O núcleo fecha pelo ALVO — quem fecha conhece o alvo, não o id.
@@ -525,7 +525,7 @@ class TestSSE:
             "th-1",
         )
 
-    def test_last_event_id_vira_o_cursor_do_nucleo(self, core, monkeypatch):
+    def test_last_event_id_becomes_the_cores_cursor(self, core, monkeypatch):
         """A ligação que a ADR-0017 pede: cabeçalho do SSE → `since_event_id`."""
         fake = com_stream(monkeypatch, [aberto(FILA[0])])
         with TestClient(_app_com_rotas()) as c:
@@ -535,7 +535,7 @@ class TestSSE:
             )
         assert fake.ultimo_stream.request.since_event_id == "ev-40"
 
-    def test_cabecalho_vence_a_query(self, core, monkeypatch):
+    def test_the_header_beats_the_query(self, core, monkeypatch):
         """A URL congela quando o EventSource é criado; o cabeçalho não.
 
         Preferir a query traria mudanças já vistas de volta a cada reconexão.
@@ -548,13 +548,13 @@ class TestSSE:
             )
         assert fake.ultimo_stream.request.since_event_id == "ev-40"
 
-    def test_query_serve_a_quem_nao_pode_mandar_cabecalho(self, core, monkeypatch):
+    def test_the_query_serves_whoever_cannot_send_a_header(self, core, monkeypatch):
         fake = com_stream(monkeypatch, [aberto(FILA[0])])
         with TestClient(_app_com_rotas()) as c:
             c.get("/api/v1/stream/attention?since_event_id=ev-7", headers=HEADERS)
         assert fake.ultimo_stream.request.since_event_id == "ev-7"
 
-    def test_nao_emite_id_porque_o_nucleo_nao_manda_o_id_do_evento(
+    def test_it_emits_no_id_because_the_core_does_not_send_the_event_id(
         self, core, monkeypatch
     ):
         """`dop.v1.AttentionUpdate` não carrega o id do evento que a gerou.
@@ -570,14 +570,14 @@ class TestSSE:
         eventos = [q for q in frames(r.text) if q.get("event") == rotas.ATTENTION]
         assert eventos and all("id" not in q for q in eventos)
 
-    def test_conta_ativa_atravessa_nos_metadados(self, core, monkeypatch):
+    def test_the_active_account_crosses_in_the_metadata(self, core, monkeypatch):
         fake = com_stream(monkeypatch, [aberto(FILA[0])])
         with TestClient(_app_com_rotas()) as c:
             c.get("/api/v1/stream/attention", headers=HEADERS)
         assert fake.ultimo_stream.metadata["x-account-id"] == "acct-1"
 
 
-class TestErroDepoisDoPrimeiroByte:
+class TestAnErrorAfterTheFirstByte:
     """200 já enviado, e aí o núcleo falha. Não existe trocar o status.
 
     Vale a mesma mecânica do flow de eventos, porque é literalmente o mesmo
@@ -585,7 +585,7 @@ class TestErroDepoisDoPrimeiroByte:
     um stream que morre em silêncio.
     """
 
-    def test_consumidor_lento_vira_evento_de_erro_retentavel(self, core, monkeypatch):
+    def test_a_slow_consumer_becomes_a_retryable_error_event(self, core, monkeypatch):
         com_stream(
             monkeypatch,
             [aberto(FILA[0])],
@@ -598,7 +598,7 @@ class TestErroDepoisDoPrimeiroByte:
         assert body["code"] == "UNAVAILABLE"
         assert body["retryable"] is True
 
-    def test_detalhe_de_5xx_do_nucleo_nao_vaza(self, core, monkeypatch):
+    def test_a_5xx_detail_from_the_core_does_not_leak(self, core, monkeypatch):
         """Mesmo redator do resto da borda (`_detail_for`), não um segundo."""
         com_stream(
             monkeypatch,
@@ -612,17 +612,17 @@ class TestErroDepoisDoPrimeiroByte:
         assert "senha" not in r.text and "10.0.0.7" not in r.text
 
 
-class TestAutorizacao:
+class TestAuthorization:
     """Nem a box nem o stream podem ser a porta que nasce aberta."""
 
-    def test_lista_sem_token_e_401(self, client):
+    def test_listing_with_no_token_is_a_401(self, client):
         assert client.get("/api/v1/attention").status_code == 401
 
-    def test_lista_sem_conta_ativa_e_400(self, client):
+    def test_listing_with_no_active_account_is_a_400(self, client):
         r = client.get("/api/v1/attention", headers={"authorization": token_for()})
         assert r.status_code == 400
 
-    def test_stream_sem_conta_ativa_e_400_e_nao_um_200_vazio(self, core, monkeypatch):
+    def test_a_stream_with_no_active_account_is_a_400_and_not_an_empty_200(self, core, monkeypatch):
         """A recusa acontece ANTES do primeiro byte: o caso de uso é chamado
         dentro do handler, não dentro do gerador."""
         fake = com_stream(monkeypatch, [aberto(FILA[0])])
@@ -636,14 +636,14 @@ class TestAutorizacao:
         assert fake.streams == []
 
 
-class TestDesconexao:
+class TestDisconnection:
     """Cliente que some tem que matar a assinatura no núcleo.
 
     Stream que continua depois do client ir embora é vazamento de goroutine do
     outro lado da rede: o watcher fica no fan-out do núcleo para sempre.
     """
 
-    async def test_abandonar_o_gerador_cancela_a_chamada(self, core, monkeypatch):
+    async def test_abandoning_the_generator_cancels_the_call(self, core, monkeypatch):
         fake = com_stream(monkeypatch, [aberto(FILA[0])], segura=True)
 
         from app.platform.context import AuthContext, Principal, auth_ctx
@@ -666,20 +666,20 @@ class TestDesconexao:
 
 
 class TestGRPC:
-    async def test_lista_com_grupos_e_badge(self, stub):
+    async def test_the_list_comes_with_groups_and_a_badge(self, stub):
         resp = await stub.ListAttention(bff.ListAttentionRequest(), metadata=ACCOUNT)
         assert [i.id for i in resp.items] == ["at-1", "at-2", "at-3", "at-4", "at-5"]
         assert [g.demand_id for g in resp.groups] == ["dem-2", "", "dem-1"]
         assert resp.open_total == AtencaoFalsa.OPEN_TOTAL
 
-    async def test_item_aberto_nao_tem_campo_de_resolucao(self, stub):
+    async def test_an_open_item_has_no_resolution_field(self, stub):
         """Ausente ≠ zerado também na volta: um Timestamp zerado diria
         "resolvido em 1970", e o HasField do outro lado confirmaria."""
         resp = await stub.ListAttention(bff.ListAttentionRequest(), metadata=ACCOUNT)
         assert resp.items[0].HasField("opened_at")
         assert not resp.items[0].HasField("resolved_at")
 
-    async def test_watch_traz_abertura_e_fechamento(self, core, monkeypatch, stub):
+    async def test_watch_brings_the_opening_and_the_close(self, core, monkeypatch, stub):
         com_stream(
             monkeypatch,
             [aberto(FILA[0]), resolvido(Item.KIND_MERGE_CONFLICT, ("pull_request", "pr-9"))],
@@ -699,7 +699,7 @@ class TestGRPC:
         assert recebidos[1].item.id == ""
         assert recebidos[1].item.target_id == "pr-9"
 
-    async def test_cursor_e_campo_porque_grpc_nao_tem_cabecalho(
+    async def test_the_cursor_is_a_field_because_grpc_has_no_header(
         self, core, monkeypatch, stub
     ):
         fake = com_stream(monkeypatch, [aberto(FILA[0])])
@@ -709,7 +709,7 @@ class TestGRPC:
             pass
         assert fake.ultimo_stream.request.since_event_id == "ev-40"
 
-    async def test_sem_token_e_unauthenticated(self, stub, attention):
+    async def test_with_no_token_it_is_unauthenticated(self, stub, attention):
         with pytest.raises(AioRpcError) as e:
             await stub.ListAttention(
                 bff.ListAttentionRequest(), metadata=metadata_for(None)
@@ -717,7 +717,7 @@ class TestGRPC:
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
         assert attention.ListAttention.calls == []
 
-    async def test_stream_sem_conta_ativa_e_invalid_argument(
+    async def test_a_stream_with_no_active_account_is_invalid_argument(
         self, core, monkeypatch, stub
     ):
         """Mesma regra do REST (SP-0), no status equivalente ao 400."""
@@ -731,27 +731,27 @@ class TestGRPC:
         assert e.value.code() == grpc.StatusCode.INVALID_ARGUMENT
         assert fake.streams == []
 
-    async def test_erro_do_nucleo_atravessa_com_o_status_dele(self, stub, attention):
+    async def test_a_core_error_crosses_with_its_own_status(self, stub, attention):
         attention.ListAttention.fails_with(grpc.StatusCode.NOT_FOUND, "account sumiu")
         with pytest.raises(AioRpcError) as e:
             await stub.ListAttention(bff.ListAttentionRequest(), metadata=ACCOUNT)
         assert e.value.code() == grpc.StatusCode.NOT_FOUND
 
-    async def test_detalhe_de_5xx_nao_vaza_nem_aqui(self, stub, attention):
+    async def test_a_5xx_detail_does_not_leak_here_either(self, stub, attention):
         attention.ListAttention.fails_with(grpc.StatusCode.INTERNAL, "senha=hunter2")
         with pytest.raises(AioRpcError) as e:
             await stub.ListAttention(bff.ListAttentionRequest(), metadata=ACCOUNT)
         assert e.value.details() == "internal error"
 
 
-class TestParidadeEntreTransportes:
+class TestParityBetweenTransports:
     """Uma função, dois adaptadores — e a prova de que continua assim.
 
     O alarme que dispara se alguém reimplementar o agrupamento (ou os names de
     tipo) num adaptador em vez de no caso de uso.
     """
 
-    async def test_caixa_igual_nas_duas_portas(self, client, stub):
+    async def test_the_box_is_the_same_on_both_ports(self, client, stub):
         rest = client.get("/api/v1/attention", headers=HEADERS).json()
         grpc_resp = await stub.ListAttention(bff.ListAttentionRequest(), metadata=ACCOUNT)
 
@@ -770,7 +770,7 @@ class TestParidadeEntreTransportes:
             assert i_grpc.HasField("resolved_at") == (i_rest["resolved_at"] is not None)
             assert i_grpc.HasField("opened_at") == (i_rest["opened_at"] is not None)
 
-    async def test_a_mesma_mudanca_sai_pelas_duas_portas(self, core, monkeypatch, stub):
+    async def test_the_same_change_goes_out_through_both_ports(self, core, monkeypatch, stub):
         atualizacoes = [
             aberto(FILA[0]),
             resolvido(Item.KIND_THREAD_BLOCKED, ("thread", "th-1")),

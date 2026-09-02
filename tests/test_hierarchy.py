@@ -15,7 +15,7 @@ REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
 
 class TestREST:
-    def test_tree_traz_workspaces_com_projetos(self, client_hier):
+    def test_the_tree_brings_workspaces_with_projects(self, client_hier):
         r = client_hier.get("/api/v1/tree", headers=REST_HEADERS)
         assert r.status_code == 200
         nos = r.json()
@@ -23,7 +23,7 @@ class TestREST:
         assert nos[0]["workspace"]["key"] == "PLAT"
         assert [p["name"] for p in nos[0]["projects"]] == ["Cockpit", "No board"]
 
-    def test_projeto_sem_quadro_vem_nulo_nao_zerado(self, client_hier):
+    def test_a_project_with_no_board_comes_back_null_not_zeroed(self, client_hier):
         """Ausente e zerado são coisas diferentes.
 
         Um vínculo zerado faria o cockpit desenhar 'board configurado' com
@@ -34,7 +34,7 @@ class TestREST:
         assert com["task_manager"]["external_space_id"] == "sp-901"
         assert sem["task_manager"] is None
 
-    def test_criar_workspace_exige_papel(self, client_hier, core):
+    def test_creating_a_workspace_requires_a_role(self, client_hier, core):
         """Developer não reorganiza a account."""
         core.demote_to_developer()
         r = client_hier.post(
@@ -44,7 +44,7 @@ class TestREST:
         )
         assert r.status_code == 403
 
-    def test_criar_workspace(self, client_hier, hierarchy):
+    def test_creating_a_workspace(self, client_hier, hierarchy):
         r = client_hier.post(
             "/api/v1/workspaces",
             headers=REST_HEADERS,
@@ -53,7 +53,7 @@ class TestREST:
         assert r.status_code == 201
         assert hierarchy.CreateWorkspace.requests[0].key == "PLAT"
 
-    def test_escrita_carrega_idempotencia(self, client_hier, hierarchy):
+    def test_a_write_carries_an_idempotency_key(self, client_hier, hierarchy):
         """Sem key de idempotência, o retry do channel duplica workspace."""
         client_hier.post(
             "/api/v1/workspaces",
@@ -62,7 +62,7 @@ class TestREST:
         )
         assert hierarchy.CreateWorkspace.requests[0].idempotency_key != ""
 
-    def test_sem_conta_ativa_e_recusado(self, client_hier):
+    def test_with_no_active_account_it_is_refused(self, client_hier):
         r = client_hier.get("/api/v1/tree", headers={"authorization": token_for()})
         assert r.status_code == 400
 
@@ -73,20 +73,20 @@ class TestGRPC:
         assert len(resp.nodes) == 1
         assert resp.nodes[0].workspace.key == "PLAT"
 
-    async def test_projeto_sem_quadro_nao_tem_campo(self, stub_hier):
+    async def test_a_project_with_no_board_has_no_field(self, stub_hier):
         resp = await stub_hier.GetTree(bff.GetTreeRequest(), metadata=ACCOUNT)
         com, sem = resp.nodes[0].projects
         assert com.HasField("task_manager")
         assert not sem.HasField("task_manager")
 
-    async def test_sem_token_e_unauthenticated(self, stub_hier):
+    async def test_with_no_token_it_is_unauthenticated(self, stub_hier):
         import grpc
 
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_hier.GetTree(bff.GetTreeRequest(), metadata=metadata_for(None))
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_criar_workspace_exige_papel(self, stub_hier, core):
+    async def test_creating_a_workspace_requires_a_role(self, stub_hier, core):
         import grpc
 
         core.demote_to_developer()
@@ -96,7 +96,7 @@ class TestGRPC:
             )
         assert e.value.code() == grpc.StatusCode.PERMISSION_DENIED
 
-    async def test_cliente_pode_mandar_a_propria_idempotencia(self, stub_hier, hierarchy):
+    async def test_the_client_may_send_its_own_idempotency_key(self, stub_hier, hierarchy):
         """No gRPC o client sabe se está retentando — e por isso pode mandar
         a key dele. O REST não tem onde carregá-la e recebe uma nossa."""
         await stub_hier.CreateWorkspace(
@@ -105,7 +105,7 @@ class TestGRPC:
         )
         assert hierarchy.CreateWorkspace.requests[0].idempotency_key == "minha-key"
 
-    async def test_bind_task_manager_preserva_o_resto_do_projeto(
+    async def test_bind_task_manager_preserves_the_rest_of_the_project(
         self, stub_hier, hierarchy
     ):
         """UpdateProject no núcleo é SUBSTITUIÇÃO.
@@ -128,10 +128,10 @@ class TestGRPC:
         assert enviado.task_manager.integration.id == "res-9"
 
 
-class TestParidadeEntreTransportes:
+class TestParityBetweenTransports:
     """Uma função, dois adaptadores — e a prova de que continua assim."""
 
-    async def test_tree_igual_nas_duas_portas(self, client_hier, stub_hier):
+    async def test_the_tree_is_the_same_on_both_ports(self, client_hier, stub_hier):
         rest = client_hier.get("/api/v1/tree", headers=REST_HEADERS).json()
         grpc_resp = await stub_hier.GetTree(bff.GetTreeRequest(), metadata=ACCOUNT)
 

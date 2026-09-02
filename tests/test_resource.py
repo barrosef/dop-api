@@ -21,8 +21,8 @@ SEGREDO = "pk_live_nao_pode_vazar_jamais"
 SEGREDO_B64 = base64.b64encode(SEGREDO.encode()).decode()
 
 
-class TestSegredoNaoVaza:
-    def test_rest_nao_devolve_o_valor(self, client_res):
+class TestTheSecretDoesNotLeak:
+    def test_rest_does_not_return_the_value(self, client_res):
         r = client_res.put(
             "/api/v1/resources/res-1/credential",
             headers=REST_HEADERS,
@@ -34,7 +34,7 @@ class TestSegredoNaoVaza:
         # O que volta é o rótulo opaco, que diz que HÁ credencial.
         assert r.json()["credential_ref"].startswith("integration_credential:")
 
-    async def test_grpc_nao_devolve_o_valor(self, stub_res):
+    async def test_grpc_does_not_return_the_value(self, stub_res):
         resp = await stub_res.SetCredential(
             bff.SetCredentialRequest(resource_id="res-1", secret=SEGREDO.encode()),
             metadata=ACCOUNT,
@@ -42,7 +42,7 @@ class TestSegredoNaoVaza:
         assert SEGREDO.encode() not in resp.SerializeToString()
         assert resp.credential_ref.startswith("integration_credential:")
 
-    def test_o_segredo_chegou_ao_nucleo(self, client_res, resources):
+    def test_the_secret_reached_the_core(self, client_res, resources):
         """Não vazar não pode virar não gravar."""
         client_res.put(
             "/api/v1/resources/res-1/credential",
@@ -51,19 +51,19 @@ class TestSegredoNaoVaza:
         )
         assert resources.SetCredential.requests[0].secret == SEGREDO.encode()
 
-    def test_listar_nao_traz_valor(self, client_res):
+    def test_listing_does_not_bring_the_value(self, client_res):
         r = client_res.get("/api/v1/resources", headers=REST_HEADERS)
         assert SEGREDO not in r.text
 
 
 class TestREST:
-    def test_listar_integracoes(self, client_res):
+    def test_listing_integrations(self, client_res):
         r = client_res.get("/api/v1/resources?kind=integration", headers=REST_HEADERS)
         assert r.status_code == 200
         assert r.json()[0]["kind"] == "integration"
         assert r.json()[0]["config"]["provider"] == "clickup"
 
-    def test_criar_carrega_idempotencia(self, client_res, resources):
+    def test_creating_carries_an_idempotency_key(self, client_res, resources):
         client_res.post(
             "/api/v1/resources",
             headers=REST_HEADERS,
@@ -71,7 +71,7 @@ class TestREST:
         )
         assert resources.CreateResource.requests[0].idempotency_key != ""
 
-    def test_nivel_de_concessao_e_validado_na_borda(self, client_res):
+    def test_the_grant_level_is_validated_at_the_edge(self, client_res):
         """`level` só aceita use ou manage — 422 antes de gastar ida ao núcleo."""
         r = client_res.post(
             "/api/v1/grants",
@@ -80,7 +80,7 @@ class TestREST:
         )
         assert r.status_code == 422
 
-    def test_conceder_exige_papel(self, client_res, core):
+    def test_granting_requires_a_role(self, client_res, core):
         core.demote_to_developer()
         r = client_res.post(
             "/api/v1/grants",
@@ -91,20 +91,20 @@ class TestREST:
 
 
 class TestGRPC:
-    async def test_listar(self, stub_res):
+    async def test_listing(self, stub_res):
         resp = await stub_res.ListResources(
             bff.ListResourcesRequest(kind=bff.RESOURCE_KIND_INTEGRATION), metadata=ACCOUNT
         )
         assert resp.resources[0].kind == bff.RESOURCE_KIND_INTEGRATION
 
-    async def test_sem_token(self, stub_res):
+    async def test_with_no_token(self, stub_res):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_res.ListResources(
                 bff.ListResourcesRequest(), metadata=metadata_for(None)
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_conceder_exige_papel(self, stub_res, core):
+    async def test_granting_requires_a_role(self, stub_res, core):
         core.demote_to_developer()
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_res.GrantResource(
@@ -114,8 +114,8 @@ class TestGRPC:
         assert e.value.code() == grpc.StatusCode.PERMISSION_DENIED
 
 
-class TestParidadeEntreTransportes:
-    async def test_listar_igual_nas_duas_portas(self, client_res, stub_res):
+class TestParityBetweenTransports:
+    async def test_listing_is_the_same_on_both_ports(self, client_res, stub_res):
         rest = client_res.get("/api/v1/resources", headers=REST_HEADERS).json()
         resp = await stub_res.ListResources(bff.ListResourcesRequest(), metadata=ACCOUNT)
         assert len(resp.resources) == len(rest)

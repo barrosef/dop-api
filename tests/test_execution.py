@@ -164,8 +164,8 @@ async def stub_exec(execucao):
 # ── testes ──────────────────────────────────────────────────────────────────
 
 
-class TestIsolamentoDeclaradoNuncaPresumido:
-    def test_rest_sem_tier_e_422_e_o_nucleo_nao_e_chamado(self, client_exec, execucao):
+class TestIsolationIsDeclaredNeverPresumed:
+    def test_rest_with_no_tier_is_a_422_and_the_core_is_not_called(self, client_exec, execucao):
         """A recusa é o comportamento; NÃO chamar o núcleo é a prova.
 
         Se a borda tivesse um default, o núcleo seria chamado com ele e este
@@ -178,7 +178,7 @@ class TestIsolamentoDeclaradoNuncaPresumido:
         assert r.status_code == 422
         assert execucao.ProvisionSandbox.calls == []
 
-    def test_rest_tier_desconhecido_e_422(self, client_exec, execucao):
+    def test_rest_with_an_unknown_tier_is_a_422(self, client_exec, execucao):
         r = client_exec.post(
             "/api/v1/sandboxes",
             headers=REST_HEADERS,
@@ -187,7 +187,7 @@ class TestIsolamentoDeclaradoNuncaPresumido:
         assert r.status_code == 422
         assert execucao.ProvisionSandbox.calls == []
 
-    async def test_grpc_unspecified_e_invalid_argument(self, stub_exec, execucao):
+    async def test_grpc_unspecified_is_invalid_argument(self, stub_exec, execucao):
         """UNSPECIFIED no protobuf é a ausência, e a ausência não vira default."""
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_exec.ProvisionSandbox(
@@ -196,7 +196,7 @@ class TestIsolamentoDeclaradoNuncaPresumido:
         assert e.value.code() == grpc.StatusCode.INVALID_ARGUMENT
         assert execucao.ProvisionSandbox.calls == []
 
-    def test_o_tier_declarado_desce_como_veio(self, client_exec, execucao):
+    def test_the_declared_tier_goes_down_as_it_came(self, client_exec, execucao):
         """Nem rebaixado "porque o cluster pode não ter", nem promovido."""
         client_exec.post(
             "/api/v1/sandboxes",
@@ -207,7 +207,7 @@ class TestIsolamentoDeclaradoNuncaPresumido:
         assert request.min_tier == execution_pb2.ISOLATION_TIER_HARDWARE
         assert request.idempotency_key != ""
 
-    async def test_o_tier_declarado_desce_como_veio_no_grpc(self, stub_exec, execucao):
+    async def test_the_declared_tier_goes_down_as_it_came_over_grpc(self, stub_exec, execucao):
         await stub_exec.ProvisionSandbox(
             bff.ProvisionSandboxRequest(
                 demand_id="dem-1",
@@ -220,7 +220,7 @@ class TestIsolamentoDeclaradoNuncaPresumido:
         assert request.min_tier == execution_pb2.ISOLATION_TIER_KERNEL_EMULATED
         assert request.idempotency_key == "key-do-client"
 
-    def test_a_resposta_traz_o_tier_entregue(self, client_exec):
+    def test_the_response_brings_the_delivered_tier(self, client_exec):
         """O client vê o que RECEBEU, não o que pediu (spec do substrato §2)."""
         s = client_exec.post(
             "/api/v1/sandboxes",
@@ -229,7 +229,7 @@ class TestIsolamentoDeclaradoNuncaPresumido:
         ).json()
         assert s["tier"] == "hardware"
 
-    def test_recusa_do_nucleo_atravessa_como_412(self, client_exec, execucao):
+    def test_the_cores_refusal_crosses_as_a_412(self, client_exec, execucao):
         """Substrato sem o nível request = recusa com mensagem, não degradação."""
         execucao.ProvisionSandbox.fails_with(
             grpc.StatusCode.FAILED_PRECONDITION,
@@ -244,20 +244,20 @@ class TestIsolamentoDeclaradoNuncaPresumido:
         assert "não oferece isolamento" in r.json()["detail"]
 
 
-class TestDestruicao:
-    def test_devolve_confirmacao_em_vez_de_204(self, client_exec):
+class TestDestruction:
+    def test_it_returns_a_confirmation_instead_of_a_204(self, client_exec):
         """Ato irreversível merece response que o client possa mostrar."""
         r = client_exec.delete("/api/v1/sandboxes/sbx-1", headers=REST_HEADERS)
         assert r.status_code == 200
         assert r.json() == {"destroyed": True}
 
-    async def test_grpc_confirma_igual(self, stub_exec):
+    async def test_grpc_confirms_the_same_way(self, stub_exec):
         resp = await stub_exec.DestroySandbox(
             bff.DestroySandboxRequest(id="sbx-1"), metadata=ACCOUNT
         )
         assert resp.destroyed is True
 
-    def test_suspender_e_destruir_sao_rpcs_diferentes(self, client_exec, execucao):
+    def test_suspending_and_destroying_are_different_rpcs(self, client_exec, execucao):
         """Suspender preserva o workspace; destruir o leva junto.
 
         O teste existe para travar a confusão mais cara possível neste domínio:
@@ -272,7 +272,7 @@ class TestDestruicao:
         assert len(execucao.DestroySandbox.calls) == 1
         assert len(execucao.SuspendSandbox.calls) == 1
 
-    def test_retomar_destruido_atravessa_com_o_motivo(self, client_exec, execucao):
+    def test_resuming_a_destroyed_sandbox_crosses_with_the_reason(self, client_exec, execucao):
         execucao.ResumeSandbox.fails_with(
             grpc.StatusCode.FAILED_PRECONDITION,
             "sandbox destruído não retoma — a destruição leva o workspace junto",
@@ -284,8 +284,8 @@ class TestDestruicao:
         assert "leva o workspace junto" in r.json()["detail"]
 
 
-class TestPapel:
-    def test_viewer_nao_provisiona(self, client_exec, core, execucao):
+class TestRole:
+    def test_a_viewer_does_not_provision(self, client_exec, core, execucao):
         viewer_role(core)
         r = client_exec.post(
             "/api/v1/sandboxes",
@@ -295,27 +295,27 @@ class TestPapel:
         assert r.status_code == 403
         assert execucao.ProvisionSandbox.calls == []
 
-    def test_viewer_nao_destroi(self, client_exec, core, execucao):
+    def test_a_viewer_does_not_destroy(self, client_exec, core, execucao):
         viewer_role(core)
         r = client_exec.delete("/api/v1/sandboxes/sbx-1", headers=REST_HEADERS)
         assert r.status_code == 403
         assert execucao.DestroySandbox.calls == []
 
-    def test_viewer_enxerga_o_sandbox(self, client_exec, core):
+    def test_a_viewer_sees_the_sandbox(self, client_exec, core):
         """Ver em que isolamento a demand roda é o que a spec quer visível."""
         viewer_role(core)
         r = client_exec.get("/api/v1/sandboxes/sbx-1", headers=REST_HEADERS)
         assert r.status_code == 200
         assert r.json()["tier"] == "hardware"
 
-    def test_developer_altera_o_ciclo_de_vida(self, client_exec, core):
+    def test_a_developer_changes_the_life_cycle(self, client_exec, core):
         core.demote_to_developer()
         r = client_exec.post(
             "/api/v1/sandboxes/sbx-1/suspend", headers=REST_HEADERS
         )
         assert r.status_code == 200
 
-    async def test_viewer_nao_provisiona_no_grpc(self, stub_exec, core):
+    async def test_a_viewer_does_not_provision_over_grpc(self, stub_exec, core):
         viewer_role(core)
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_exec.ProvisionSandbox(
@@ -328,7 +328,7 @@ class TestPapel:
 
 
 class TestREST:
-    def test_descrever_traz_endpoints(self, client_exec):
+    def test_describing_brings_the_endpoints(self, client_exec):
         s = client_exec.get(
             "/api/v1/sandboxes/sbx-1", headers=REST_HEADERS
         ).json()
@@ -336,7 +336,7 @@ class TestREST:
         assert s["namespace"] == "dop-dem1"
         assert s["endpoints"][0]["state"] == "running"
 
-    def test_sem_atividade_vem_nulo_nao_zerado(self, client_exec, execucao):
+    def test_with_no_activity_it_comes_back_null_not_zeroed(self, client_exec, execucao):
         """Época zero faria a suspensão automática ler "ocioso desde 1970"."""
         execucao.DescribeSandbox.returns(execucao.recem_criado)
         s = client_exec.get(
@@ -345,7 +345,7 @@ class TestREST:
         assert s["last_active_at"] is None
         assert s["state"] == "provisioning"
 
-    def test_sem_conta_ativa_e_recusado(self, client_exec):
+    def test_with_no_active_account_it_is_refused(self, client_exec):
         """Regra do SP-0, aplicada pelo decorator no CASO DE USO."""
         r = client_exec.get(
             "/api/v1/sandboxes/sbx-1", headers={"authorization": token_for()}
@@ -354,21 +354,21 @@ class TestREST:
 
 
 class TestGRPC:
-    async def test_sem_token(self, stub_exec):
+    async def test_with_no_token(self, stub_exec):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_exec.DescribeSandbox(
                 bff.DescribeSandboxRequest(id="sbx-1"), metadata=metadata_for(None)
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_sem_atividade_fica_ausente(self, stub_exec, execucao):
+    async def test_with_no_activity_it_stays_absent(self, stub_exec, execucao):
         execucao.DescribeSandbox.returns(execucao.recem_criado)
         resp = await stub_exec.DescribeSandbox(
             bff.DescribeSandboxRequest(id="sbx-2"), metadata=ACCOUNT
         )
         assert not resp.HasField("last_active_at")
 
-    async def test_detalhe_de_5xx_do_nucleo_nao_vaza(self, stub_exec, execucao):
+    async def test_a_5xx_detail_from_the_core_does_not_leak(self, stub_exec, execucao):
         execucao.DescribeSandbox.fails_with(
             grpc.StatusCode.INTERNAL, "pq://user:senha@db:5432 caiu"
         )
@@ -380,10 +380,10 @@ class TestGRPC:
         assert "senha" not in e.value.details()
 
 
-class TestParidadeEntreTransportes:
+class TestParityBetweenTransports:
     """O alarme que dispara se alguém reimplementar o caso de uso num adaptador."""
 
-    async def test_descrever_igual_nas_duas_portas(self, client_exec, stub_exec):
+    async def test_describing_is_the_same_on_both_ports(self, client_exec, stub_exec):
         rest = client_exec.get(
             "/api/v1/sandboxes/sbx-1", headers=REST_HEADERS
         ).json()

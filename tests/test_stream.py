@@ -271,7 +271,7 @@ def data(board: dict) -> dict:
 
 
 class TestSSE:
-    def test_responde_text_event_stream(self, client_sse):
+    def test_it_answers_text_event_stream(self, client_sse):
         r = client_sse.get("/api/v1/stream/events", headers=HEADERS)
         assert r.status_code == 200
         assert r.headers["content-type"].startswith("text/event-stream")
@@ -279,11 +279,11 @@ class TestSSE:
         # em lote, e o cockpit fica parado até a conexão fechar.
         assert r.headers["x-accel-buffering"] == "no"
 
-    def test_abre_dizendo_de_quanto_em_quanto_reconectar(self, client_sse):
+    def test_it_opens_saying_how_often_to_reconnect(self, client_sse):
         r = client_sse.get("/api/v1/stream/events", headers=HEADERS)
         assert frames(r.text)[0]["retry"] == str(settings.sse_retry_ms)
 
-    def test_id_do_sse_e_o_id_do_evento_do_nucleo(self, client_sse):
+    def test_the_sse_id_is_the_cores_event_id(self, client_sse):
         """O `id:` é o que faz a retomada funcionar — e ele não é nosso.
 
         Um contador local seria um id que o núcleo não sabe traduzir em posição
@@ -295,21 +295,21 @@ class TestSSE:
         assert data(eventos_sse[0])["type"] == "dop.demand.stage.advanced"
         assert data(eventos_sse[0])["payload"] == {"stage": "build"}
 
-    def test_last_event_id_vira_o_cursor_do_nucleo(self, client_sse, eventos):
+    def test_last_event_id_becomes_the_cores_cursor(self, client_sse, eventos):
         """A ligação que a ADR pede: cabeçalho do SSE → `since_event_id` do core."""
         client_sse.get(
             "/api/v1/stream/events", headers={**HEADERS, "Last-Event-ID": "ev-40"}
         )
         assert eventos.last.request.since_event_id == "ev-40"
 
-    def test_query_serve_a_quem_nao_pode_mandar_cabecalho(self, client_sse, eventos):
+    def test_the_query_serves_whoever_cannot_send_a_header(self, client_sse, eventos):
         """EventSource não deixa definir cabeçalho na PRIMEIRA conexão."""
         client_sse.get(
             "/api/v1/stream/events?since_event_id=ev-7", headers=HEADERS
         )
         assert eventos.last.request.since_event_id == "ev-7"
 
-    def test_cabecalho_vence_a_query(self, client_sse, eventos):
+    def test_the_header_beats_the_query(self, client_sse, eventos):
         """A URL congela no momento em que o EventSource é criado; o cabeçalho não.
 
         Preferir a query traria eventos já vistos de volta a cada reconexão.
@@ -320,7 +320,7 @@ class TestSSE:
         )
         assert eventos.last.request.since_event_id == "ev-40"
 
-    def test_filtros_atravessam_para_o_nucleo(self, client_sse, eventos):
+    def test_the_filters_cross_to_the_core(self, client_sse, eventos):
         client_sse.get(
             "/api/v1/stream/events?aggregate=demand&types=dop.demand.stage.advanced",
             headers=HEADERS,
@@ -329,12 +329,12 @@ class TestSSE:
         assert list(request.aggregate) == ["demand"]
         assert list(request.types) == ["dop.demand.stage.advanced"]
 
-    def test_conta_ativa_atravessa_nos_metadados(self, client_sse, eventos):
+    def test_the_active_account_crosses_in_the_metadata(self, client_sse, eventos):
         client_sse.get("/api/v1/stream/events", headers=HEADERS)
         assert eventos.last.metadata is not None
         assert dict(eventos.last.metadata)["x-account-id"] == "acct-1"
 
-    def test_heartbeat_sai_como_comentario(self, core, monkeypatch):
+    def test_the_heartbeat_goes_out_as_a_comment(self, core, monkeypatch):
         """`: ping` é comentário SSE: o browser ignora, o proxy vê tráfego.
 
         O double espera entre um evento e outro justamente para criar o silêncio
@@ -353,7 +353,7 @@ class TestSSE:
         assert any(q["comment"] and q["comment"][0].startswith("ping") for q in frames(r.text))
 
 
-class TestErroDepoisDoPrimeiroByte:
+class TestAnErrorAfterTheFirstByte:
     """A armadilha clássica: 200 já enviado, e aí o núcleo falha.
 
     Não existe trocar o status depois disso. Ou o err vira um evento que o
@@ -376,7 +376,7 @@ class TestErroDepoisDoPrimeiroByte:
         [(grpc.StatusCode.UNAVAILABLE, "assinante lento demais: reconecte com since_event_id")],
         indirect=True,
     )
-    def test_consumidor_lento_vira_evento_de_erro_retentavel(self, failing_client):
+    def test_a_slow_consumer_becomes_a_retryable_error_event(self, failing_client):
         r = failing_client.get("/api/v1/stream/events", headers=HEADERS)
         # 200: o status foi decidido antes do primeiro evento e não muda mais.
         assert r.status_code == 200
@@ -398,7 +398,7 @@ class TestErroDepoisDoPrimeiroByte:
         [(grpc.StatusCode.INTERNAL, "pq://user:senha@10.0.0.7/dop falhou")],
         indirect=True,
     )
-    def test_detalhe_de_5xx_do_nucleo_nao_vaza(self, failing_client):
+    def test_a_5xx_detail_from_the_core_does_not_leak(self, failing_client):
         """Mesmo redator do resto da borda (`_detail_for`), não um segundo."""
         r = failing_client.get("/api/v1/stream/events", headers=HEADERS)
         body = data([q for q in frames(r.text) if q.get("event") == "error"][0])
@@ -409,14 +409,14 @@ class TestErroDepoisDoPrimeiroByte:
     @pytest.mark.parametrize(
         "failing_client", [(grpc.StatusCode.NOT_FOUND, "demand não existe")], indirect=True
     )
-    def test_o_que_ja_saiu_continua_valendo(self, failing_client):
+    def test_what_has_already_gone_out_still_holds(self, failing_client):
         """O err não invalida os eventos entregues antes dele."""
         r = failing_client.get("/api/v1/stream/events", headers=HEADERS)
         names = [q.get("event") for q in frames(r.text) if q.get("event")]
         assert names == ["event", "error"]
 
 
-class TestAutorizacao:
+class TestAuthorization:
     """Stream não pode ser a porta que nasce aberta.
 
     Estas recusas acontecem ANTES do primeiro byte — o caso de uso é chamado
@@ -424,30 +424,30 @@ class TestAutorizacao:
     verdade, com body JSON, e não um 200 que morre no primeiro board.
     """
 
-    def test_sem_token_e_401(self, client_sse):
+    def test_with_no_token_it_is_a_401(self, client_sse):
         r = client_sse.get("/api/v1/stream/events")
         assert r.status_code == 401
         assert r.headers["content-type"].startswith("application/json")
 
-    def test_sem_conta_ativa_e_400(self, client_sse):
+    def test_with_no_active_account_it_is_a_400(self, client_sse):
         r = client_sse.get(
             "/api/v1/stream/events", headers={"authorization": token_for()}
         )
         assert r.status_code == 400
 
-    def test_recusa_nao_abre_assinatura_no_nucleo(self, client_sse, eventos):
+    def test_a_refusal_opens_no_subscription_in_the_core(self, client_sse, eventos):
         client_sse.get("/api/v1/stream/events", headers={"authorization": token_for()})
         assert eventos.calls == []
 
 
-class TestDesconexao:
+class TestDisconnection:
     """Cliente que some tem que matar a assinatura no núcleo.
 
     Stream que continua depois do client ir embora é vazamento de goroutine do
     outro lado da rede: o watcher fica no fan-out do núcleo para sempre.
     """
 
-    async def test_abandonar_o_gerador_cancela_a_chamada(self, core, monkeypatch):
+    async def test_abandoning_the_generator_cancels_the_call(self, core, monkeypatch):
         fake = ServicoFalso("WatchEvents", [envelope("ev-1")], segura=True)
         monkeypatch.setattr(stubs, "event_stub", lambda: fake)
 
@@ -466,7 +466,7 @@ class TestDesconexao:
         finally:
             auth_ctx.reset(token)
 
-    async def test_cliente_grpc_que_cancela_encerra_a_assinatura(
+    async def test_a_grpc_client_that_cancels_ends_the_subscription(
         self, stub_stream, core, monkeypatch
     ):
         """O mesmo, ponta a ponta: o cancelamento vem do FIO, não do teste."""
@@ -495,14 +495,14 @@ class TestGRPC:
         assert [e.id for e in recebidos] == ["ev-1", "ev-2"]
         assert recebidos[0].payload["stage"] == "build"
 
-    async def test_cursor_e_campo_porque_grpc_nao_tem_cabecalho(self, stub_stream, eventos):
+    async def test_the_cursor_is_a_field_because_grpc_has_no_header(self, stub_stream, eventos):
         async for _ in stub_stream.WatchEvents(
             bff.WatchEventsRequest(since_event_id="ev-40"), metadata=ACCOUNT
         ):
             pass
         assert eventos.last.request.since_event_id == "ev-40"
 
-    async def test_sem_token_e_unauthenticated(self, stub_stream, eventos):
+    async def test_with_no_token_it_is_unauthenticated(self, stub_stream, eventos):
         """O interceptor de auth passou a valer em streaming — antes não valia."""
         with pytest.raises(AioRpcError) as exc:
             async for _ in stub_stream.WatchEvents(
@@ -512,7 +512,7 @@ class TestGRPC:
         assert exc.value.code() == grpc.StatusCode.UNAUTHENTICATED
         assert eventos.calls == []
 
-    async def test_sem_conta_ativa_e_invalid_argument(self, stub_stream, eventos):
+    async def test_with_no_active_account_it_is_invalid_argument(self, stub_stream, eventos):
         """Mesma regra do REST (SP-0), traduzida para o status equivalente ao 400."""
         with pytest.raises(AioRpcError) as exc:
             async for _ in stub_stream.WatchEvents(
@@ -521,7 +521,7 @@ class TestGRPC:
                 pass
         assert exc.value.code() == grpc.StatusCode.INVALID_ARGUMENT
 
-    async def test_erro_depois_do_primeiro_item_vira_status(self, stub_stream, core, monkeypatch):
+    async def test_an_error_after_the_first_item_becomes_a_status(self, stub_stream, core, monkeypatch):
         """Aqui o status ainda cabe: em gRPC ele viaja nos trailers.
 
         É a diferença de transporte que justifica o SSE precisar de um evento
@@ -543,7 +543,7 @@ class TestGRPC:
         assert exc.value.code() == grpc.StatusCode.UNAVAILABLE
         assert exc.value.details() == "internal error"
 
-    async def test_detalhe_de_5xx_nao_vaza_nem_aqui(self, stub_stream, core, monkeypatch):
+    async def test_a_5xx_detail_does_not_leak_here_either(self, stub_stream, core, monkeypatch):
         fake = ServicoFalso(
             "WatchEvents", err=grpc_error(grpc.StatusCode.INTERNAL, "senha=hunter2")
         )
@@ -565,35 +565,35 @@ class TestGRPC:
         assert execucao.last.request.source == "app"
 
 
-class TestDemandaSemCursor:
+class TestADemandHasNoCursor:
     """`WatchDemand` não tem `since_event_id` no núcleo — e a borda não finge que tem."""
 
-    def test_sse_da_demanda_nao_emite_id(self, client_demand):
+    def test_the_demands_sse_emits_no_id(self, client_demand):
         r = client_demand.get("/api/v1/stream/demands/dem-1", headers=HEADERS)
         eventos_sse = [q for q in frames(r.text) if q.get("event") == "event"]
         assert eventos_sse and all("id" not in q for q in eventos_sse)
 
-    def test_a_demanda_vira_o_aggregate_id(self, client_demand):
+    def test_the_demand_becomes_the_aggregate_id(self, client_demand):
         r = client_demand.get("/api/v1/stream/demands/dem-1", headers=HEADERS)
         body = data([q for q in frames(r.text) if q.get("event") == "event"][0])
         assert body["aggregate_id"] == "dem-1"
         assert body["id"] == ""
 
-    def test_log_sai_com_nome_de_evento_proprio(self, cliente_log):
+    def test_the_log_goes_out_with_its_own_event_name(self, cliente_log):
         """`log` e `event` são coisas diferentes na screen; separar é do protocolo."""
         r = cliente_log.get("/api/v1/stream/sandboxes/sbx-1/logs", headers=HEADERS)
         board = [q for q in frames(r.text) if q.get("event") == "log"][0]
         assert data(board)["line"] == "subiu"
 
 
-class TestParidadeEntreTransportes:
+class TestParityBetweenTransports:
     """Uma função, dois adaptadores — e a prova de que continua assim.
 
     O alarme que dispara se alguém reimplementar a tradução no servicer ou no
     router em vez de no caso de uso.
     """
 
-    async def test_o_mesmo_evento_sai_pelas_duas_portas(self, eventos, stub_stream):
+    async def test_the_same_event_goes_out_through_both_ports(self, eventos, stub_stream):
         with TestClient(_app()) as client:
             rest = client.get("/api/v1/stream/events", headers=HEADERS)
         do_sse = [data(q) for q in frames(rest.text) if q.get("event") == "event"]

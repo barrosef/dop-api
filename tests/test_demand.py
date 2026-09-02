@@ -223,7 +223,7 @@ async def stub_dem(demands):
 
 
 class TestREST:
-    def test_cockpit_traz_demanda_threads_e_achados_numa_resposta(
+    def test_the_cockpit_brings_demand_threads_and_findings_in_one_response(
         self, client_dem, demands
     ):
         r = client_dem.get("/api/v1/demands/dem-1/cockpit", headers=REST_HEADERS)
@@ -241,7 +241,7 @@ class TestREST:
         # Sem thread: o board é o da demand inteira.
         assert demands.ListFindings.requests[0].thread_id == ""
 
-    def test_lista_vazia_de_achados_agora_significa_lista_vazia(
+    def test_an_empty_list_of_findings_now_means_an_empty_list(
         self, client_dem, demands
     ):
         """O fim de `findings_available`.
@@ -258,7 +258,7 @@ class TestREST:
         assert body["findings"] == []
         assert "findings_available" not in body
 
-    def test_falha_ao_ler_achados_derruba_o_cockpit_inteiro(
+    def test_a_failure_reading_findings_brings_the_whole_cockpit_down(
         self, client_dem, demands
     ):
         """Resposta pela metade sem dizer que está pela metade é pior que err.
@@ -271,7 +271,7 @@ class TestREST:
         r = client_dem.get("/api/v1/demands/dem-1/cockpit", headers=REST_HEADERS)
         assert r.status_code == 403
 
-    def test_etapa_que_nao_comecou_vem_nula_nao_zerada(self, client_dem):
+    def test_a_stage_that_has_not_started_comes_back_null_not_zeroed(self, client_dem):
         """Ausente e zerado são coisas diferentes.
 
         Um início zerado viraria 1º de janeiro de 1970 na screen — e data errada
@@ -285,7 +285,7 @@ class TestREST:
         assert spec["finished_at"] is None
         assert impl["started_at"] is None
 
-    def test_derivados_dizem_onde_a_demanda_esta(self, client_dem):
+    def test_the_derived_fields_say_where_the_demand_is(self, client_dem):
         """A primeira etapa não concluída, e quem espera gente.
 
         É a account que o cockpit, o dop-cli e o agente fariam cada um do seu
@@ -298,7 +298,7 @@ class TestREST:
         # A etapa que espera é a do portão humano, e só ela.
         assert [s["awaiting_decision"] for s in d["stages"]] == [False, True, False]
 
-    def test_thread_sem_ficha_vem_nula(self, client_dem):
+    def test_a_thread_with_no_brief_comes_back_null(self, client_dem):
         threads = client_dem.get(
             "/api/v1/demands/dem-1/threads", headers=REST_HEADERS
         ).json()
@@ -306,11 +306,11 @@ class TestREST:
         assert com["card"]["model"] == "opus"
         assert sem["card"] is None
 
-    def test_lista_repassa_o_token_da_proxima_pagina(self, client_dem):
+    def test_the_list_passes_on_the_next_page_token(self, client_dem):
         r = client_dem.get("/api/v1/demands", headers=REST_HEADERS)
         assert r.json()["next_page_token"] == "pag-2"
 
-    def test_viewer_nao_inicia_demanda(self, client_dem, core):
+    def test_a_viewer_does_not_start_a_demand(self, client_dem, core):
         viewer_role(core)
         r = client_dem.post(
             "/api/v1/demands",
@@ -319,7 +319,7 @@ class TestREST:
         )
         assert r.status_code == 403
 
-    def test_escrita_carrega_idempotencia(self, client_dem, demands):
+    def test_a_write_carries_an_idempotency_key(self, client_dem, demands):
         """Sem key, o retry do channel abre duas demands para o mesmo card."""
         client_dem.post(
             "/api/v1/demands",
@@ -328,7 +328,7 @@ class TestREST:
         )
         assert demands.StartDemand.requests[0].idempotency_key != ""
 
-    def test_status_de_etapa_inventado_e_recusado(self, client_dem):
+    def test_an_invented_stage_status_is_refused(self, client_dem):
         """O vocabulário é fechado, e a recusa mora no caso de uso — por isso
         vale igual nas duas portas."""
         r = client_dem.post(
@@ -338,7 +338,7 @@ class TestREST:
         )
         assert r.status_code == 422
 
-    def test_sem_conta_ativa_e_recusado(self, client_dem):
+    def test_with_no_active_account_it_is_refused(self, client_dem):
         r = client_dem.get(
             "/api/v1/demands/dem-1", headers={"authorization": token_for()}
         )
@@ -354,7 +354,7 @@ class TestGRPC:
         assert [t.key for t in resp.threads] == ["principal", "forense-db"]
         assert [f.title for f in resp.findings] == ["índice ausente em requests"]
 
-    async def test_o_campo_findings_available_nao_existe_mais(self, stub_dem):
+    async def test_the_findings_available_field_no_longer_exists(self, stub_dem):
         """Removido do contrato da borda, com o número 4 reservado.
 
         Reservar impede que um campo novo herde o número da bandeira e seja
@@ -364,7 +364,7 @@ class TestGRPC:
         assert "findings_available" not in campos
         assert all(f.number != 4 for f in campos.values())
 
-    async def test_etapa_sem_data_nao_tem_campo(self, stub_dem):
+    async def test_a_stage_with_no_date_has_no_field(self, stub_dem):
         d = await stub_dem.GetDemand(bff.GetDemandRequest(id="dem-1"), metadata=ACCOUNT)
         context, spec, impl = d.stages
         assert context.HasField("started_at") and context.HasField("finished_at")
@@ -372,7 +372,7 @@ class TestGRPC:
         assert not spec.HasField("finished_at")
         assert not impl.HasField("started_at")
 
-    async def test_thread_sem_ficha_nao_tem_campo(self, stub_dem):
+    async def test_a_thread_with_no_brief_has_no_field(self, stub_dem):
         resp = await stub_dem.ListThreads(
             bff.ListThreadsRequest(demand_id="dem-1"), metadata=ACCOUNT
         )
@@ -380,7 +380,7 @@ class TestGRPC:
         assert com.HasField("card")
         assert not sem.HasField("card")
 
-    async def test_thread_criada_sem_ficha_nao_manda_ficha_ao_nucleo(
+    async def test_a_thread_created_with_no_brief_sends_no_brief_to_the_core(
         self, stub_dem, demands
     ):
         """Ficha zerada declararia um agente sem propósito e sem orçamento."""
@@ -389,7 +389,7 @@ class TestGRPC:
         )
         assert not demands.CreateThread.requests[0].HasField("card")
 
-    async def test_cliente_pode_mandar_a_propria_idempotencia(self, stub_dem, demands):
+    async def test_the_client_may_send_its_own_idempotency_key(self, stub_dem, demands):
         """No gRPC quem sabe que está retentando é o client; o REST não tem
         onde carregar a key e recebe uma nossa."""
         await stub_dem.StartDemand(
@@ -400,7 +400,7 @@ class TestGRPC:
         )
         assert demands.StartDemand.requests[0].idempotency_key == "minha-key"
 
-    async def test_viewer_nao_decide_portao(self, stub_dem, core):
+    async def test_a_viewer_does_not_decide_a_gate(self, stub_dem, core):
         viewer_role(core)
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_dem.DecideGate(
@@ -409,7 +409,7 @@ class TestGRPC:
             )
         assert e.value.code() == grpc.StatusCode.PERMISSION_DENIED
 
-    async def test_sem_token_e_unauthenticated(self, stub_dem):
+    async def test_with_no_token_it_is_unauthenticated(self, stub_dem):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_dem.GetDemand(
                 bff.GetDemandRequest(id="dem-1"), metadata=metadata_for(None)
@@ -417,10 +417,10 @@ class TestGRPC:
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
 
-class TestParidadeEntreTransportes:
+class TestParityBetweenTransports:
     """Uma função, dois adaptadores — e a prova de que continua assim."""
 
-    async def test_cockpit_igual_nas_duas_portas(self, client_dem, stub_dem):
+    async def test_the_cockpit_is_the_same_on_both_ports(self, client_dem, stub_dem):
         rest = client_dem.get(
             "/api/v1/demands/dem-1/cockpit", headers=REST_HEADERS
         ).json()

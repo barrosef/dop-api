@@ -155,10 +155,10 @@ async def stub_flow(flows):
         await server.stop(0)
 
 
-class TestProcedencia:
+class TestProvenance:
     """De onde veio cada etapa — lido dos campos, não da frase."""
 
-    def test_cadeia_e_origem_por_etapa(self, client_flow):
+    def test_the_chain_and_the_origin_per_stage(self, client_flow):
         eff = client_flow.get(
             "/api/v1/flows/effective?scope=project&scope_id=prj-1",
             headers=REST_HEADERS,
@@ -177,7 +177,7 @@ class TestProcedencia:
         ]
         assert p["truncated"] is False
 
-    def test_a_borda_nao_depende_do_formato_da_frase(self, client_flow, flows):
+    def test_the_edge_does_not_depend_on_the_sentence_shape(self, client_flow, flows):
         """O teste que existe para provar que o parser MORREU.
 
         A frase vem irreconhecível — outra pontuação, outro idioma, sem os
@@ -199,7 +199,7 @@ class TestProcedencia:
         # E a frase, seja ela qual for, atravessa inteira e sem interpretação.
         assert p["sentence"] == "resolved from account, then platform"
 
-    def test_a_frase_original_nao_se_perde(self, client_flow):
+    def test_the_original_sentence_is_not_lost(self, client_flow):
         """Quem só quer imprimir continua imprimindo — e quem desconfiar da
         leitura estruturada tem contra o que conferir."""
         eff = client_flow.get(
@@ -207,7 +207,7 @@ class TestProcedencia:
         ).json()
         assert eff["provenance"]["sentence"] == RASTRO
 
-    def test_um_nivel_so_tambem_tem_origem_por_etapa(self, client_flow, flows):
+    def test_a_single_level_also_has_an_origin_per_stage(self, client_flow, flows):
         """Quando só um nível declarou, a FRASE não traz o detalhe por etapa —
         não há divergência para explicar. Os campos trazem.
 
@@ -232,7 +232,7 @@ class TestProcedencia:
         assert [o["scope"] for o in p["origins"]] == ["project", "project"]
         assert p["truncated"] is False
 
-    def test_etapa_sem_origem_informada_marca_truncado(self, client_flow, flows):
+    def test_a_stage_with_no_reported_origin_marks_truncated(self, client_flow, flows):
         """`truncated` é MEDIDO: origens que não cobrem as etapas.
 
         Antes ele era deduzido do "…" com que o núcleo corta a frase em 12
@@ -252,7 +252,7 @@ class TestProcedencia:
         assert p["truncated"] is True
         assert [o["stage_key"] for o in p["origins"]] == ["context"]
 
-    def test_sem_procedencia_nao_se_inventa_procedencia(self, client_flow, flows):
+    def test_with_no_provenance_no_provenance_is_invented(self, client_flow, flows):
         """Núcleo calado: nada se deduz, e `truncated` não vira alarme fake.
 
         Sem flow não há etapa para explicar — então não há origem faltando.
@@ -265,13 +265,13 @@ class TestProcedencia:
 
 
 class TestREST:
-    def test_fluxo_traduz_o_vocabulario_de_etapa(self, client_flow):
+    def test_the_flow_translates_the_stage_vocabulary(self, client_flow):
         f = client_flow.get("/api/v1/flows/flow-1", headers=REST_HEADERS).json()
         assert [s["type"] for s in f["stages"]] == ["context", "spec"]
         assert [s["gate"] for s in f["stages"]] == ["none", "human"]
         assert f["stages"][1]["artifacts"] == ["spec"]
 
-    def test_validacao_e_relatorio_nao_erro(self, client_flow):
+    def test_validation_is_a_report_not_an_error(self, client_flow):
         """A screen precisa da lista para marcar as etapas; um 4xx só daria um toast."""
         r = client_flow.post(
             "/api/v1/flows/validate",
@@ -282,14 +282,14 @@ class TestREST:
         assert r.json()["valid"] is False
         assert r.json()["warnings"] == ["flow sem etapa de teste"]
 
-    def test_efetivo_nao_e_capturado_como_id_de_fluxo(self, client_flow, flows):
+    def test_effective_is_not_captured_as_a_flow_id(self, client_flow, flows):
         """A rota /flows/effective vem antes de /flows/{id} — se a ordem
         inverter, este teste cai."""
         client_flow.get("/api/v1/flows/effective?scope=account", headers=REST_HEADERS)
         assert flows.ResolveFlow.calls
         assert not flows.GetFlow.calls
 
-    def test_criar_fluxo_carrega_idempotencia(self, client_flow, flows):
+    def test_creating_a_flow_carries_an_idempotency_key(self, client_flow, flows):
         client_flow.post(
             "/api/v1/flows",
             headers=REST_HEADERS,
@@ -306,7 +306,7 @@ class TestREST:
         assert request.flow.stages[0].type == workflow_pb2.STAGE_TYPE_SPEC
         assert request.flow.stages[0].gate == workflow_pb2.GATE_HUMAN
 
-    def test_developer_compoe_fluxo(self, client_flow, core):
+    def test_a_developer_composes_a_flow(self, client_flow, core):
         """Fluxo é conhecimento, aberto dentro da account (ADR-0014 §6)."""
         core.demote_to_developer()
         r = client_flow.post(
@@ -316,7 +316,7 @@ class TestREST:
         )
         assert r.status_code == 201
 
-    def test_developer_nao_promove_fluxo(self, client_flow, core):
+    def test_a_developer_does_not_promote_a_flow(self, client_flow, core):
         """Promover muda o jeito de trabalhar de quem não pediu — exige gestão."""
         core.demote_to_developer()
         r = client_flow.post(
@@ -326,7 +326,7 @@ class TestREST:
         )
         assert r.status_code == 403
 
-    def test_sem_conta_ativa_e_recusado(self, client_flow):
+    def test_with_no_active_account_it_is_refused(self, client_flow):
         r = client_flow.get(
             "/api/v1/flows", headers={"authorization": token_for()}
         )
@@ -334,7 +334,7 @@ class TestREST:
 
 
 class TestGRPC:
-    async def test_resolve_devolve_procedencia_estruturada(self, stub_flow):
+    async def test_resolve_returns_a_structured_provenance(self, stub_flow):
         eff = await stub_flow.ResolveFlow(
             bff.ResolveFlowRequest(scope="project", scope_id="prj-1"), metadata=ACCOUNT
         )
@@ -345,7 +345,7 @@ class TestGRPC:
         ]
         assert eff.provenance.sentence == RASTRO
 
-    async def test_fluxo_ausente_nao_e_fluxo_vazio(self, stub_flow, flows):
+    async def test_an_absent_flow_is_not_an_empty_flow(self, stub_flow, flows):
         """Nenhum nível declarou flow: o campo não vem. Um flow zerado diria
         que existe um flow sem name e sem etapas."""
         flows.ResolveFlow.returns(workflow_pb2.EffectiveFlow(resolved_from=""))
@@ -354,7 +354,7 @@ class TestGRPC:
         )
         assert not eff.HasField("flow")
 
-    async def test_developer_nao_promove_fluxo(self, stub_flow, core):
+    async def test_a_developer_does_not_promote_a_flow(self, stub_flow, core):
         core.demote_to_developer()
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_flow.PromoteFlow(
@@ -363,24 +363,24 @@ class TestGRPC:
             )
         assert e.value.code() == grpc.StatusCode.PERMISSION_DENIED
 
-    async def test_sem_token_e_unauthenticated(self, stub_flow):
+    async def test_with_no_token_it_is_unauthenticated(self, stub_flow):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_flow.ListFlows(
                 bff.ListFlowsRequest(), metadata=metadata_for(None)
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_erro_do_nucleo_atravessa_com_o_status_dele(self, stub_flow, flows):
+    async def test_a_core_error_crosses_with_its_own_status(self, stub_flow, flows):
         flows.GetFlow.fails_with(grpc.StatusCode.NOT_FOUND, "flow não encontrado")
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_flow.GetFlow(bff.GetFlowRequest(id="sumiu"), metadata=ACCOUNT)
         assert e.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-class TestParidadeEntreTransportes:
+class TestParityBetweenTransports:
     """Uma função, dois adaptadores — e a prova de que continua assim."""
 
-    async def test_fluxo_efetivo_igual_nas_duas_portas(self, client_flow, stub_flow):
+    async def test_the_effective_flow_is_the_same_on_both_ports(self, client_flow, stub_flow):
         rest = client_flow.get(
             "/api/v1/flows/effective?scope=project&scope_id=prj-1",
             headers=REST_HEADERS,

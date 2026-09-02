@@ -203,10 +203,10 @@ async def stub_know(conhecimento):
 # ── testes ──────────────────────────────────────────────────────────────────
 
 
-class TestDescarteDeContexto:
+class TestContextDrops:
     """O que não coube tem de aparecer. Ausente ≠ zerado."""
 
-    def test_o_descarte_vem_do_campo_do_nucleo(self, client_know):
+    def test_the_drops_come_from_the_cores_field(self, client_know):
         """`ContextPackage.dropped` existe (P-19) e a borda o LÊ.
 
         Antes a borda procurava o campo no DESCRITOR do protobuf, porque ele
@@ -228,7 +228,7 @@ class TestDescarteDeContexto:
         }
         assert r.json()["estimated_tokens"] == 12_345
 
-    def test_mapa_vazio_e_nulo_nao_zeros(self, client_know, conhecimento):
+    def test_an_empty_map_is_null_not_zeroes(self, client_know, conhecimento):
         """`null` é "não dá para saber"; zeros seriam "nada foi descartado".
 
         O núcleo preenche o mapa sempre, com as quatro keys. Mapa vazio é o
@@ -246,7 +246,7 @@ class TestDescarteDeContexto:
             is None
         )
 
-    def test_descarte_zerado_nao_e_truncado(self, client_know, conhecimento):
+    def test_zeroed_drops_are_not_truncated(self, client_know, conhecimento):
         """Zerado é AFIRMAÇÃO: coube tudo. Diferente de mapa vazio."""
         conhecimento.BuildContextPackage.returns(
             pacote_com_descarte(
@@ -259,7 +259,7 @@ class TestDescarteDeContexto:
         assert descarte["truncated"] is False
         assert descarte["findings"] == 0
 
-    def test_camada_que_a_borda_nao_conhece_ainda_trunca(
+    def test_a_layer_the_edge_does_not_know_still_truncates(
         self, client_know, conhecimento
     ):
         """Camada nova no núcleo não tem campo aqui — mas trunca do mesmo jeito.
@@ -284,7 +284,7 @@ class TestDescarteDeContexto:
         assert descarte["truncated"] is True
         assert "diagramas" not in descarte
 
-    async def test_descarte_ausente_tambem_no_grpc(self, stub_know, conhecimento):
+    async def test_absent_drops_over_grpc_too(self, stub_know, conhecimento):
         conhecimento.BuildContextPackage.returns(
             pacote_com_descarte(conhecimento.pacote)
         )
@@ -293,7 +293,7 @@ class TestDescarteDeContexto:
         )
         assert not resp.HasField("dropped")
 
-    async def test_descarte_presente_no_grpc(self, stub_know):
+    async def test_drops_present_over_grpc(self, stub_know):
         resp = await stub_know.GetContextPackage(
             bff.GetContextPackageRequest(demand_id="dem-1"), metadata=ACCOUNT
         )
@@ -302,7 +302,7 @@ class TestDescarteDeContexto:
         assert resp.dropped.truncated is True
 
 
-class TestConvencaoInternaNaoVaza:
+class TestTheInternalConventionDoesNotLeak:
     """As keys `dop.*` do núcleo não atravessam para a screen.
 
     Procuradas no body serializado INTEIRO: conferir campo a campo só pegaria
@@ -310,7 +310,7 @@ class TestConvencaoInternaNaoVaza:
     meta não estaria na lista.
     """
 
-    def test_rest_promove_body_e_scope_a_campos(self, client_know):
+    def test_rest_promotes_body_and_scope_to_fields(self, client_know):
         r = client_know.get(
             "/api/v1/knowledge/index?project_id=prj-1&repo=dop-api",
             headers=REST_HEADERS,
@@ -323,7 +323,7 @@ class TestConvencaoInternaNaoVaza:
         # Artefato grande não tem body inline — ele mora no storage.
         assert r.json()["body"] == ""
 
-    def test_rest_mantem_o_meta_do_autor(self, client_know, conhecimento):
+    def test_rest_keeps_the_authors_meta(self, client_know, conhecimento):
         conhecimento.ReadIndex.returns(conhecimento.regra)
         artefato = client_know.get(
             "/api/v1/knowledge/index?project_id=prj-1&repo=x", headers=REST_HEADERS
@@ -331,7 +331,7 @@ class TestConvencaoInternaNaoVaza:
         assert artefato["meta"] == {"autor": "ed"}
         assert artefato["body"] == CORPO_DA_REGRA
 
-    async def test_grpc_tambem_nao_carrega_a_convencao(self, stub_know):
+    async def test_grpc_does_not_carry_the_convention_either(self, stub_know):
         resp = await stub_know.ReadIndex(
             bff.ReadIndexRequest(project_id="prj-1", repo="dop-api"), metadata=ACCOUNT
         )
@@ -340,7 +340,7 @@ class TestConvencaoInternaNaoVaza:
 
 
 class TestREST:
-    def test_pacote_de_contexto(self, client_know):
+    def test_the_context_package(self, client_know):
         p = client_know.get(
             "/api/v1/demands/dem-1/context-package", headers=REST_HEADERS
         ).json()
@@ -349,7 +349,7 @@ class TestREST:
         assert p["memories"][0]["kind"] == "memory"
         assert p["findings"][0]["payload"] == {"summary": "30s"}
 
-    def test_busca_pareia_artefato_e_score(self, client_know):
+    def test_the_search_pairs_artifact_and_score(self, client_know):
         hits = client_know.get(
             "/api/v1/knowledge/memory?q=timeout&project_id=prj-1",
             headers=REST_HEADERS,
@@ -357,7 +357,7 @@ class TestREST:
         assert hits[0]["artifact"]["id"] == "art-3"
         assert hits[0]["score"] == pytest.approx(0.8203125)
 
-    def test_score_ausente_e_nulo_nao_zero(self, client_know, conhecimento):
+    def test_an_absent_score_is_null_not_zero(self, client_know, conhecimento):
         """Score que o núcleo não mandou não vira "nenhuma semelhança"."""
         conhecimento.SearchMemory.returns(
             knowledge_pb2.SearchMemoryResponse(
@@ -369,19 +369,19 @@ class TestREST:
         ).json()
         assert hits[0]["score"] is None
 
-    def test_busca_sem_projeto_vai_ao_escopo_de_conta(self, client_know, conhecimento):
+    def test_a_search_with_no_project_goes_to_the_account_scope(self, client_know, conhecimento):
         client_know.get("/api/v1/knowledge/memory?q=x", headers=REST_HEADERS)
         # Sem project o campo não é preenchido — o núcleo entende isso como
         # memória de account. Um ProjectRef vazio seria um project de id "".
         assert not conhecimento.SearchMemory.requests[0].HasField("project")
 
-    def test_listar_regras(self, client_know):
+    def test_listing_rules(self, client_know):
         regras = client_know.get(
             "/api/v1/knowledge/rules?project_id=prj-1", headers=REST_HEADERS
         ).json()
         assert regras == [CORPO_DA_REGRA, "sem PR sem verde"]
 
-    def test_gravar_carrega_idempotencia(self, client_know, conhecimento):
+    def test_writing_carries_an_idempotency_key(self, client_know, conhecimento):
         """Sem key, o retry do channel vira versão nova em silêncio."""
         r = client_know.post(
             "/api/v1/knowledge/artifacts",
@@ -399,7 +399,7 @@ class TestREST:
         assert request.content == CORPO_DA_REGRA.encode()
         assert request.artifact.kind == knowledge_pb2.KnowledgeArtifact.KIND_RULE
 
-    def test_tipo_de_conhecimento_e_validado_na_borda(self, client_know):
+    def test_the_knowledge_kind_is_validated_at_the_edge(self, client_know):
         """`kind` só aceita rule, index ou memory — 422 antes da ida ao núcleo."""
         r = client_know.post(
             "/api/v1/knowledge/artifacts",
@@ -408,7 +408,7 @@ class TestREST:
         )
         assert r.status_code == 422
 
-    def test_base64_invalido_e_422_nao_500(self, client_know):
+    def test_invalid_base64_is_a_422_not_a_500(self, client_know):
         r = client_know.post(
             "/api/v1/knowledge/artifacts",
             headers=REST_HEADERS,
@@ -416,7 +416,7 @@ class TestREST:
         )
         assert r.status_code == 422
 
-    def test_sem_conta_ativa_e_recusado(self, client_know):
+    def test_with_no_active_account_it_is_refused(self, client_know):
         """Regra do SP-0, aplicada pelo decorator no CASO DE USO."""
         r = client_know.get(
             "/api/v1/knowledge/rules?project_id=prj-1",
@@ -426,21 +426,21 @@ class TestREST:
 
 
 class TestGRPC:
-    async def test_pacote_de_contexto(self, stub_know):
+    async def test_the_context_package(self, stub_know):
         resp = await stub_know.GetContextPackage(
             bff.GetContextPackageRequest(demand_id="dem-1"), metadata=ACCOUNT
         )
         assert resp.estimated_tokens == 12_345
         assert resp.memories[0].kind == bff.KNOWLEDGE_KIND_MEMORY
 
-    async def test_busca_pareada(self, stub_know):
+    async def test_the_search_is_paired(self, stub_know):
         resp = await stub_know.SearchMemory(
             bff.SearchMemoryRequest(query="timeout", project_id="prj-1"), metadata=ACCOUNT
         )
         assert resp.hits[0].artifact.id == "art-3"
         assert resp.hits[0].HasField("score")
 
-    async def test_score_ausente_fica_ausente(self, stub_know, conhecimento):
+    async def test_an_absent_score_stays_absent(self, stub_know, conhecimento):
         conhecimento.SearchMemory.returns(
             knowledge_pb2.SearchMemoryResponse(
                 artifacts=[conhecimento.memoria], scores=[]
@@ -451,7 +451,7 @@ class TestGRPC:
         )
         assert not resp.hits[0].HasField("score")
 
-    async def test_cliente_manda_a_propria_idempotencia(self, stub_know, conhecimento):
+    async def test_the_client_sends_its_own_idempotency_key(self, stub_know, conhecimento):
         await stub_know.PutArtifact(
             bff.PutArtifactRequest(
                 kind=bff.KNOWLEDGE_KIND_MEMORY,
@@ -464,14 +464,14 @@ class TestGRPC:
         )
         assert conhecimento.PutArtifact.requests[0].idempotency_key == "key-do-client"
 
-    async def test_sem_token(self, stub_know):
+    async def test_with_no_token(self, stub_know):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_know.ListRules(
                 bff.ListRulesRequest(project_id="prj-1"), metadata=metadata_for(None)
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_tipo_invalido_e_invalid_argument(self, stub_know, conhecimento):
+    async def test_an_invalid_kind_is_invalid_argument(self, stub_know, conhecimento):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_know.PutArtifact(
                 bff.PutArtifactRequest(name="x", content=b"y"), metadata=ACCOUNT
@@ -480,10 +480,10 @@ class TestGRPC:
         assert conhecimento.PutArtifact.calls == []
 
 
-class TestParidadeEntreTransportes:
+class TestParityBetweenTransports:
     """O alarme que dispara se alguém reimplementar o caso de uso num adaptador."""
 
-    async def test_pacote_igual_nas_duas_portas(self, client_know, stub_know):
+    async def test_the_package_is_the_same_on_both_ports(self, client_know, stub_know):
         rest = client_know.get(
             "/api/v1/demands/dem-1/context-package", headers=REST_HEADERS
         ).json()

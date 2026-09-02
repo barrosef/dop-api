@@ -35,10 +35,10 @@ async def _err(call) -> AioRpcError:
     return exc.value
 
 
-class TestCaminhoFeliz:
+class TestHappyPath:
     """Um teste por RPC do IdentityService."""
 
-    async def test_get_me_traz_o_user_id_do_core(self, stub_grpc):
+    async def test_get_me_brings_the_cores_user_id(self, stub_grpc):
         me = await stub_grpc.GetMe(bff.GetMeRequest(), metadata=ACCOUNT)
         assert me.user_id == "u-1"  # id do core, não o subject
         assert me.subject == "sub-1"
@@ -47,7 +47,7 @@ class TestCaminhoFeliz:
         assert me.role == bff.ROLE_ADMIN
         assert list(me.providers) == ["email", "password"]
 
-    async def test_list_accounts_agrega_o_papel_na_conta_ativa(self, stub_grpc):
+    async def test_list_accounts_aggregates_the_role_in_the_active_account(self, stub_grpc):
         resp = await stub_grpc.ListAccounts(bff.ListAccountsRequest(), metadata=ACCOUNT)
         assert len(resp.accounts) == 1
         account = resp.accounts[0]
@@ -59,13 +59,13 @@ class TestCaminhoFeliz:
         # é o que este contrato de borda faz de diferente.
         assert account.role == bff.ROLE_ADMIN
 
-    async def test_list_members_traduz_o_papel_para_enum(self, stub_grpc):
+    async def test_list_members_translates_the_role_into_an_enum(self, stub_grpc):
         resp = await stub_grpc.ListMembers(bff.ListMembersRequest(), metadata=ACCOUNT)
         assert [(m.id, m.user_id, m.role) for m in resp.members] == [
             ("m-1", "u-1", bff.ROLE_ADMIN)
         ]
 
-    async def test_create_account_usa_a_chave_de_idempotencia_do_cliente(
+    async def test_create_account_uses_the_clients_idempotency_key(
         self, stub_grpc, core
     ):
         """No gRPC quem manda a key é o CLIENTE — é ele que sabe se é retry."""
@@ -85,13 +85,13 @@ class TestCaminhoFeliz:
         assert req.handle == "acme"
         assert req.idempotency_key == "key-do-client"
 
-    async def test_create_account_sem_chave_o_bff_gera_uma(self, stub_grpc, core):
+    async def test_create_account_with_no_key_the_bff_generates_one(self, stub_grpc, core):
         await stub_grpc.CreateAccount(
             bff.CreateAccountRequest(handle="acme", display_name="ACME"), metadata=ACCOUNT
         )
         assert core.CreateAccount.last["request"].idempotency_key  # ADR-0017
 
-    async def test_create_invite_leva_papel_e_concessoes(self, stub_grpc, core):
+    async def test_create_invite_carries_the_role_and_the_grants(self, stub_grpc, core):
         convite = await stub_grpc.CreateInvite(
             bff.CreateInviteRequest(
                 email="novo@dop.local",
@@ -108,7 +108,7 @@ class TestCaminhoFeliz:
         assert req.grants[0].level == "use"
         assert req.ctx.account.id == "acct-1"
 
-    async def test_papel_omitido_cai_no_mesmo_padrao_do_rest(self, stub_grpc, core):
+    async def test_an_omitted_role_falls_to_the_same_default_as_rest(self, stub_grpc, core):
         """ROLE_UNSPECIFIED não vira role vazio: vira o padrão do caso de uso."""
         await stub_grpc.CreateInvite(
             bff.CreateInviteRequest(email="novo@dop.local"), metadata=ACCOUNT
@@ -116,8 +116,8 @@ class TestCaminhoFeliz:
         assert core.CreateInvite.last["request"].role == identity_pb2.ROLE_DEVELOPER
 
 
-class TestPropagacaoDeContexto:
-    async def test_metadado_do_bff_ao_core_leva_conta_ator_e_rastro(self, stub_grpc, core):
+class TestContextPropagation:
+    async def test_the_metadata_from_bff_to_core_carries_account_actor_and_trace(self, stub_grpc, core):
         await stub_grpc.ListAccounts(
             bff.ListAccountsRequest(),
             metadata=metadata_for(token_for(), **{"x-request-id": "trace-grpc"}),
@@ -128,25 +128,25 @@ class TestPropagacaoDeContexto:
         assert md["x-actor-kind"] == "user"
         assert md["x-request-id"] == "trace-grpc"  # mesmo rastro das duas pontas
 
-    async def test_call_context_vai_no_corpo_da_chamada_ao_core(self, stub_grpc, core):
+    async def test_the_call_context_goes_in_the_body_of_the_call_to_the_core(self, stub_grpc, core):
         await stub_grpc.ListMembers(bff.ListMembersRequest(), metadata=ACCOUNT)
         req = core.ListMemberships.last["request"]
         assert req.ctx.account.id == "acct-1"
         assert req.ctx.actor.id == "u-1"
 
 
-class TestAutenticacao:
-    async def test_sem_token_da_unauthenticated(self, stub_grpc):
+class TestAuthentication:
+    async def test_with_no_token_it_gives_unauthenticated(self, stub_grpc):
         exc = await _err(
             stub_grpc.GetMe(bff.GetMeRequest(), metadata=metadata_for(token=None))
         )
         assert exc.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_sem_metadado_nenhum_da_unauthenticated(self, stub_grpc):
+    async def test_with_no_metadata_at_all_it_gives_unauthenticated(self, stub_grpc):
         exc = await _err(stub_grpc.ListAccounts(bff.ListAccountsRequest()))
         assert exc.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_token_malformado_da_unauthenticated(self, stub_grpc):
+    async def test_a_malformed_token_gives_unauthenticated(self, stub_grpc):
         exc = await _err(
             stub_grpc.GetMe(bff.GetMeRequest(), metadata=metadata_for("Bearer lixo"))
         )
@@ -154,10 +154,10 @@ class TestAutenticacao:
         assert "malformed" in exc.details()
 
 
-class TestAutorizacao:
+class TestAuthorization:
     """Os MESMOS decorators do REST, cobrando as mesmas regras."""
 
-    async def test_sem_vinculo_com_a_conta_da_permission_denied(self, stub_grpc, core):
+    async def test_no_membership_in_the_account_gives_permission_denied(self, stub_grpc, core):
         """Pedir uma account de que não se é membro não é NOT_FOUND: é recusa."""
         core.ListAccounts.returns(
             identity_pb2.ListAccountsResponse(
@@ -168,7 +168,7 @@ class TestAutorizacao:
         assert exc.code() == grpc.StatusCode.PERMISSION_DENIED
         assert "membership" in exc.details()
 
-    async def test_papel_insuficiente_da_permission_denied(self, stub_grpc, core):
+    async def test_an_insufficient_role_gives_permission_denied(self, stub_grpc, core):
         core.ListMemberships.returns(
             identity_pb2.ListMembershipsResponse(
                 memberships=[
@@ -184,14 +184,14 @@ class TestAutorizacao:
         assert exc.code() == grpc.StatusCode.PERMISSION_DENIED
         assert not core.CreateInvite.calls
 
-    async def test_sem_conta_ativa_da_invalid_argument(self, stub_grpc):
+    async def test_with_no_active_account_it_gives_invalid_argument(self, stub_grpc):
         """Regra do SP-0 (@account_scoped): 400 no REST, INVALID_ARGUMENT aqui."""
         exc = await _err(
             stub_grpc.ListMembers(bff.ListMembersRequest(), metadata=SEM_CONTA)
         )
         assert exc.code() == grpc.StatusCode.INVALID_ARGUMENT
 
-    async def test_login_sem_conta_ativa_ainda_funciona(self, stub_grpc):
+    async def test_login_with_no_active_account_still_works(self, stub_grpc):
         """É assim que o client carrega o seletor de contas."""
         me = await stub_grpc.GetMe(bff.GetMeRequest(), metadata=SEM_CONTA)
         assert me.user_id == "u-1"
@@ -199,7 +199,7 @@ class TestAutorizacao:
         assert me.role == bff.ROLE_UNSPECIFIED
 
 
-class TestTraducaoDeErro:
+class TestErrorTranslation:
     """O status do núcleo atravessa; o detalhe de 5xx, não."""
 
     CASOS = [
@@ -210,7 +210,7 @@ class TestTraducaoDeErro:
     ]
 
     @pytest.mark.parametrize("code", CASOS)
-    async def test_status_do_nucleo_atravessa_intacto(self, stub_grpc, core, code):
+    async def test_the_cores_status_crosses_intact(self, stub_grpc, core, code):
         core.CreateInvite.fails_with(code)
         exc = await _err(
             stub_grpc.CreateInvite(
@@ -220,7 +220,7 @@ class TestTraducaoDeErro:
         assert exc.code() == code
         assert exc.details() == "came from the core"
 
-    async def test_internal_do_nucleo_nao_vaza_detalhe(self, stub_grpc, core):
+    async def test_an_internal_from_the_core_leaks_no_detail(self, stub_grpc, core):
         core.CreateInvite.fails_with(grpc.StatusCode.INTERNAL, "senha do banco no log")
         exc = await _err(
             stub_grpc.CreateInvite(
@@ -231,14 +231,14 @@ class TestTraducaoDeErro:
         assert exc.details() == "internal error"
         assert "senha" not in exc.details()
 
-    async def test_internal_no_resolver_tambem_nao_vaza(self, stub_grpc, core):
+    async def test_an_internal_in_the_resolver_does_not_leak_either(self, stub_grpc, core):
         """O interceptor de auth traduz na mão — e precisa redigir igual."""
         core.EnsureUser.fails_with(grpc.StatusCode.INTERNAL, "senha do banco no log")
         exc = await _err(stub_grpc.GetMe(bff.GetMeRequest(), metadata=ACCOUNT))
         assert exc.code() == grpc.StatusCode.INTERNAL
         assert "senha" not in exc.details()
 
-    async def test_nucleo_fora_do_ar_atravessa_mas_sem_detalhe(self, stub_grpc, core):
+    async def test_a_core_that_is_down_crosses_but_with_no_detail(self, stub_grpc, core):
         """UNAVAILABLE é 503 — classe 5xx, então o detalhe é redigido também.
 
         Mesma regra do REST: o status diz ao client o que fazer (retentar), o
@@ -249,7 +249,7 @@ class TestTraducaoDeErro:
         assert exc.code() == grpc.StatusCode.UNAVAILABLE
         assert "senha" not in exc.details()
 
-    async def test_mensagem_invalida_vira_invalid_argument(self, stub_grpc):
+    async def test_an_invalid_message_becomes_invalid_argument(self, stub_grpc):
         """email com menos de 3 caracteres: 422 no REST, INVALID_ARGUMENT aqui."""
         exc = await _err(
             stub_grpc.CreateInvite(bff.CreateInviteRequest(email="x"), metadata=ACCOUNT)
@@ -257,7 +257,7 @@ class TestTraducaoDeErro:
         assert exc.code() == grpc.StatusCode.INVALID_ARGUMENT
 
 
-class TestParidadeEntreTransportes:
+class TestParityBetweenTransports:
     """A prova de que não há lógica duplicada: uma função, dois adaptadores.
 
     Se alguém reimplementar um caso de uso no servicer (ou no router), estes
@@ -276,7 +276,7 @@ class TestParidadeEntreTransportes:
             "role": convert.role_name(account.role),
         }
 
-    async def test_list_accounts_da_o_mesmo_resultado_nas_duas_portas(
+    async def test_list_accounts_gives_the_same_result_on_both_ports(
         self, client, stub_grpc, core
     ):
         rest = client.get("/api/v1/accounts", headers=REST_HEADERS).json()
@@ -288,7 +288,7 @@ class TestParidadeEntreTransportes:
         requests = [c["request"] for c in core.ListAccounts.calls[-2:]]
         assert requests[0] == requests[1]
 
-    async def test_me_da_o_mesmo_resultado_nas_duas_portas(self, client, stub_grpc):
+    async def test_me_gives_the_same_result_on_both_ports(self, client, stub_grpc):
         rest = client.get("/api/v1/me", headers=REST_HEADERS).json()
         me = await stub_grpc.GetMe(bff.GetMeRequest(), metadata=ACCOUNT)
         assert {
@@ -301,7 +301,7 @@ class TestParidadeEntreTransportes:
             "role": convert.role_name(me.role),
         } == rest
 
-    async def test_members_da_o_mesmo_resultado_nas_duas_portas(self, client, stub_grpc):
+    async def test_members_gives_the_same_result_on_both_ports(self, client, stub_grpc):
         rest = client.get("/api/v1/accounts/current/members", headers=REST_HEADERS).json()
         resp = await stub_grpc.ListMembers(bff.ListMembersRequest(), metadata=ACCOUNT)
         assert [
@@ -309,7 +309,7 @@ class TestParidadeEntreTransportes:
             for m in resp.members
         ] == rest
 
-    async def test_papel_insuficiente_recusa_nas_duas_portas(self, client, stub_grpc, core):
+    async def test_an_insufficient_role_is_refused_on_both_ports(self, client, stub_grpc, core):
         """Mesma decisão, vocabulários diferentes: 403 no HTTP, PERMISSION_DENIED no gRPC."""
         core.ListMemberships.returns(
             identity_pb2.ListMembershipsResponse(
@@ -330,10 +330,10 @@ class TestParidadeEntreTransportes:
         assert exc.code() == grpc.StatusCode.PERMISSION_DENIED
 
 
-class TestLogEstruturado:
+class TestStructuredLogging:
     """Log agregado só serve se as duas portas falarem a mesma língua."""
 
-    async def test_a_porta_grpc_escreve_o_mesmo_json_do_rest(self, stub_grpc, capsys):
+    async def test_the_grpc_port_writes_the_same_json_as_rest(self, stub_grpc, capsys):
         # O `configure()` roda no lifespan do FastAPI; aqui o server gRPC sobe
         # sozinho, então configuramos à mão — o mesmo `configure`, não outro.
         configure_logging()
@@ -355,17 +355,17 @@ class TestLogEstruturado:
         assert entry["method"] == "grpc"
         assert entry["path"] == "/dop.bff.v1.IdentityService/GetMe"
 
-    async def test_o_token_nao_aparece_no_log(self, stub_grpc, capsys):
+    async def test_the_token_does_not_appear_in_the_log(self, stub_grpc, capsys):
         """Redação de segredo é requisito (F-10), e vale nos dois transportes."""
         configure_logging()
         await stub_grpc.GetMe(bff.GetMeRequest(), metadata=ACCOUNT)
         assert "Bearer" not in capsys.readouterr().out
 
 
-class TestPublicNoGrpc:
+class TestPublicOverGrpc:
     """@public vale nos dois transportes — o marcador é o mesmo."""
 
-    async def test_marcador_atravessa_os_outros_decorators(self):
+    async def test_the_marker_crosses_the_other_decorators(self):
         """functools.wraps copia o __dict__, então a ordem de empilhamento não importa."""
 
         @log
@@ -377,7 +377,7 @@ class TestPublicNoGrpc:
         # Handler público sai do interceptor INTACTO: nem token, nem resolver.
         assert interceptor._wrap(rpc, None) is rpc
 
-    async def test_handler_comum_e_envolvido(self):
+    async def test_an_ordinary_handler_is_wrapped(self):
         @log
         async def rpc(request, context):
             return "ok"

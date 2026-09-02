@@ -72,8 +72,8 @@ async def stub_rt(grpc_server, agente):
         yield bff_runtime_grpc.RuntimeServiceStub(channel)
 
 
-class TestTraducao:
-    def test_turno_chega_ao_nucleo(self, client_rt, agente):
+class TestTranslation:
+    def test_the_turn_reaches_the_core(self, client_rt, agente):
         r = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
             headers={**HEADERS, "Idempotency-Key": "minha-key"},
@@ -83,7 +83,7 @@ class TestTraducao:
         assert r.json()["reply"].startswith("A lentidão")
         assert agente.RunTurn.requests[0].demand_id == "dem-1"
 
-    def test_a_borda_nao_inventa_chave_de_idempotencia(self, client_rt, agente):
+    def test_the_edge_does_not_invent_an_idempotency_key(self, client_rt, agente):
         """Turno gasta dinheiro.
 
         Em toda outra escrita a borda gera a key, porque protege do retry do
@@ -97,14 +97,14 @@ class TestTraducao:
         )
         assert agente.RunTurn.requests[0].idempotency_key == ""
 
-    def test_contexto_truncado_atravessa(self, client_rt):
+    def test_a_truncated_context_crosses(self, client_rt):
         r = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
             headers=HEADERS, json={"text": "oi"},
         )
         assert r.json()["context_truncated"] is True
 
-    def test_cache_desconhecido_nao_vira_zero_afirmado(self, client_rt):
+    def test_an_unknown_cache_does_not_become_an_asserted_zero(self, client_rt):
         """Zero com `cache_creation_known=false` é "não sei", não "não houve"."""
         u = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
@@ -113,7 +113,7 @@ class TestTraducao:
         assert u["cache_creation_tokens"] == 0
         assert u["cache_creation_known"] is False
 
-    def test_justificativa_do_roteamento_vai_inteira(self, client_rt):
+    def test_the_routing_justification_goes_whole(self, client_rt):
         """É a única parte auditável da decisão (ADR-0011 §3)."""
         r = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
@@ -121,7 +121,7 @@ class TestTraducao:
         )
         assert "ADR-0011 §3" in r.json()["routing"]["reason"]
 
-    def test_prazo_do_turno_e_maior_que_o_normal(self, client_rt, agente):
+    def test_the_turns_deadline_is_longer_than_the_normal_one(self, client_rt, agente):
         """Turno leva minutos; o prazo normal do núcleo derrubaria todos."""
         client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
@@ -131,7 +131,7 @@ class TestTraducao:
 
 
 class TestGRPC:
-    async def test_paridade_com_o_rest(self, client_rt, stub_rt):
+    async def test_parity_with_rest(self, client_rt, stub_rt):
         rest = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
             headers=HEADERS, json={"text": "oi", "task_kind": "investigation"},
@@ -147,7 +147,7 @@ class TestGRPC:
         assert g.routing.reason == rest["routing"]["reason"]
         assert g.context_truncated == rest["context_truncated"]
 
-    async def test_sem_token(self, stub_rt):
+    async def test_with_no_token(self, stub_rt):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_rt.RunTurn(
                 bff.RunTurnRequest(demand_id="d", thread_id="t", text="x"),
@@ -156,7 +156,7 @@ class TestGRPC:
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
 
-class TestOBffNaoTemSegredo:
+class TestTheBffHoldsNoSecret:
     """A invariante que motivou a ADR-0023, virada teste (P-22).
 
     Irmã de "o BFF não tem banco": esta camada é a exposta à internet, e
@@ -164,7 +164,7 @@ class TestOBffNaoTemSegredo:
     basta — alguém adiciona um `import` de boa-fé e ninguém percebe na revisão.
     """
 
-    def test_nenhum_modulo_toca_cofre_ou_chave_de_provedor(self):
+    def test_no_module_touches_the_vault_or_a_provider_key(self):
         proibidos = [
             "secretstore",
             "SecretStore",
@@ -188,7 +188,7 @@ class TestOBffNaoTemSegredo:
             f"(ADR-0023): {findings}"
         )
 
-    def test_o_runtime_nao_voltou_para_ca(self):
+    def test_the_runtime_has_not_come_back_here(self):
         app = pathlib.Path(__file__).resolve().parent.parent / "app"
         assert not (app / "runtime").exists(), (
             "app/runtime/ ressuscitou: o runtime vive no NÚCLEO (ADR-0023), "

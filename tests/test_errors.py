@@ -5,7 +5,7 @@ from grpc import StatusCode
 from app.platform.errors import http_status_for
 
 
-def test_mapeamento_grpc_para_http():
+def test_the_grpc_to_http_mapping():
     casos = {
         StatusCode.NOT_FOUND: 404,
         StatusCode.PERMISSION_DENIED: 403,
@@ -20,5 +20,5 @@ def test_mapeamento_grpc_para_http():
         assert http_status_for(code) == expected, f"{code} deveria virar {expected}"
 
 
-def test_codigo_desconhecido_vira_500():
+def test_an_unknown_code_becomes_a_500():
     assert http_status_for(StatusCode.UNKNOWN) == 500
