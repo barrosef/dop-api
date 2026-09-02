@@ -1,8 +1,8 @@
-"""Rotas de identidade contra um núcleo double.
+"""Identity routes against a fake core.
 
-O que se verifica aqui não é o núcleo (ele tem os testes dele), e sim a BORDA:
-que o context de call sai correto no metadado, que a semântica de err do
-core atravessa intacta, e que os decorators barram o que devem barrar.
+What is checked here is not the core (it has its own tests) but the EDGE: that
+the call context goes out correctly in the metadata, that the core's error
+semantics cross intact, and that the decorators block what they should block.
 """
 
 import grpc
@@ -19,27 +19,27 @@ SEM_CONTA = {"authorization": token_for()}
 
 class TestTheAuthorizationResolver:
     def test_ensure_user_runs_on_every_login(self, client, core):
-        """Idempotente por desenho: não é só no primeiro acesso."""
+        """Idempotent by design: it is not only on the first access."""
         client.get("/api/v1/me", headers=ACCOUNT)
         client.get("/api/v1/me", headers=ACCOUNT)
         assert len(core.EnsureUser.calls) == 2
         req = core.EnsureUser.last["request"]
         assert req.subject == "sub-1"
         assert req.email == "dev@dop.local"
-        assert req.provider == "email"  # normalizado, não claim de Firebase
+        assert req.provider == "email"  # normalized, not a Firebase claim
         assert req.idempotency_key
 
     def test_me_brings_the_cores_user_id(self, client):
         r = client.get("/api/v1/me", headers=ACCOUNT)
         assert r.status_code == 200
         body = r.json()
-        assert body["user_id"] == "u-1"  # id do core, não o subject
+        assert body["user_id"] == "u-1"  # the core's id, not the subject
         assert body["subject"] == "sub-1"
         assert body["role"] == "admin"
         assert body["account_id"] == "acct-1"
 
     def test_no_membership_in_the_account_gives_a_403(self, client, core):
-        """Pedir uma account de que não se é membro não é 404: é 403."""
+        """Asking for an account you are not a member of is not a 404: it is a 403."""
         core.ListAccounts.returns(
             identity_pb2.ListAccountsResponse(
                 accounts=[identity_pb2.Account(id="acct-de-outro")]
@@ -49,10 +49,11 @@ class TestTheAuthorizationResolver:
         assert r.status_code == 403
 
     def test_an_unresolved_role_does_not_bring_the_request_down(self, client, core):
-        """ListMemberships indisponível degrada para role vazio, não para 500.
+        """An unavailable ListMemberships degrades to an empty role, not to a 500.
 
-        O vínculo já foi provado por ListAccounts; o que falta é só o role — e
-        quem exige role recusa depois, com 403.
+        The membership has already been proven by ListAccounts; all that is
+        missing is the role — and whoever requires a role refuses later, with a
+        403.
         """
         core.ListMemberships.fails_with(grpc.StatusCode.UNIMPLEMENTED)
         r = client.get("/api/v1/me", headers=ACCOUNT)
@@ -67,7 +68,7 @@ class TestTheAuthorizationResolver:
         assert client.get("/api/v1/me", headers=ACCOUNT).status_code == 503
 
     def test_with_no_active_account_login_still_works(self, client, core):
-        """É assim que o cockpit carrega o seletor de contas."""
+        """It is how the cockpit loads the account selector."""
         r = client.get("/api/v1/me", headers=SEM_CONTA)
         assert r.status_code == 200
         assert r.json()["user_id"] == "u-1"
@@ -96,11 +97,12 @@ class TestContextPropagation:
 
 
 class TestErrorTranslation:
-    """O BFF traduz a semântica do core — não inventa a sua.
+    """The BFF translates the core's semantics — it does not invent its own.
 
-    Dois caminhos independentes precisam traduzir igual: o handler da aplicação
-    (err dentro da rota) e o as_http (err dentro do middleware, que roda ACIMA
-    do ExceptionMiddleware do Starlette e não seria alcançado pelo handler).
+    Two independent paths have to translate the same way: the application's
+    handler (an error inside the route) and as_http (an error inside the
+    middleware, which runs ABOVE Starlette's ExceptionMiddleware and would not
+    be reached by the handler).
     """
 
     CASOS = [
@@ -129,7 +131,7 @@ class TestErrorTranslation:
         assert "senha" not in r.text
 
     def test_an_internal_error_in_the_resolver_does_not_leak_either(self, client, core):
-        """O middleware traduz na mão — e precisa redigir igual ao handler."""
+        """The middleware translates by hand — and has to write it just like the handler."""
         core.EnsureUser.fails_with(grpc.StatusCode.INTERNAL, "senha do banco no log")
         r = client.get("/api/v1/me", headers=ACCOUNT)
         assert r.status_code == 500
@@ -138,7 +140,7 @@ class TestErrorTranslation:
 
 class TestProtectedRoutes:
     def test_with_no_active_account_it_gives_a_400(self, client):
-        """Regra do SP-0, cobrada pelo @account_scoped na borda."""
+        """SP-0's rule, enforced by @account_scoped at the edge."""
         r = client.get("/api/v1/accounts/current/members", headers=SEM_CONTA)
         assert r.status_code == 400
 
@@ -191,7 +193,7 @@ class TestWrites:
         req = core.CreateAccount.last["request"]
         assert req.kind == identity_pb2.Account.KIND_ORGANIZATION
         assert req.handle == "acme"
-        assert req.idempotency_key  # repetir não pode duplicar (ADR-0017)
+        assert req.idempotency_key  # repeating must not duplicate (ADR-0017)
 
     def test_creating_an_organization_requires_an_active_account(self, client):
         r = client.post(

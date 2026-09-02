@@ -1,14 +1,14 @@
-"""O teste que guarda a fronteira de autenticação.
+"""The test that guards the authentication boundary.
 
-Existe porque esta verificação JÁ esteve incompleta: ela buscava as keys,
-conferia se o `kid` existia e devolvia SEM verificar a assinatura. Como `kid` é
-público, qualquer pessoa forjava um payload com o `sub` de outro usuário e
-entrava como ele — em PRODUÇÃO. Passou despercebido porque o desenvolvimento
-inteiro roda contra o emulador, onde esse caminho nem executa.
+It exists because this verification WAS once incomplete: it fetched the keys,
+checked whether the `kid` existed and returned WITHOUT verifying the signature.
+Since `kid` is public, anybody could forge a payload with another user's `sub`
+and get in as them — in PRODUCTION. It went unnoticed because the whole of
+development runs against the emulator, where that path does not even execute.
 
-Por isso estes testes exercitam o modo de PRODUÇÃO com keys de verdade
-geradas aqui, e não o emulador. Um teste que só exercitasse o emulador
-declararia verde exatamente o buraco que deixou passar.
+That is why these tests exercise the PRODUCTION mode with real keys generated
+here, and not the emulator. A test that only exercised the emulator would
+declare green exactly the hole that let it through.
 """
 
 import base64
@@ -50,12 +50,12 @@ def _key_pair():
 
 
 @pytest.fixture
-def verificador():
-    """Verificador em modo PRODUÇÃO, com o certificado já em cache.
+def verifier():
+    """A verifier in PRODUCTION mode, with the certificate already cached.
 
-    `emulator_host=""` é explícito: sem isso, a variável de ambiente exportada
-    na máquina de quem roda o teste desligaria a garantia mais importante sem
-    ninguém perceber.
+    `emulator_host=""` is explicit: without it, the environment variable
+    exported on the machine of whoever runs the test would turn off the most
+    important guarantee with nobody noticing.
     """
     key, pem = _key_pair()
     v = FirebaseVerifier(PROJETO, emulator_host="")
@@ -79,7 +79,7 @@ def _token(key, **override):
 
 
 def _forjado(**override):
-    """Token com cabeçalho plausível e assinatura LIXO — o ataque real."""
+    """A token with a plausible header and a GARBAGE signature — the real attack."""
     claims = {
         "sub": "vitima",
         "aud": PROJETO,
@@ -98,27 +98,27 @@ def _forjado(**override):
 
 
 class TestSignature:
-    async def test_a_legitimate_token_passes(self, verificador):
-        v, key = verificador
+    async def test_a_legitimate_token_passes(self, verifier):
+        v, key = verifier
         p = await v.verify(_token(key))
         assert p.subject == "usuario-1"
         assert p.providers == ["password"]
 
-    async def test_a_forged_signature_is_refused(self, verificador):
-        """O bypass que existia. Se este teste passar a falhar, ele voltou."""
-        v, _ = verificador
+    async def test_a_forged_signature_is_refused(self, verifier):
+        """The bypass that used to exist. If this test starts failing, it is back."""
+        v, _ = verifier
         with pytest.raises(InvalidToken):
             await v.verify(_forjado())
 
-    async def test_a_signature_from_another_key_is_refused(self, verificador):
-        v, _ = verificador
+    async def test_a_signature_from_another_key_is_refused(self, verifier):
+        v, _ = verifier
         intrusa, _pem = _key_pair()
         with pytest.raises(InvalidToken):
             await v.verify(_token(intrusa))
 
-    async def test_alg_none_is_refused(self, verificador):
-        """Confusão de algoritmo: o token não escolhe como é validado."""
-        v, _ = verificador
+    async def test_alg_none_is_refused(self, verifier):
+        """Algorithm confusion: the token does not choose how it is validated."""
+        v, _ = verifier
 
         def b64(d):
             return base64.urlsafe_b64encode(json.dumps(d).encode()).decode().rstrip("=")
@@ -127,14 +127,15 @@ class TestSignature:
         with pytest.raises(InvalidToken):
             await v.verify(sem_alg)
 
-    async def test_hs256_is_refused(self, verificador):
-        """HS256 usando a key PÚBLICA como segredo — o ataque clássico.
+    async def test_hs256_is_refused(self, verifier):
+        """HS256 using the PUBLIC key as the secret — the classic attack.
 
-        O token é montado à mão porque o próprio PyJWT se recusa a criá-lo: ele
-        tem guarda contra assinar HS* com material que parece key assimétrica.
-        Pedir a ele que gerasse o ataque provaria a guarda DELE, não a nossa.
+        The token is built by hand because PyJWT itself refuses to create it: it
+        has a guard against signing HS* with material that looks like an
+        asymmetric key. Asking it to generate the attack would prove ITS guard,
+        not ours.
         """
-        v, _ = verificador
+        v, _ = verifier
         _chave, pem = _key_pair()
 
         def b64(b: bytes) -> str:
@@ -150,24 +151,24 @@ class TestSignature:
 
 
 class TestClaims:
-    async def test_an_expired_token_is_refused(self, verificador):
-        v, key = verificador
+    async def test_an_expired_token_is_refused(self, verifier):
+        v, key = verifier
         antigo = int(time.time()) - 7200
         with pytest.raises(InvalidToken):
             await v.verify(_token(key, exp=antigo, iat=antigo - 60))
 
-    async def test_another_project_is_refused(self, verificador):
-        v, key = verificador
+    async def test_another_project_is_refused(self, verifier):
+        v, key = verifier
         with pytest.raises(InvalidToken):
             await v.verify(_token(key, aud="outro-project"))
 
-    async def test_another_issuer_is_refused(self, verificador):
-        v, key = verificador
+    async def test_another_issuer_is_refused(self, verifier):
+        v, key = verifier
         with pytest.raises(InvalidToken):
             await v.verify(_token(key, iss="https://evil.example.com"))
 
     async def test_with_no_project_it_fails_closed(self):
-        """Sem project não há audiência para conferir; aceitar seria não conferir."""
+        """With no project there is no audience to check; accepting would be not checking."""
         key, pem = _key_pair()
         v = FirebaseVerifier("", emulator_host="")
         v._keys, v._keys_fetched_at = {KID: pem}, time.time()
@@ -176,9 +177,9 @@ class TestClaims:
 
 
 class TestLeaking:
-    async def test_the_error_message_does_not_carry_the_token(self, verificador):
-        """Token em mensagem de err é credencial em repouso, indo para o log."""
-        v, _ = verificador
+    async def test_the_error_message_does_not_carry_the_token(self, verifier):
+        """A token in an error message is a credential at rest, on its way to the log."""
+        v, _ = verifier
         forjado = _forjado()
         with pytest.raises(InvalidToken) as e:
             await v.verify(forjado)
@@ -190,7 +191,7 @@ class TestLeaking:
 
 
 class TestEmulator:
-    """O emulador emite `alg: none`; a assinatura é pulada — mas só ela."""
+    """The emulator issues `alg: none`; the signature is skipped — but only it."""
 
     async def test_the_emulators_token_passes(self):
         v = FirebaseVerifier(PROJETO, emulator_host="localhost:9099")
@@ -206,7 +207,7 @@ class TestEmulator:
         assert p.subject == "emu-1"
 
     async def test_the_emulator_still_refuses_another_project(self):
-        """Pular assinatura não é desculpa para aceitar qualquer coisa."""
+        """Skipping the signature is no excuse for accepting anything."""
         v = FirebaseVerifier(PROJETO, emulator_host="localhost:9099")
 
         def b64(d):
