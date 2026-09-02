@@ -1,37 +1,39 @@
-"""Casos de uso de streaming — o que está acontecendo AGORA, nas duas portas.
+"""Streaming use cases — what is happening NOW, on both ports.
 
-Mesma disciplina de `identity` e `hierarchy`: a regra vive aqui, adaptadores
-traduzem. Ver o docstring de `app/usecases/identity.py` para o porquê dos
-decorators morarem no caso de uso e não no router.
+The same discipline as `identity` and `hierarchy`: the rule lives here, adapters
+translate. See `app/usecases/identity.py`'s docstring for why the decorators
+live in the use case and not in the router.
 
-O que este módulo converte: os três RPCs de *server-streaming* do núcleo
+What this module converts: the core's three *server-streaming* RPCs
 (`EventService.WatchEvents`, `DemandService.WatchDemand`,
-`ExecutionService.StreamLogs`) em geradores assíncronos de modelos da borda.
-`app/routers/stream.py` os embrulha em SSE; `app/grpcapi/stream.py` os reemite
-como stream gRPC. Nenhum dos dois decide nada.
+`ExecutionService.StreamLogs`) into asynchronous generators of the edge's
+models. `app/routers/stream.py` wraps them in SSE; `app/grpcapi/stream.py`
+re-emits them as a gRPC stream. Neither of the two decides anything.
 
-Três decisões estruturais, porque stream tem armadilhas que unário não tem:
+Three structural decisions, because a stream has traps a unary call does not:
 
-1. **Sem deadline.** Todo caso de uso unário manda `timeout=core_deadline_s`.
-   Aqui não: uma assinatura saudável dura horas, e um deadline a mataria no
-   meio por definição. Quem termina o stream é o cliente indo embora, o núcleo
-   fechando, ou um erro.
+1. **No deadline.** Every unary use case sends `timeout=core_deadline_s`. Not
+   here: a healthy subscription lasts hours, and a deadline would kill it
+   halfway by definition. What ends the stream is the client going away, the
+   core closing, or an error.
 
-2. **Cancelamento é obrigação nossa.** Se o consumidor para de iterar (o
-   browser fechou a aba, o CLI deu Ctrl-C), o gerador é finalizado e o `finally`
-   CANCELA a chamada gRPC. Sem isso a assinatura continua viva do outro lado da
-   rede — o `ctx.Done()` do núcleo nunca dispara e o watcher dele fica no
-   fan-out para sempre. É vazamento de goroutine causado por descuido daqui.
+2. **Cancellation is our obligation.** If the consumer stops iterating (the
+   browser closed the tab, the CLI hit Ctrl-C), the generator is finalized and
+   the `finally` CANCELS the gRPC call. Without it the subscription stays alive
+   on the other side of the network — the core's `ctx.Done()` never fires and
+   its watcher stays in the fan-out forever. It is a goroutine leak caused by
+   carelessness here.
 
-3. **@account_scoped vale na ABERTURA.** O decorator não é assíncrono para
-   função geradora, então a checagem roda quando o gerador é CRIADO — antes do
-   primeiro item. É exatamente o que se quer: stream não pode ser a porta que
-   nasce aberta, e recusar só na primeira iteração já seria tarde (o SSE já
-   teria respondido 200).
+3. **@account_scoped holds at the OPENING.** The decorator is not asynchronous
+   for a generator function, so the check runs when the generator is CREATED —
+   before the first item. It is exactly what we want: a stream must not be the
+   door that is born open, and refusing only at the first iteration would
+   already be late (the SSE would have answered 200 already).
 
-`@log` de propósito NÃO é usado: ele mede a duração de uma *chamada*, e uma
-chamada que devolve um gerador dura microssegundos. O que interessa num stream
-é a duração da CONEXÃO e quantos itens saíram — registrados à mão no `finally`.
+`@log` is deliberately NOT used: it measures a *call*'s duration, and a call
+that returns a generator lasts microseconds. What matters in a stream is the
+CONNECTION's duration and how many items went out — recorded by hand in the
+`finally`.
 """
 
 import time
@@ -49,15 +51,16 @@ from app.platform.context import auth_ctx
 from app.platform.logging.config import FIELD_DURATION_MS, get_logger
 from app.platform.security.decorator import account_scoped
 
-# ── modelos da borda ────────────────────────────────────────────────────────
+# ── the edge's models ───────────────────────────────────────────────────────
 
 
 class StreamEvent(BaseModel):
-    """Um evento do log, já na forma que as duas portas emitem.
+    """An event from the log, already in the shape both ports emit.
 
-    `payload` é dict (não Struct) de propósito: é o formato comum entre o JSON
-    do SSE e o protobuf do gRPC, e é o que garante que os dois adaptadores
-    rendam a MESMA coisa em vez de cada um traduzir o Struct à sua maneira.
+    `payload` is a dict (not a Struct) on purpose: it is the common format
+    between SSE's JSON and gRPC's protobuf, and it is what guarantees the two
+    adapters render the SAME thing instead of each translating the Struct its own
+    way.
     """
 
     id: str = ""
@@ -75,45 +78,47 @@ class LogLine(BaseModel):
     at: datetime | None = None
 
 
-# ── tradução do núcleo para a borda ─────────────────────────────────────────
+# ── translating the core into the edge ──────────────────────────────────────
 
 
-def _quando(msg, campo: str) -> datetime | None:
-    """Timestamp ausente vira None, não a época zero.
+def _when(msg, field: str) -> datetime | None:
+    """An absent timestamp becomes None, not epoch zero.
 
-    1970-01-01 numa timeline é pior que nada: aparece como evento antiquíssimo
-    no topo da tela em vez de aparecer como o que é — sem horário.
+    1970-01-01 in a timeline is worse than nothing: it shows up as an ancient
+    event at the top of the screen instead of showing up as what it is — without
+    a time.
     """
-    if not msg.HasField(campo):
+    if not msg.HasField(field):
         return None
-    return getattr(msg, campo).ToDatetime(tzinfo=UTC)
+    return getattr(msg, field).ToDatetime(tzinfo=UTC)
 
 
-def _payload(msg, campo: str = "payload") -> dict:
-    # Struct → dict via json_format: é a conversão canônica do protobuf, e
-    # preserva número, booleano e aninhamento sem tabela nossa no meio.
-    return json_format.MessageToDict(getattr(msg, campo)) if msg.HasField(campo) else {}
+def _payload(msg, field: str = "payload") -> dict:
+    # Struct → dict via json_format: it is protobuf's canonical conversion, and
+    # it preserves numbers, booleans and nesting with no table of ours in
+    # between.
+    return json_format.MessageToDict(getattr(msg, field)) if msg.HasField(field) else {}
 
 
-def _evento(env: event_pb2.EventEnvelope) -> StreamEvent:
+def _event(env: event_pb2.EventEnvelope) -> StreamEvent:
     return StreamEvent(
         id=env.id,
         type=env.type,
         aggregate=env.aggregate,
         aggregate_id=env.aggregate_id,
         payload=_payload(env),
-        occurred_at=_quando(env, "occurred_at"),
+        occurred_at=_when(env, "occurred_at"),
     )
 
 
-def _evento_de_demanda(ev: demand_pb2.DemandEvent, demand_id: str) -> StreamEvent:
-    """DemandEvent do núcleo não tem id nem aggregate_id.
+def _demand_event(ev: demand_pb2.DemandEvent, demand_id: str) -> StreamEvent:
+    """The core's DemandEvent has neither an id nor an aggregate_id.
 
-    O `id` fica VAZIO em vez de inventado: é ele que o SSE emite como `id:` e
-    que o cliente devolveria como cursor de retomada. Um id fabricado aqui
-    prometeria uma retomada que `WatchDemand` não sabe cumprir — o contrato do
-    núcleo não tem `since_event_id` para esse RPC. O `aggregate_id` é a própria
-    demanda, que o chamador já informou.
+    The `id` stays EMPTY rather than invented: it is what the SSE emits as `id:`
+    and what the client would return as a resume cursor. An id fabricated here
+    would promise a resume `WatchDemand` cannot deliver — the core's contract has
+    no `since_event_id` for that RPC. The `aggregate_id` is the demand itself,
+    which the caller already supplied.
     """
     return StreamEvent(
         id="",
@@ -121,48 +126,50 @@ def _evento_de_demanda(ev: demand_pb2.DemandEvent, demand_id: str) -> StreamEven
         aggregate=ev.aggregate or "demand",
         aggregate_id=demand_id,
         payload=_payload(ev),
-        occurred_at=_quando(ev, "at"),
+        occurred_at=_when(ev, "at"),
     )
 
 
-def _linha(ll: execution_pb2.LogLine) -> LogLine:
+def _log_line(ll: execution_pb2.LogLine) -> LogLine:
     return LogLine(
-        source=ll.source, service=ll.service, line=ll.line, at=_quando(ll, "at")
+        source=ll.source, service=ll.service, line=ll.line, at=_when(ll, "at")
     )
 
 
-# ── a mecânica comum dos três streams ───────────────────────────────────────
+# ── the three streams' common mechanics ─────────────────────────────────────
 
 
-async def _bombear(chamada, traduz, *, rotulo: str, **campos_de_log) -> AsyncIterator:
-    """Itera a chamada de streaming do núcleo e garante o cancelamento.
+async def _pump(call, translate, *, label: str, **log_fields) -> AsyncIterator:
+    """Iterates the core's streaming call and guarantees the cancellation.
 
-    O `finally` é o coração deste módulo. Ele roda tanto no fim natural quanto
-    quando o consumidor abandona o gerador (aba fechada, Ctrl-C, erro no
-    adaptador): nos dois casos a chamada gRPC é cancelada e o núcleo vê o
-    contexto encerrar. Sem ele, cliente sumindo vira assinatura órfã lá.
+    The `finally` is this module's heart. It runs both on a natural end and when
+    the consumer abandons the generator (a closed tab, Ctrl-C, an error in the
+    adapter): in both cases the gRPC call is cancelled and the core sees the
+    context end. Without it, a client going away becomes an orphaned
+    subscription over there.
     """
-    inicio = time.perf_counter()
-    emitidos = 0
-    get_logger().info("stream aberto", stream=rotulo, **campos_de_log)
+    started = time.perf_counter()
+    emitted = 0
+    get_logger().info("stream opened", stream=label, **log_fields)
     try:
-        async for msg in chamada:
-            emitidos += 1
-            yield traduz(msg)
+        async for msg in call:
+            emitted += 1
+            yield translate(msg)
     finally:
-        # `cancel()` é idempotente e devolve False se a chamada já terminou —
-        # chamar sempre é mais barato que descobrir se precisa.
-        chamada.cancel()
+        # `cancel()` is idempotent and returns False if the call has already
+        # finished — always calling it is cheaper than finding out whether we
+        # need to.
+        call.cancel()
         get_logger().info(
-            "stream encerrado",
-            stream=rotulo,
-            emitted=emitidos,
-            **campos_de_log,
-            **{FIELD_DURATION_MS: round((time.perf_counter() - inicio) * 1000)},
+            "stream closed",
+            stream=label,
+            emitted=emitted,
+            **log_fields,
+            **{FIELD_DURATION_MS: round((time.perf_counter() - started) * 1000)},
         )
 
 
-# ── casos de uso ────────────────────────────────────────────────────────────
+# ── use cases ───────────────────────────────────────────────────────────────
 
 
 @account_scoped
@@ -172,18 +179,19 @@ def watch_account_events(
     aggregate: list[str] | None = None,
     types: list[str] | None = None,
 ) -> AsyncIterator[StreamEvent]:
-    """Eventos da conta ativa — o que alimenta timeline e caixa de atenção.
+    """The active account's events — what feeds the timeline and the attention box.
 
-    `since_event_id` é o cursor de retomada e atravessa INTACTO para o núcleo:
-    é ele quem drena o log a partir dali e emenda no fluxo ao vivo sem buraco e
-    sem duplicata. A borda não guarda posição de leitura de ninguém — se
-    guardasse, teria estado, e o BFF não tem estado (ADR-0016).
+    `since_event_id` is the resume cursor and crosses INTACT into the core: it is
+    the core that drains the log from there and splices into the live stream with
+    no gap and no duplicate. The edge keeps nobody's read position — if it did,
+    it would have state, and the BFF has no state (ADR-0016).
 
-    Função comum (não `async def`) devolvendo o gerador: assim o
-    `@account_scoped` recusa no ato da abertura, e não na primeira iteração.
+    A plain function (not an `async def`) returning the generator: that way
+    `@account_scoped` refuses at the moment of opening, and not at the first
+    iteration.
     """
     ctx = auth_ctx.get()
-    chamada = stubs.event_stub().WatchEvents(
+    call = stubs.event_stub().WatchEvents(
         event_pb2.WatchEventsRequest(
             ctx=call_context_from(ctx),
             aggregate=aggregate or [],
@@ -192,23 +200,23 @@ def watch_account_events(
         ),
         metadata=core.metadata(),
     )
-    return _bombear(
-        chamada, _evento, rotulo="account_events", since_event_id=since_event_id
+    return _pump(
+        call, _event, label="account_events", since_event_id=since_event_id
     )
 
 
 @account_scoped
 def watch_demand(demand_id: str) -> AsyncIterator[StreamEvent]:
-    """Eventos de uma demanda — mensagem de thread, etapa, achado publicado."""
+    """One demand's events — a thread message, a stage, a published finding."""
     ctx = auth_ctx.get()
-    chamada = stubs.demand_stub().WatchDemand(
+    call = stubs.demand_stub().WatchDemand(
         demand_pb2.WatchDemandRequest(ctx=call_context_from(ctx), demand_id=demand_id),
         metadata=core.metadata(),
     )
-    return _bombear(
-        chamada,
-        lambda ev: _evento_de_demanda(ev, demand_id),
-        rotulo="demand",
+    return _pump(
+        call,
+        lambda ev: _demand_event(ev, demand_id),
+        label="demand",
         demand_id=demand_id,
     )
 
@@ -217,9 +225,9 @@ def watch_demand(demand_id: str) -> AsyncIterator[StreamEvent]:
 def tail_sandbox_logs(
     sandbox_id: str, *, source: str = "", service: str = "", test_type: str = ""
 ) -> AsyncIterator[LogLine]:
-    """Cauda de log de um sandbox. Os filtros passam adiante sem interpretação."""
+    """A sandbox's log tail. The filters pass on without interpretation."""
     ctx = auth_ctx.get()
-    chamada = stubs.execution_stub().StreamLogs(
+    call = stubs.execution_stub().StreamLogs(
         execution_pb2.StreamLogsRequest(
             ctx=call_context_from(ctx),
             sandbox_id=sandbox_id,
@@ -229,4 +237,4 @@ def tail_sandbox_logs(
         ),
         metadata=core.metadata(),
     )
-    return _bombear(chamada, _linha, rotulo="sandbox_logs", sandbox_id=sandbox_id)
+    return _pump(call, _log_line, label="sandbox_logs", sandbox_id=sandbox_id)
