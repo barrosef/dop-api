@@ -1,4 +1,4 @@
-"""O BFF traduz a semântica de erro do core — não inventa a sua."""
+"""O BFF traduz a semântica de err do core — não inventa a sua."""
 
 from grpc import StatusCode
 

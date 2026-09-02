@@ -1,4 +1,4 @@
-"""Fluxo de trabalho nos dois transportes, contra um núcleo falso.
+"""Fluxo de trabalho nos dois transportes, contra um núcleo fake.
 
 Dois grupos de teste carregam o peso:
 
@@ -9,7 +9,7 @@ Dois grupos de teste carregam o peso:
   justamente para provar que a borda NÃO depende mais do formato da frase
   `resolved_from` — ela é repassada inteira, e nada mais.
 
-Os duplos e as fixtures vivem NESTE arquivo (conftest é território
+Os doubles e as fixtures vivem NESTE arquivo (conftest é território
 compartilhado); o que já existe lá é importado.
 """
 
@@ -27,21 +27,21 @@ from app.grpcapi.workflow import WorkflowServicer
 from app.main import create_app
 from app.platform.security.firebase import FirebaseVerifier
 from app.routers import workflow as rotas
-from tests.conftest import PROJECT, ChamadaFalsa, metadados_de, token_de
+from tests.conftest import PROJECT, FakeCall, metadata_for, token_for
 
-CONTA = metadados_de(token_de())
-CABECALHOS_REST = {"authorization": token_de(), "x-account-id": "acct-1"}
+ACCOUNT = metadata_for(token_for())
+REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
 # A frase exata que o núcleo escreve (renderTrail, em
 # internal/domain/workflow/entity.go): cadeia do mais específico ao mais
 # genérico, e o detalhe por etapa quando os níveis divergem.
-RASTRO = "conta ◂ plataforma — etapas: contexto (plataforma), spec (conta)"
+RASTRO = "account ◂ plataforma — etapas: context (plataforma), spec (account)"
 
 
 def _fluxo(**campos) -> workflow_pb2.Flow:
     f = workflow_pb2.Flow(
         id="flow-1",
-        name="fluxo da conta",
+        name="flow da account",
         description="composição da ACME",
         version=3,
         owner_scope="account",
@@ -49,7 +49,7 @@ def _fluxo(**campos) -> workflow_pb2.Flow:
         **campos,
     )
     f.stages.add(
-        key="contexto",
+        key="context",
         name="Contexto",
         type=workflow_pb2.STAGE_TYPE_CONTEXT,
         artifacts=[workflow_pb2.ARTIFACT_KIND_DOCUMENT],
@@ -67,40 +67,40 @@ def _fluxo(**campos) -> workflow_pb2.Flow:
 
 
 class FluxosFalsos:
-    """Núcleo falso de fluxo. Registra o pedido e devolve o que mandarem."""
+    """Núcleo fake de flow. Registra o request e returns o que mandarem."""
 
     def __init__(self):
-        self.fluxo = _fluxo()
-        self.ListFlows = ChamadaFalsa(workflow_pb2.ListFlowsResponse(flows=[self.fluxo]))
-        self.GetFlow = ChamadaFalsa(self.fluxo)
-        self.CreateFlow = ChamadaFalsa(self.fluxo)
-        self.UpdateFlow = ChamadaFalsa(self.fluxo)
-        self.PromoteFlow = ChamadaFalsa(self.fluxo)
-        self.ValidateFlow = ChamadaFalsa(
+        self.flow = _fluxo()
+        self.ListFlows = FakeCall(workflow_pb2.ListFlowsResponse(flows=[self.flow]))
+        self.GetFlow = FakeCall(self.flow)
+        self.CreateFlow = FakeCall(self.flow)
+        self.UpdateFlow = FakeCall(self.flow)
+        self.PromoteFlow = FakeCall(self.flow)
+        self.ValidateFlow = FakeCall(
             workflow_pb2.ValidateFlowResponse(
                 valid=False,
                 errors=["etapa 'spec' repetida"],
-                warnings=["fluxo sem etapa de teste"],
+                warnings=["flow sem etapa de teste"],
             )
         )
-        self.ResolveFlow = ChamadaFalsa(self.efetivo())
+        self.ResolveFlow = FakeCall(self.efetivo())
 
     def efetivo(self, **campos) -> workflow_pb2.EffectiveFlow:
-        """O fluxo efetivo como o núcleo o devolve: campos E frase.
+        """O flow efetivo como o núcleo o returns: campos E frase.
 
         Os dois juntos porque é assim que ele responde — e é a única forma de o
-        teste conseguir provar que a borda lê os CAMPOS: se o duplo só mandasse
+        teste conseguir provar que a borda lê os CAMPOS: se o double só mandasse
         a frase, ler dela passaria despercebido.
         """
         padrao = {
-            "flow": self.fluxo,
+            "flow": self.flow,
             "resolved_from": RASTRO,
             "contributors": [
                 workflow_pb2.ScopeRef(scope="account", id="acct-1"),
                 workflow_pb2.ScopeRef(scope="platform"),
             ],
             "origins": [
-                workflow_pb2.StageOrigin(key="contexto", scope="platform"),
+                workflow_pb2.StageOrigin(key="context", scope="platform"),
                 workflow_pb2.StageOrigin(key="spec", scope="account", scope_id="acct-1"),
             ],
         }
@@ -108,14 +108,14 @@ class FluxosFalsos:
 
 
 @pytest.fixture
-def fluxos(nucleo, monkeypatch):
-    falso = FluxosFalsos()
-    monkeypatch.setattr(stubs, "workflow_stub", lambda: falso)
-    return falso
+def flows(core, monkeypatch):
+    fake = FluxosFalsos()
+    monkeypatch.setattr(stubs, "workflow_stub", lambda: fake)
+    return fake
 
 
 def _app_com_rotas():
-    """O app com as rotas de fluxo.
+    """O app com as rotas de flow.
 
     `app/main.py` não é deste agente: enquanto o registro não chega lá, o teste
     monta o app e acrescenta o router. O `if` deixa o teste continuar válido
@@ -128,47 +128,47 @@ def _app_com_rotas():
 
 
 @pytest.fixture
-def cliente_flow(fluxos):
+def client_flow(flows):
     with TestClient(_app_com_rotas()) as c:
         yield c
 
 
 @pytest.fixture
-async def stub_flow(fluxos):
+async def stub_flow(flows):
     """Servidor gRPC real, em porta efêmera, com os MESMOS interceptores da
     porta de produção. Próprio porque `app/grpcapi/server.py` ainda não
     registra este servicer, e esse arquivo não é deste agente."""
-    servidor = grpc.aio.server(
+    server = grpc.aio.server(
         interceptors=(
             LoggingInterceptor(),
             ErrorInterceptor(),
             AuthInterceptor(FirebaseVerifier(PROJECT), CoreResolver()),
         )
     )
-    bff_grpc.add_WorkflowServiceServicer_to_server(WorkflowServicer(), servidor)
-    porta = servidor.add_insecure_port("127.0.0.1:0")
-    await servidor.start()
+    bff_grpc.add_WorkflowServiceServicer_to_server(WorkflowServicer(), server)
+    porta = server.add_insecure_port("127.0.0.1:0")
+    await server.start()
     try:
-        async with grpc.aio.insecure_channel(f"127.0.0.1:{porta}") as canal:
-            yield bff_grpc.WorkflowServiceStub(canal)
+        async with grpc.aio.insecure_channel(f"127.0.0.1:{porta}") as channel:
+            yield bff_grpc.WorkflowServiceStub(channel)
     finally:
-        await servidor.stop(0)
+        await server.stop(0)
 
 
 class TestProcedencia:
     """De onde veio cada etapa — lido dos campos, não da frase."""
 
-    def test_cadeia_e_origem_por_etapa(self, cliente_flow):
-        eff = cliente_flow.get(
+    def test_cadeia_e_origem_por_etapa(self, client_flow):
+        eff = client_flow.get(
             "/api/v1/flows/effective?scope=project&scope_id=prj-1",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
         ).json()
         p = eff["provenance"]
         # Do mais específico ao mais genérico, no MESMO vocabulário de
         # owner_scope — que é o que o núcleo já manda no campo.
         assert p["contributors"] == ["account", "platform"]
         assert p["origins"] == [
-            {"stage_key": "contexto", "scope": "platform"},
+            {"stage_key": "context", "scope": "platform"},
             {"stage_key": "spec", "scope": "account"},
         ]
         # As origens seguem a ordem das etapas: origins[i] é a origem de stages[i].
@@ -177,7 +177,7 @@ class TestProcedencia:
         ]
         assert p["truncated"] is False
 
-    def test_a_borda_nao_depende_do_formato_da_frase(self, cliente_flow, fluxos):
+    def test_a_borda_nao_depende_do_formato_da_frase(self, client_flow, flows):
         """O teste que existe para provar que o parser MORREU.
 
         A frase vem irreconhecível — outra pontuação, outro idioma, sem os
@@ -185,29 +185,29 @@ class TestProcedencia:
         procedência tem de sair idêntica mesmo assim, porque ela vem dos
         campos. Se alguém reintroduzir leitura da frase, é aqui que quebra.
         """
-        fluxos.ResolveFlow.devolve(
-            fluxos.efetivo(resolved_from="resolved from account, then platform")
+        flows.ResolveFlow.returns(
+            flows.efetivo(resolved_from="resolved from account, then platform")
         )
-        p = cliente_flow.get(
-            "/api/v1/flows/effective?scope=project", headers=CABECALHOS_REST
+        p = client_flow.get(
+            "/api/v1/flows/effective?scope=project", headers=REST_HEADERS
         ).json()["provenance"]
         assert p["contributors"] == ["account", "platform"]
         assert [(o["stage_key"], o["scope"]) for o in p["origins"]] == [
-            ("contexto", "platform"),
+            ("context", "platform"),
             ("spec", "account"),
         ]
         # E a frase, seja ela qual for, atravessa inteira e sem interpretação.
         assert p["sentence"] == "resolved from account, then platform"
 
-    def test_a_frase_original_nao_se_perde(self, cliente_flow):
+    def test_a_frase_original_nao_se_perde(self, client_flow):
         """Quem só quer imprimir continua imprimindo — e quem desconfiar da
         leitura estruturada tem contra o que conferir."""
-        eff = cliente_flow.get(
-            "/api/v1/flows/effective?scope=project", headers=CABECALHOS_REST
+        eff = client_flow.get(
+            "/api/v1/flows/effective?scope=project", headers=REST_HEADERS
         ).json()
         assert eff["provenance"]["sentence"] == RASTRO
 
-    def test_um_nivel_so_tambem_tem_origem_por_etapa(self, cliente_flow, fluxos):
+    def test_um_nivel_so_tambem_tem_origem_por_etapa(self, client_flow, flows):
         """Quando só um nível declarou, a FRASE não traz o detalhe por etapa —
         não há divergência para explicar. Os campos trazem.
 
@@ -215,84 +215,84 @@ class TestProcedencia:
         "não há origens"; agora ela responde de onde veio cada etapa mesmo no
         caso em que o núcleo não achou que valia a pena escrever.
         """
-        fluxos.ResolveFlow.devolve(
-            fluxos.efetivo(
-                resolved_from="projeto",
+        flows.ResolveFlow.returns(
+            flows.efetivo(
+                resolved_from="project",
                 contributors=[workflow_pb2.ScopeRef(scope="project", id="prj-1")],
                 origins=[
-                    workflow_pb2.StageOrigin(key="contexto", scope="project", scope_id="prj-1"),
+                    workflow_pb2.StageOrigin(key="context", scope="project", scope_id="prj-1"),
                     workflow_pb2.StageOrigin(key="spec", scope="project", scope_id="prj-1"),
                 ],
             )
         )
-        p = cliente_flow.get(
-            "/api/v1/flows/effective?scope=project", headers=CABECALHOS_REST
+        p = client_flow.get(
+            "/api/v1/flows/effective?scope=project", headers=REST_HEADERS
         ).json()["provenance"]
         assert p["contributors"] == ["project"]
         assert [o["scope"] for o in p["origins"]] == ["project", "project"]
         assert p["truncated"] is False
 
-    def test_etapa_sem_origem_informada_marca_truncado(self, cliente_flow, fluxos):
+    def test_etapa_sem_origem_informada_marca_truncado(self, client_flow, flows):
         """`truncated` é MEDIDO: origens que não cobrem as etapas.
 
         Antes ele era deduzido do "…" com que o núcleo corta a frase em 12
         etapas. O corte é da frase; a lista estruturada vem inteira. Medir
         mantém o campo correto se o núcleo passar a cortar a lista também — e
-        o que ele promete ao cliente é o mesmo: há etapa cuja origem ninguém
+        o que ele promete ao client é o mesmo: há etapa cuja origem ninguém
         sabe informar, o que é diferente de ela não ter origem.
         """
-        fluxos.ResolveFlow.devolve(
-            fluxos.efetivo(
-                origins=[workflow_pb2.StageOrigin(key="contexto", scope="platform")]
+        flows.ResolveFlow.returns(
+            flows.efetivo(
+                origins=[workflow_pb2.StageOrigin(key="context", scope="platform")]
             )
         )
-        p = cliente_flow.get(
-            "/api/v1/flows/effective?scope=project", headers=CABECALHOS_REST
+        p = client_flow.get(
+            "/api/v1/flows/effective?scope=project", headers=REST_HEADERS
         ).json()["provenance"]
         assert p["truncated"] is True
-        assert [o["stage_key"] for o in p["origins"]] == ["contexto"]
+        assert [o["stage_key"] for o in p["origins"]] == ["context"]
 
-    def test_sem_procedencia_nao_se_inventa_procedencia(self, cliente_flow, fluxos):
-        """Núcleo calado: nada se deduz, e `truncated` não vira alarme falso.
+    def test_sem_procedencia_nao_se_inventa_procedencia(self, client_flow, flows):
+        """Núcleo calado: nada se deduz, e `truncated` não vira alarme fake.
 
-        Sem fluxo não há etapa para explicar — então não há origem faltando.
+        Sem flow não há etapa para explicar — então não há origem faltando.
         """
-        fluxos.ResolveFlow.devolve(workflow_pb2.EffectiveFlow())
-        p = cliente_flow.get(
-            "/api/v1/flows/effective?scope=project", headers=CABECALHOS_REST
+        flows.ResolveFlow.returns(workflow_pb2.EffectiveFlow())
+        p = client_flow.get(
+            "/api/v1/flows/effective?scope=project", headers=REST_HEADERS
         ).json()["provenance"]
         assert p == {"contributors": [], "origins": [], "sentence": "", "truncated": False}
 
 
 class TestREST:
-    def test_fluxo_traduz_o_vocabulario_de_etapa(self, cliente_flow):
-        f = cliente_flow.get("/api/v1/flows/flow-1", headers=CABECALHOS_REST).json()
+    def test_fluxo_traduz_o_vocabulario_de_etapa(self, client_flow):
+        f = client_flow.get("/api/v1/flows/flow-1", headers=REST_HEADERS).json()
         assert [s["type"] for s in f["stages"]] == ["context", "spec"]
         assert [s["gate"] for s in f["stages"]] == ["none", "human"]
         assert f["stages"][1]["artifacts"] == ["spec"]
 
-    def test_validacao_e_relatorio_nao_erro(self, cliente_flow):
-        """A tela precisa da lista para marcar as etapas; um 4xx só daria um toast."""
-        r = cliente_flow.post(
+    def test_validacao_e_relatorio_nao_erro(self, client_flow):
+        """A screen precisa da lista para marcar as etapas; um 4xx só daria um toast."""
+        r = client_flow.post(
             "/api/v1/flows/validate",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"name": "f", "owner_scope": "project", "stages": []},
         )
         assert r.status_code == 200
         assert r.json()["valid"] is False
-        assert r.json()["warnings"] == ["fluxo sem etapa de teste"]
+        assert r.json()["warnings"] == ["flow sem etapa de teste"]
 
-    def test_efetivo_nao_e_capturado_como_id_de_fluxo(self, cliente_flow, fluxos):
+    def test_efetivo_nao_e_capturado_como_id_de_fluxo(self, client_flow, flows):
         """A rota /flows/effective vem antes de /flows/{id} — se a ordem
         inverter, este teste cai."""
-        cliente_flow.get("/api/v1/flows/effective?scope=account", headers=CABECALHOS_REST)
-        assert fluxos.ResolveFlow.chamadas
-        assert not fluxos.GetFlow.chamadas
+        client_flow.get("/api/v1/flows/effective?scope=account", headers=REST_HEADERS)
+        assert flows.ResolveFlow.calls
+        assert not flows.GetFlow.calls
 
-    def test_criar_fluxo_carrega_idempotencia(self, cliente_flow, fluxos):
-        cliente_flow.post(
+    def test_criar_fluxo_carrega_idempotencia(self, client_flow, flows):
+        client_flow.post(
             "/api/v1/flows",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={
                 "name": "novo",
                 "owner_scope": "project",
@@ -300,35 +300,35 @@ class TestREST:
                 "stages": [{"key": "spec", "type": "spec", "gate": "human"}],
             },
         )
-        pedido = fluxos.CreateFlow.pedidos[0]
-        assert pedido.idempotency_key != ""
+        request = flows.CreateFlow.requests[0]
+        assert request.idempotency_key != ""
         # E o vocabulário volta a ser enum na saída para o núcleo.
-        assert pedido.flow.stages[0].type == workflow_pb2.STAGE_TYPE_SPEC
-        assert pedido.flow.stages[0].gate == workflow_pb2.GATE_HUMAN
+        assert request.flow.stages[0].type == workflow_pb2.STAGE_TYPE_SPEC
+        assert request.flow.stages[0].gate == workflow_pb2.GATE_HUMAN
 
-    def test_developer_compoe_fluxo(self, cliente_flow, nucleo):
-        """Fluxo é conhecimento, aberto dentro da conta (ADR-0014 §6)."""
-        nucleo.papel_developer()
-        r = cliente_flow.post(
+    def test_developer_compoe_fluxo(self, client_flow, core):
+        """Fluxo é conhecimento, aberto dentro da account (ADR-0014 §6)."""
+        core.demote_to_developer()
+        r = client_flow.post(
             "/api/v1/flows",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"name": "novo", "owner_scope": "project", "owner_id": "prj-1"},
         )
         assert r.status_code == 201
 
-    def test_developer_nao_promove_fluxo(self, cliente_flow, nucleo):
+    def test_developer_nao_promove_fluxo(self, client_flow, core):
         """Promover muda o jeito de trabalhar de quem não pediu — exige gestão."""
-        nucleo.papel_developer()
-        r = cliente_flow.post(
+        core.demote_to_developer()
+        r = client_flow.post(
             "/api/v1/flows/flow-1/promotion",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"target_scope": "account", "target_id": "acct-1"},
         )
         assert r.status_code == 403
 
-    def test_sem_conta_ativa_e_recusado(self, cliente_flow):
-        r = cliente_flow.get(
-            "/api/v1/flows", headers={"authorization": token_de()}
+    def test_sem_conta_ativa_e_recusado(self, client_flow):
+        r = client_flow.get(
+            "/api/v1/flows", headers={"authorization": token_for()}
         )
         assert r.status_code == 400
 
@@ -336,57 +336,57 @@ class TestREST:
 class TestGRPC:
     async def test_resolve_devolve_procedencia_estruturada(self, stub_flow):
         eff = await stub_flow.ResolveFlow(
-            bff.ResolveFlowRequest(scope="project", scope_id="prj-1"), metadata=CONTA
+            bff.ResolveFlowRequest(scope="project", scope_id="prj-1"), metadata=ACCOUNT
         )
         assert list(eff.provenance.contributors) == ["account", "platform"]
         assert [(o.stage_key, o.scope) for o in eff.provenance.origins] == [
-            ("contexto", "platform"),
+            ("context", "platform"),
             ("spec", "account"),
         ]
         assert eff.provenance.sentence == RASTRO
 
-    async def test_fluxo_ausente_nao_e_fluxo_vazio(self, stub_flow, fluxos):
-        """Nenhum nível declarou fluxo: o campo não vem. Um fluxo zerado diria
-        que existe um fluxo sem nome e sem etapas."""
-        fluxos.ResolveFlow.devolve(workflow_pb2.EffectiveFlow(resolved_from=""))
+    async def test_fluxo_ausente_nao_e_fluxo_vazio(self, stub_flow, flows):
+        """Nenhum nível declarou flow: o campo não vem. Um flow zerado diria
+        que existe um flow sem name e sem etapas."""
+        flows.ResolveFlow.returns(workflow_pb2.EffectiveFlow(resolved_from=""))
         eff = await stub_flow.ResolveFlow(
-            bff.ResolveFlowRequest(scope="account"), metadata=CONTA
+            bff.ResolveFlowRequest(scope="account"), metadata=ACCOUNT
         )
         assert not eff.HasField("flow")
 
-    async def test_developer_nao_promove_fluxo(self, stub_flow, nucleo):
-        nucleo.papel_developer()
+    async def test_developer_nao_promove_fluxo(self, stub_flow, core):
+        core.demote_to_developer()
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_flow.PromoteFlow(
                 bff.PromoteFlowRequest(flow_id="flow-1", target_scope="account"),
-                metadata=CONTA,
+                metadata=ACCOUNT,
             )
         assert e.value.code() == grpc.StatusCode.PERMISSION_DENIED
 
     async def test_sem_token_e_unauthenticated(self, stub_flow):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_flow.ListFlows(
-                bff.ListFlowsRequest(), metadata=metadados_de(None)
+                bff.ListFlowsRequest(), metadata=metadata_for(None)
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_erro_do_nucleo_atravessa_com_o_status_dele(self, stub_flow, fluxos):
-        fluxos.GetFlow.falha_com(grpc.StatusCode.NOT_FOUND, "fluxo não encontrado")
+    async def test_erro_do_nucleo_atravessa_com_o_status_dele(self, stub_flow, flows):
+        flows.GetFlow.fails_with(grpc.StatusCode.NOT_FOUND, "flow não encontrado")
         with pytest.raises(grpc.aio.AioRpcError) as e:
-            await stub_flow.GetFlow(bff.GetFlowRequest(id="sumiu"), metadata=CONTA)
+            await stub_flow.GetFlow(bff.GetFlowRequest(id="sumiu"), metadata=ACCOUNT)
         assert e.value.code() == grpc.StatusCode.NOT_FOUND
 
 
 class TestParidadeEntreTransportes:
     """Uma função, dois adaptadores — e a prova de que continua assim."""
 
-    async def test_fluxo_efetivo_igual_nas_duas_portas(self, cliente_flow, stub_flow):
-        rest = cliente_flow.get(
+    async def test_fluxo_efetivo_igual_nas_duas_portas(self, client_flow, stub_flow):
+        rest = client_flow.get(
             "/api/v1/flows/effective?scope=project&scope_id=prj-1",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
         ).json()
         grpc_resp = await stub_flow.ResolveFlow(
-            bff.ResolveFlowRequest(scope="project", scope_id="prj-1"), metadata=CONTA
+            bff.ResolveFlowRequest(scope="project", scope_id="prj-1"), metadata=ACCOUNT
         )
 
         assert grpc_resp.flow.id == rest["flow"]["id"]

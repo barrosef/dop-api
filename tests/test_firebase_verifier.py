@@ -1,12 +1,12 @@
 """O teste que guarda a fronteira de autenticação.
 
-Existe porque esta verificação JÁ esteve incompleta: ela buscava as chaves,
+Existe porque esta verificação JÁ esteve incompleta: ela buscava as keys,
 conferia se o `kid` existia e devolvia SEM verificar a assinatura. Como `kid` é
 público, qualquer pessoa forjava um payload com o `sub` de outro usuário e
 entrava como ele — em PRODUÇÃO. Passou despercebido porque o desenvolvimento
 inteiro roda contra o emulador, onde esse caminho nem executa.
 
-Por isso estes testes exercitam o modo de PRODUÇÃO com chaves de verdade
+Por isso estes testes exercitam o modo de PRODUÇÃO com keys de verdade
 geradas aqui, e não o emulador. Um teste que só exercitasse o emulador
 declararia verde exatamente o buraco que deixou passar.
 """
@@ -28,25 +28,25 @@ from cryptography.x509.oid import NameOID
 from app.platform.security.firebase import FirebaseVerifier, InvalidToken
 
 PROJETO = "dop-test"
-KID = "chave-de-teste"
+KID = "key-de-teste"
 
 
-def _par_de_chaves():
-    chave = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    nome = Name([NameAttribute(NameOID.COMMON_NAME, "teste")])
+def _key_pair():
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = Name([NameAttribute(NameOID.COMMON_NAME, "teste")])
     agora = datetime.datetime.now(datetime.UTC)
     cert = (
         CertificateBuilder()
-        .subject_name(nome)
-        .issuer_name(nome)
-        .public_key(chave.public_key())
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
         .serial_number(random_serial_number())
         .not_valid_before(agora - datetime.timedelta(days=1))
         .not_valid_after(agora + datetime.timedelta(days=1))
-        .sign(chave, hashes.SHA256())
+        .sign(key, hashes.SHA256())
     )
     pem = cert.public_bytes(serialization.Encoding.PEM).decode()
-    return chave, pem
+    return key, pem
 
 
 @pytest.fixture
@@ -57,14 +57,14 @@ def verificador():
     na máquina de quem roda o teste desligaria a garantia mais importante sem
     ninguém perceber.
     """
-    chave, pem = _par_de_chaves()
+    key, pem = _key_pair()
     v = FirebaseVerifier(PROJETO, emulator_host="")
     v._keys = {KID: pem}
     v._keys_fetched_at = time.time()
-    return v, chave
+    return v, key
 
 
-def _token(chave, **override):
+def _token(key, **override):
     claims = {
         "sub": "usuario-1",
         "aud": PROJETO,
@@ -75,7 +75,7 @@ def _token(chave, **override):
         "firebase": {"sign_in_provider": "password"},
     }
     claims.update(override)
-    return jwt.encode(claims, chave, algorithm="RS256", headers={"kid": KID})
+    return jwt.encode(claims, key, algorithm="RS256", headers={"kid": KID})
 
 
 def _forjado(**override):
@@ -99,8 +99,8 @@ def _forjado(**override):
 
 class TestAssinatura:
     async def test_token_legitimo_passa(self, verificador):
-        v, chave = verificador
-        p = await v.verify(_token(chave))
+        v, key = verificador
+        p = await v.verify(_token(key))
         assert p.subject == "usuario-1"
         assert p.providers == ["password"]
 
@@ -112,7 +112,7 @@ class TestAssinatura:
 
     async def test_assinatura_de_outra_chave_e_recusada(self, verificador):
         v, _ = verificador
-        intrusa, _pem = _par_de_chaves()
+        intrusa, _pem = _key_pair()
         with pytest.raises(InvalidToken):
             await v.verify(_token(intrusa))
 
@@ -128,65 +128,65 @@ class TestAssinatura:
             await v.verify(sem_alg)
 
     async def test_hs256_e_recusado(self, verificador):
-        """HS256 usando a chave PÚBLICA como segredo — o ataque clássico.
+        """HS256 usando a key PÚBLICA como segredo — o ataque clássico.
 
         O token é montado à mão porque o próprio PyJWT se recusa a criá-lo: ele
-        tem guarda contra assinar HS* com material que parece chave assimétrica.
+        tem guarda contra assinar HS* com material que parece key assimétrica.
         Pedir a ele que gerasse o ataque provaria a guarda DELE, não a nossa.
         """
         v, _ = verificador
-        _chave, pem = _par_de_chaves()
+        _chave, pem = _key_pair()
 
         def b64(b: bytes) -> str:
             return base64.urlsafe_b64encode(b).decode().rstrip("=")
 
         cabecalho = b64(json.dumps({"alg": "HS256", "kid": KID}).encode())
-        corpo = b64(json.dumps({"sub": "x", "aud": PROJETO}).encode())
+        body = b64(json.dumps({"sub": "x", "aud": PROJETO}).encode())
         assinatura = b64(
-            hmac.new(pem.encode(), f"{cabecalho}.{corpo}".encode(), hashlib.sha256).digest()
+            hmac.new(pem.encode(), f"{cabecalho}.{body}".encode(), hashlib.sha256).digest()
         )
         with pytest.raises(InvalidToken):
-            await v.verify(f"{cabecalho}.{corpo}.{assinatura}")
+            await v.verify(f"{cabecalho}.{body}.{assinatura}")
 
 
 class TestClaims:
     async def test_expirado_e_recusado(self, verificador):
-        v, chave = verificador
+        v, key = verificador
         antigo = int(time.time()) - 7200
         with pytest.raises(InvalidToken):
-            await v.verify(_token(chave, exp=antigo, iat=antigo - 60))
+            await v.verify(_token(key, exp=antigo, iat=antigo - 60))
 
     async def test_outro_projeto_e_recusado(self, verificador):
-        v, chave = verificador
+        v, key = verificador
         with pytest.raises(InvalidToken):
-            await v.verify(_token(chave, aud="outro-projeto"))
+            await v.verify(_token(key, aud="outro-project"))
 
     async def test_outro_emissor_e_recusado(self, verificador):
-        v, chave = verificador
+        v, key = verificador
         with pytest.raises(InvalidToken):
-            await v.verify(_token(chave, iss="https://evil.example.com"))
+            await v.verify(_token(key, iss="https://evil.example.com"))
 
     async def test_sem_projeto_falha_fechado(self):
-        """Sem projeto não há audiência para conferir; aceitar seria não conferir."""
-        chave, pem = _par_de_chaves()
+        """Sem project não há audiência para conferir; aceitar seria não conferir."""
+        key, pem = _key_pair()
         v = FirebaseVerifier("", emulator_host="")
         v._keys, v._keys_fetched_at = {KID: pem}, time.time()
         with pytest.raises(InvalidToken):
-            await v.verify(_token(chave))
+            await v.verify(_token(key))
 
 
 class TestVazamento:
     async def test_mensagem_de_erro_nao_carrega_o_token(self, verificador):
-        """Token em mensagem de erro é credencial em repouso, indo para o log."""
+        """Token em mensagem de err é credencial em repouso, indo para o log."""
         v, _ = verificador
         forjado = _forjado()
         with pytest.raises(InvalidToken) as e:
             await v.verify(forjado)
-        texto = str(e.value)
-        assert forjado not in texto
+        text = str(e.value)
+        assert forjado not in text
         for parte in forjado.split("."):
-            assert parte not in texto
-        assert "vitima" not in texto
+            assert parte not in text
+        assert "vitima" not in text
 
 
 class TestEmulador:

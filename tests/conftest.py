@@ -1,12 +1,12 @@
-"""Duplos do núcleo. Nenhum teste sobe o dop-core de verdade.
+"""The core's doubles. No test brings up a real dop-core.
 
-O ponto de substituição é UM só: `app.coreclient.stubs.identity_stub`. Router,
-servicer gRPC e resolver passam por ele, então trocar essa função troca o
-núcleo inteiro — sem patch espalhado por módulo.
+There is a SINGLE substitution point: `app.coreclient.stubs.identity_stub`. The
+router, the gRPC servicer and the resolver all go through it, so swapping that
+function swaps the whole core — with no patching scattered across modules.
 
-As fixtures da porta gRPC (`servidor_grpc`, `stub_grpc`) sobem um servidor de
-verdade em porta efêmera, contra o mesmo núcleo falso das fixtures REST. É o
-que permite pedir a mesma coisa pelas duas portas e comparar o resultado.
+The gRPC port's fixtures (`grpc_server`, `stub_grpc`) bring up a real server on
+an ephemeral port, against the same fake core as the REST fixtures. It is what
+allows asking for the same thing through both ports and comparing the result.
 """
 
 import base64
@@ -38,8 +38,8 @@ from app.settings import settings
 PROJECT = "dop-local"
 
 
-def token_de(subject="sub-1", email="dev@dop.local", name="Dev"):
-    """Token do emulador: não é assinado, mas normaliza igual ao de produção."""
+def token_for(subject="sub-1", email="dev@dop.local", name="Dev"):
+    """The emulator's token: it is not signed, but it normalizes just like production's."""
     payload = {
         "sub": subject,
         "aud": PROJECT,
@@ -50,64 +50,64 @@ def token_de(subject="sub-1", email="dev@dop.local", name="Dev"):
         "firebase": {"sign_in_provider": "password", "identities": {"email": [email]}},
     }
     raw = base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=").decode()
-    return f"Bearer cabecalho.{raw}.assinatura"
+    return f"Bearer header.{raw}.signature"
 
 
-def erro_grpc(code: grpc.StatusCode, details="veio do núcleo") -> AioRpcError:
+def grpc_error(code: grpc.StatusCode, details="came from the core") -> AioRpcError:
     return AioRpcError(code, grpc.aio.Metadata(), grpc.aio.Metadata(), details)
 
 
-class ChamadaFalsa:
-    """Um RPC. Guarda o que recebeu; devolve o que mandaram devolver."""
+class FakeCall:
+    """One RPC. It keeps what it received; it returns what it was told to return."""
 
-    def __init__(self, resultado=None):
-        self.resultado = resultado
-        self.chamadas: list[dict] = []
+    def __init__(self, result=None):
+        self.result = result
+        self.calls: list[dict] = []
 
-    def devolve(self, resultado):
-        self.resultado = resultado
+    def returns(self, result):
+        self.result = result
         return self
 
-    def falha_com(self, code: grpc.StatusCode, details="veio do núcleo"):
-        self.resultado = erro_grpc(code, details)
+    def fails_with(self, code: grpc.StatusCode, details="came from the core"):
+        self.result = grpc_error(code, details)
         return self
 
     @property
-    def ultima(self) -> dict:
-        assert self.chamadas, "o RPC não foi chamado"
-        return self.chamadas[-1]
+    def last(self) -> dict:
+        assert self.calls, "the RPC was not called"
+        return self.calls[-1]
 
-    def metadados(self) -> dict[str, str]:
-        return dict(self.ultima["metadata"])
+    def metadata(self) -> dict[str, str]:
+        return dict(self.last["metadata"])
 
     @property
-    def pedidos(self):
-        """Só as mensagens, sem o resto — o que a maioria dos testes quer."""
-        return [c["request"] for c in self.chamadas]
+    def requests(self):
+        """Only the messages, without the rest — what most tests want."""
+        return [c["request"] for c in self.calls]
 
     async def __call__(self, request, *, metadata=None, timeout=None, **_):
-        self.chamadas.append({"request": request, "metadata": metadata, "timeout": timeout})
-        if isinstance(self.resultado, Exception):
-            raise self.resultado
-        return self.resultado
+        self.calls.append({"request": request, "metadata": metadata, "timeout": timeout})
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
 
 
-class NucleoFalso:
-    """Stub do IdentityService com os RPCs que a borda usa."""
+class FakeCore:
+    """A stub of the IdentityService with the RPCs the edge uses."""
 
     def __init__(self, user_id="u-1", account_id="acct-1", role=identity_pb2.ROLE_ADMIN):
         self.user_id = user_id
-        conta = identity_pb2.Account(
+        account = identity_pb2.Account(
             id=account_id,
             kind=identity_pb2.Account.KIND_ORGANIZATION,
             handle="acme",
             display_name="ACME",
         )
-        self.EnsureUser = ChamadaFalsa(identity_pb2.User(id=user_id, email="dev@dop.local"))
-        self.ListAccounts = ChamadaFalsa(
-            identity_pb2.ListAccountsResponse(accounts=[conta])
+        self.EnsureUser = FakeCall(identity_pb2.User(id=user_id, email="dev@dop.local"))
+        self.ListAccounts = FakeCall(
+            identity_pb2.ListAccountsResponse(accounts=[account])
         )
-        self.ListMemberships = ChamadaFalsa(
+        self.ListMemberships = FakeCall(
             identity_pb2.ListMembershipsResponse(
                 memberships=[
                     identity_pb2.Membership(
@@ -119,9 +119,9 @@ class NucleoFalso:
                 ]
             )
         )
-        self.conta = conta
-        self.CreateAccount = ChamadaFalsa(conta)
-        self.CreateInvite = ChamadaFalsa(
+        self.account = account
+        self.CreateAccount = FakeCall(account)
+        self.CreateInvite = FakeCall(
             identity_pb2.Invite(
                 id="inv-1",
                 email="novo@dop.local",
@@ -131,20 +131,20 @@ class NucleoFalso:
         )
 
 
-    def papel_developer(self):
-        """Rebaixa o ator a developer.
+    def demote_to_developer(self):
+        """Demotes the actor to developer.
 
-        O papel é resolvido UMA vez, no login, a partir de ListMemberships —
-        então mudar o papel é trocar o que esse RPC responde, não um atalho
-        no contexto. Testar pelo atalho provaria menos do que parece.
+        The role is resolved ONCE, at login, from ListMemberships — so changing
+        the role means changing what that RPC answers, not a shortcut in the
+        context. Testing through the shortcut would prove less than it seems.
         """
-        self.ListMemberships = ChamadaFalsa(
+        self.ListMemberships = FakeCall(
             identity_pb2.ListMembershipsResponse(
                 memberships=[
                     identity_pb2.Membership(
                         id="m-1",
                         user=common_pb2.UserRef(id=self.user_id),
-                        account=common_pb2.AccountRef(id=self.conta.id),
+                        account=common_pb2.AccountRef(id=self.account.id),
                         role=identity_pb2.ROLE_DEVELOPER,
                     )
                 ]
@@ -153,35 +153,36 @@ class NucleoFalso:
 
 
 @pytest.fixture
-def nucleo(monkeypatch):
+def core(monkeypatch):
     monkeypatch.setenv("FIREBASE_AUTH_EMULATOR_HOST", "localhost:9099")
-    falso = NucleoFalso()
-    monkeypatch.setattr(stubs, "identity_stub", lambda: falso)
-    return falso
+    fake = FakeCore()
+    monkeypatch.setattr(stubs, "identity_stub", lambda: fake)
+    return fake
 
 
 @pytest.fixture
-def cliente(nucleo):
+def client(core):
     with TestClient(create_app()) as c:
         yield c
 
 
 @pytest.fixture(autouse=True)
-def _porta_grpc_desligada(monkeypatch):
-    """Nenhum teste abre a porta gRPC pelo lifespan.
+def _grpc_port_disabled(monkeypatch):
+    """No test opens the gRPC port through the lifespan.
 
-    Cada `create_app()` num teste tentaria ouvir na MESMA porta fixa da
-    configuração — a segunda falharia, e a suíte ficaria dependente da ordem.
-    Quem testa a porta gRPC a cria explicitamente, em porta efêmera.
+    Every `create_app()` in a test would try to listen on the SAME fixed port
+    from the configuration — the second would fail, and the suite would become
+    order-dependent. Whoever tests the gRPC port creates it explicitly, on an
+    ephemeral port.
     """
     monkeypatch.setattr(settings, "grpc_enabled", False)
 
 
-def metadados_de(token: str | None = None, account_id: str = "acct-1", **extra):
-    """Metadados gRPC equivalentes aos cabeçalhos do REST.
+def metadata_for(token: str | None = None, account_id: str = "acct-1", **extra):
+    """gRPC metadata equivalent to REST's headers.
 
-    Identidade no `authorization` (não no corpo da mensagem) e conta ativa no
-    `x-account-id`, exatamente como o AuthMiddleware espera no HTTP.
+    Identity in `authorization` (not in the message's body) and the active
+    account in `x-account-id`, exactly as AuthMiddleware expects over HTTP.
     """
     md = []
     if token is not None:
@@ -193,54 +194,54 @@ def metadados_de(token: str | None = None, account_id: str = "acct-1", **extra):
 
 
 @pytest.fixture
-async def servidor_grpc(nucleo):
-    """Servidor gRPC real, em porta efêmera, contra o núcleo falso.
+async def grpc_server(core):
+    """A real gRPC server, on an ephemeral port, against the fake core.
 
-    Real de propósito: interceptor que só é exercido por chamada direta não
-    prova que o `grpc.aio` o executa na ordem certa nem que o ContextVar
-    sobrevive até o servicer — que é justamente a parte difícil.
+    Real on purpose: an interceptor exercised only by a direct call proves
+    neither that `grpc.aio` runs it in the right order nor that the ContextVar
+    survives as far as the servicer — which is precisely the hard part.
     """
-    servidor = GrpcServer(
+    server = GrpcServer(
         verifier=FirebaseVerifier(PROJECT),
         resolver=CoreResolver(),
         port=0,
         host="127.0.0.1",
     )
-    await servidor.start()
+    await server.start()
     try:
-        yield servidor
+        yield server
     finally:
-        await servidor.stop(grace=0)
+        await server.stop(grace=0)
 
 
 @pytest.fixture
-async def stub_grpc(servidor_grpc):
-    async with grpc.aio.insecure_channel(f"127.0.0.1:{servidor_grpc.port}") as canal:
-        yield bff_grpc.IdentityServiceStub(canal)
+async def stub_grpc(grpc_server):
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{grpc_server.port}") as channel:
+        yield bff_grpc.IdentityServiceStub(channel)
 
 
-# ── hierarquia ──────────────────────────────────────────────────────────────
+# ── hierarchy ───────────────────────────────────────────────────────────────
 
 
-class HierarquiaFalsa:
-    """Núcleo falso de hierarquia. Mesma disciplina do NucleoFalso: registra o
-    pedido e os metadados que chegaram, para que o teste de paridade possa
-    provar que REST e gRPC montam a MESMA requisição."""
+class FakeHierarchy:
+    """The hierarchy's fake core. The same discipline as FakeCore: it records
+    the request and the metadata that arrived, so the parity test can prove that
+    REST and gRPC build the SAME request."""
 
     def __init__(self):
         ws = hierarchy_pb2.Workspace(
             id="ws-1",
             account=common_pb2.AccountRef(id="acct-1"),
-            name="Plataforma",
+            name="Platform",
             key="PLAT",
-            description="workspace de teste",
-            tags=["ativo"],
+            description="a test workspace",
+            tags=["active"],
         )
         prj = hierarchy_pb2.Project(
             id="prj-1",
             workspace=common_pb2.WorkspaceRef(id="ws-1"),
             name="Cockpit",
-            description="projeto de teste",
+            description="a test project",
             rules=["no-green-no-pr"],
         )
         prj.task_manager.CopyFrom(
@@ -251,63 +252,63 @@ class HierarquiaFalsa:
                 card_types=["bug", "feature"],
             )
         )
-        # Projeto SEM quadro: é o caso que distingue ausente de zerado.
-        sem_quadro = hierarchy_pb2.Project(
+        # A project with NO board: it is the case that tells absent from zeroed.
+        without_board = hierarchy_pb2.Project(
             id="prj-2",
             workspace=common_pb2.WorkspaceRef(id="ws-1"),
-            name="Sem quadro",
+            name="No board",
         )
-        self.workspace, self.projeto, self.projeto_sem_quadro = ws, prj, sem_quadro
+        self.workspace, self.project, self.project_without_board = ws, prj, without_board
 
-        self.GetTree = ChamadaFalsa(
+        self.GetTree = FakeCall(
             hierarchy_pb2.GetTreeResponse(
                 nodes=[
                     hierarchy_pb2.GetTreeResponse.Node(
-                        workspace=ws, projects=[prj, sem_quadro]
+                        workspace=ws, projects=[prj, without_board]
                     )
                 ]
             )
         )
-        self.ListWorkspaces = ChamadaFalsa(
+        self.ListWorkspaces = FakeCall(
             hierarchy_pb2.ListWorkspacesResponse(workspaces=[ws])
         )
-        self.CreateWorkspace = ChamadaFalsa(ws)
-        self.ListProjects = ChamadaFalsa(
-            hierarchy_pb2.ListProjectsResponse(projects=[prj, sem_quadro])
+        self.CreateWorkspace = FakeCall(ws)
+        self.ListProjects = FakeCall(
+            hierarchy_pb2.ListProjectsResponse(projects=[prj, without_board])
         )
-        self.GetProject = ChamadaFalsa(prj)
-        self.CreateProject = ChamadaFalsa(prj)
-        self.UpdateProject = ChamadaFalsa(prj)
+        self.GetProject = FakeCall(prj)
+        self.CreateProject = FakeCall(prj)
+        self.UpdateProject = FakeCall(prj)
 
 
 @pytest.fixture
-def hierarquia(nucleo, monkeypatch):
-    falso = HierarquiaFalsa()
-    monkeypatch.setattr(stubs, "hierarchy_stub", lambda: falso)
-    return falso
+def hierarchy(core, monkeypatch):
+    fake = FakeHierarchy()
+    monkeypatch.setattr(stubs, "hierarchy_stub", lambda: fake)
+    return fake
 
 
 @pytest.fixture
-def cliente_hier(hierarquia):
+def client_hier(hierarchy):
     with TestClient(create_app()) as c:
         yield c
 
 
 @pytest.fixture
-async def stub_hier(servidor_grpc, hierarquia):
-    async with grpc.aio.insecure_channel(f"127.0.0.1:{servidor_grpc.port}") as canal:
-        yield bff_hier_grpc.HierarchyServiceStub(canal)
+async def stub_hier(grpc_server, hierarchy):
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{grpc_server.port}") as channel:
+        yield bff_hier_grpc.HierarchyServiceStub(channel)
 
 
-# ── recursos ────────────────────────────────────────────────────────────────
+# ── resources ───────────────────────────────────────────────────────────────
 
 
-class RecursosFalsos:
-    """Núcleo falso de recursos.
+class FakeResources:
+    """The resources' fake core.
 
-    O recurso que ele devolve tem `credential_ref` preenchido e NENHUM campo
-    com o valor — igual ao núcleo de verdade. Um duplo que devolvesse o segredo
-    faria o teste de vazamento passar por acidente.
+    The resource it returns has `credential_ref` filled in and NO field with the
+    value — just like the real core. A double that returned the secret would make
+    the leak test pass by accident.
     """
 
     def __init__(self):
@@ -317,21 +318,21 @@ class RecursosFalsos:
             id="res-1",
             account=common_pb2.AccountRef(id="acct-1"),
             kind=resource_pb2.Resource.KIND_INTEGRATION,
-            name="ClickUp do time",
+            name="The team's ClickUp",
             version=1,
             config=config,
             credential_ref="integration_credential:acct-1:res-1",
         )
-        self.recurso = r
-        self.ListResources = ChamadaFalsa(
+        self.resource = r
+        self.ListResources = FakeCall(
             resource_pb2.ListResourcesResponse(resources=[r])
         )
-        self.GetResource = ChamadaFalsa(r)
-        self.CreateResource = ChamadaFalsa(r)
-        self.SetCredential = ChamadaFalsa(
+        self.GetResource = FakeCall(r)
+        self.CreateResource = FakeCall(r)
+        self.SetCredential = FakeCall(
             resource_pb2.SetCredentialResponse(credential_ref=r.credential_ref)
         )
-        self.GrantResource = ChamadaFalsa(
+        self.GrantResource = FakeCall(
             resource_pb2.ResourceGrant(
                 id="g-1",
                 resource=common_pb2.ResourceRef(id="res-1"),
@@ -339,23 +340,23 @@ class RecursosFalsos:
                 level="use",
             )
         )
-        self.RevokeGrant = ChamadaFalsa(resource_pb2.RevokeGrantResponse(revoked=True))
+        self.RevokeGrant = FakeCall(resource_pb2.RevokeGrantResponse(revoked=True))
 
 
 @pytest.fixture
-def recursos(nucleo, monkeypatch):
-    falso = RecursosFalsos()
-    monkeypatch.setattr(stubs, "resource_stub", lambda: falso)
-    return falso
+def resources(core, monkeypatch):
+    fake = FakeResources()
+    monkeypatch.setattr(stubs, "resource_stub", lambda: fake)
+    return fake
 
 
 @pytest.fixture
-def cliente_res(recursos):
+def client_res(resources):
     with TestClient(create_app()) as c:
         yield c
 
 
 @pytest.fixture
-async def stub_res(servidor_grpc, recursos):
-    async with grpc.aio.insecure_channel(f"127.0.0.1:{servidor_grpc.port}") as canal:
-        yield bff_res_grpc.ResourceServiceStub(canal)
+async def stub_res(grpc_server, resources):
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{grpc_server.port}") as channel:
+        yield bff_res_grpc.ResourceServiceStub(channel)

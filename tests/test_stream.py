@@ -1,13 +1,13 @@
 """Streaming nas duas portas: SSE para o browser, gRPC para CLI e agentes.
 
-Os duplos e as fixtures vivem AQUI, e não no `conftest.py`, de propósito: o
+Os doubles e as fixtures vivem AQUI, e não no `conftest.py`, de propósito: o
 conftest é território compartilhado e há trabalho acontecendo em paralelo nele.
-O que este arquivo precisa do conftest é só o que já existe lá (o núcleo falso
-de identidade, o token e os metadados) — nada é acrescentado do outro lado.
+O que este arquivo precisa do conftest é só o que já existe lá (o núcleo fake
+de identidade, o token e os metadata) — nada é acrescentado do outro lado.
 
-O núcleo NUNCA sobe: o duplo é uma chamada de server-streaming falsa que
-registra o pedido recebido e se foi cancelada. É essa segunda parte que permite
-provar a coisa mais difícil de provar num stream — que o cliente indo embora
+O núcleo NUNCA sobe: o double é uma call de server-streaming falsa que
+registra o request recebido e se foi cancelada. É essa segunda parte que permite
+provar a coisa mais difícil de provar num stream — que o client indo embora
 mata a assinatura lá no núcleo, em vez de deixá-la pendurada para sempre.
 """
 
@@ -32,18 +32,18 @@ from app.platform.security.firebase import FirebaseVerifier
 from app.routers import stream as rotas
 from app.settings import settings
 from app.usecases import stream as uc
-from tests.conftest import PROJECT, erro_grpc, metadados_de, token_de
+from tests.conftest import PROJECT, grpc_error, metadata_for, token_for
 
-CONTA = metadados_de(token_de())
-CABECALHOS = {"authorization": token_de(), "x-account-id": "acct-1"}
-
-
-# ── duplos do núcleo ────────────────────────────────────────────────────────
+ACCOUNT = metadata_for(token_for())
+HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
 
-def _struct(dados: dict) -> struct_pb2.Struct:
+# ── doubles do núcleo ────────────────────────────────────────────────────────
+
+
+def _struct(data: dict) -> struct_pb2.Struct:
     s = struct_pb2.Struct()
-    s.update(dados)
+    s.update(data)
     return s
 
 
@@ -68,15 +68,15 @@ def envelope(id_: str, tipo="dop.demand.stage.advanced", **payload) -> event_pb2
 class StreamFalso:
     """UMA assinatura de streaming no núcleo.
 
-    Imita o objeto de chamada do `grpc.aio`: é iterável e tem `cancel()`. O que
-    ele guarda — o pedido que recebeu e se foi cancelado — é exatamente o que os
+    Imita o objeto de call do `grpc.aio`: é iterável e tem `cancel()`. O que
+    ele guarda — o request que recebeu e se foi cancelado — é exatamente o que os
     testes precisam olhar.
     """
 
-    def __init__(self, itens, *, erro=None, segura=False, pausa=0.0, request=None, metadata=None):
-        self.itens = list(itens)
-        self.erro = erro
-        # Intervalo entre itens — um stream de verdade não entrega tudo de uma
+    def __init__(self, items, *, err=None, segura=False, pausa=0.0, request=None, metadata=None):
+        self.items = list(items)
+        self.err = err
+        # Intervalo entre items — um stream de verdade não entrega tudo de uma
         # vez, e é no silêncio entre eventos que o heartbeat precisa aparecer.
         self.pausa = pausa
         # `segura` mantém a assinatura ABERTA depois do último item, como um
@@ -87,18 +87,18 @@ class StreamFalso:
         self.metadata = dict(metadata or ())
         self.cancelada = False
 
-    async def _itera(self):
-        for item in self.itens:
+    async def _iterate(self):
+        for item in self.items:
             if self.pausa:
                 await asyncio.sleep(self.pausa)
             yield item
-        if self.erro is not None:
-            raise self.erro
+        if self.err is not None:
+            raise self.err
         if self.segura is not None:
             await self.segura.wait()
 
     def __aiter__(self):
-        return self._itera()
+        return self._iterate()
 
     def cancel(self):
         self.cancelada = True
@@ -106,50 +106,50 @@ class StreamFalso:
 
 
 class ServicoFalso:
-    """Serviço de streaming do núcleo: uma assinatura NOVA por chamada.
+    """Serviço de streaming do núcleo: uma assinatura NOVA por call.
 
-    Nova a cada chamada porque o teste de paridade assina duas vezes (uma por
-    porta) e um duplo que devolvesse o mesmo stream esgotado faria a segunda
+    Nova a cada call porque o teste de paridade assina duas vezes (uma por
+    porta) e um double que devolvesse o mesmo stream esgotado faria a segunda
     porta parecer vazia.
     """
 
-    def __init__(self, rpc: str, itens=(), *, erro=None, segura=False, pausa=0.0):
-        self.itens, self.erro, self.segura, self.pausa = list(itens), erro, segura, pausa
-        self.chamadas: list[StreamFalso] = []
+    def __init__(self, rpc: str, items=(), *, err=None, segura=False, pausa=0.0):
+        self.items, self.err, self.segura, self.pausa = list(items), err, segura, pausa
+        self.calls: list[StreamFalso] = []
         setattr(self, rpc, self._abrir)
 
     def _abrir(self, request, *, metadata=None, **_):
         s = StreamFalso(
-            self.itens,
-            erro=self.erro,
+            self.items,
+            err=self.err,
             segura=self.segura,
             pausa=self.pausa,
             request=request,
             metadata=metadata,
         )
-        self.chamadas.append(s)
+        self.calls.append(s)
         return s
 
     @property
-    def ultima(self) -> StreamFalso:
-        assert self.chamadas, "o stream não foi aberto"
-        return self.chamadas[-1]
+    def last(self) -> StreamFalso:
+        assert self.calls, "o stream não foi aberto"
+        return self.calls[-1]
 
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
-def eventos(nucleo, monkeypatch):
-    """EventService falso, com dois eventos e a assinatura encerrando sozinha."""
-    falso = ServicoFalso("WatchEvents", [envelope("ev-1"), envelope("ev-2")])
-    monkeypatch.setattr(stubs, "event_stub", lambda: falso)
-    return falso
+def eventos(core, monkeypatch):
+    """EventService fake, com dois eventos e a assinatura encerrando sozinha."""
+    fake = ServicoFalso("WatchEvents", [envelope("ev-1"), envelope("ev-2")])
+    monkeypatch.setattr(stubs, "event_stub", lambda: fake)
+    return fake
 
 
 @pytest.fixture
-def demanda(nucleo, monkeypatch):
-    falso = ServicoFalso(
+def demand(core, monkeypatch):
+    fake = ServicoFalso(
         "WatchDemand",
         [
             demand_pb2.DemandEvent(
@@ -160,13 +160,13 @@ def demanda(nucleo, monkeypatch):
             )
         ],
     )
-    monkeypatch.setattr(stubs, "demand_stub", lambda: falso)
-    return falso
+    monkeypatch.setattr(stubs, "demand_stub", lambda: fake)
+    return fake
 
 
 @pytest.fixture
-def execucao(nucleo, monkeypatch):
-    falso = ServicoFalso(
+def execucao(core, monkeypatch):
+    fake = ServicoFalso(
         "StreamLogs",
         [
             execution_pb2.LogLine(
@@ -174,8 +174,8 @@ def execucao(nucleo, monkeypatch):
             )
         ],
     )
-    monkeypatch.setattr(stubs, "execution_stub", lambda: falso)
-    return falso
+    monkeypatch.setattr(stubs, "execution_stub", lambda: fake)
+    return fake
 
 
 def _app():
@@ -191,13 +191,13 @@ def _app():
 
 
 @pytest.fixture
-def cliente_sse(eventos):
+def client_sse(eventos):
     with TestClient(_app()) as c:
         yield c
 
 
 @pytest.fixture
-def cliente_demanda(demanda):
+def client_demand(demand):
     with TestClient(_app()) as c:
         yield c
 
@@ -209,7 +209,7 @@ def cliente_log(execucao):
 
 
 @pytest.fixture
-async def servidor_stream(nucleo):
+async def servidor_stream(core):
     """Servidor gRPC de verdade, com o StreamServicer e os MESMOS interceptores.
 
     Não usa o `GrpcServer` porque o registro do StreamService lá é de quem
@@ -217,127 +217,127 @@ async def servidor_stream(nucleo):
     ordem — é ela que este arquivo precisa exercitar, já que foi ela que ganhou
     o suporte a streaming.
     """
-    servidor = grpc.aio.server(
+    server = grpc.aio.server(
         interceptors=(
             LoggingInterceptor(),
             ErrorInterceptor(),
             AuthInterceptor(FirebaseVerifier(PROJECT), CoreResolver()),
         )
     )
-    bff_grpc.add_StreamServiceServicer_to_server(StreamServicer(), servidor)
-    porta = servidor.add_insecure_port("127.0.0.1:0")
-    await servidor.start()
+    bff_grpc.add_StreamServiceServicer_to_server(StreamServicer(), server)
+    porta = server.add_insecure_port("127.0.0.1:0")
+    await server.start()
     try:
         yield porta
     finally:
-        await servidor.stop(grace=0)
+        await server.stop(grace=0)
 
 
 @pytest.fixture
 async def stub_stream(servidor_stream):
-    async with grpc.aio.insecure_channel(f"127.0.0.1:{servidor_stream}") as canal:
-        yield bff_grpc.StreamServiceStub(canal)
+    async with grpc.aio.insecure_channel(f"127.0.0.1:{servidor_stream}") as channel:
+        yield bff_grpc.StreamServiceStub(channel)
 
 
-# ── leitura do texto SSE ────────────────────────────────────────────────────
+# ── leitura do text SSE ────────────────────────────────────────────────────
 
 
-def quadros(texto: str) -> list[dict]:
-    """Texto SSE → lista de quadros com os campos que interessam.
+def frames(text: str) -> list[dict]:
+    """Texto SSE → lista de frames com os campos que interessam.
 
     Escrito à mão de propósito: um parser de terceiros esconderia justamente o
-    que se quer verificar (que o `id:` sai, que o `event:` sai com o nome certo).
+    que se quer verificar (que o `id:` sai, que o `event:` sai com o name certo).
     """
     saida = []
-    for bruto in texto.split("\r\n\r\n"):
+    for bruto in text.split("\r\n\r\n"):
         if not bruto.strip():
             continue
-        quadro: dict = {"comment": []}
+        board: dict = {"comment": []}
         for linha in bruto.split("\r\n"):
             if linha.startswith(": "):
-                quadro["comment"].append(linha[2:])
+                board["comment"].append(linha[2:])
             elif ": " in linha:
-                chave, valor = linha.split(": ", 1)
-                quadro[chave] = valor
-        saida.append(quadro)
+                key, value = linha.split(": ", 1)
+                board[key] = value
+        saida.append(board)
     return saida
 
 
-def dados(quadro: dict) -> dict:
-    return json.loads(quadro["data"])
+def data(board: dict) -> dict:
+    return json.loads(board["data"])
 
 
 # ── SSE ─────────────────────────────────────────────────────────────────────
 
 
 class TestSSE:
-    def test_responde_text_event_stream(self, cliente_sse):
-        r = cliente_sse.get("/api/v1/stream/events", headers=CABECALHOS)
+    def test_responde_text_event_stream(self, client_sse):
+        r = client_sse.get("/api/v1/stream/events", headers=HEADERS)
         assert r.status_code == 200
         assert r.headers["content-type"].startswith("text/event-stream")
         # Sem buffer intermediário: um proxy que acumula transforma tempo real
         # em lote, e o cockpit fica parado até a conexão fechar.
         assert r.headers["x-accel-buffering"] == "no"
 
-    def test_abre_dizendo_de_quanto_em_quanto_reconectar(self, cliente_sse):
-        r = cliente_sse.get("/api/v1/stream/events", headers=CABECALHOS)
-        assert quadros(r.text)[0]["retry"] == str(settings.sse_retry_ms)
+    def test_abre_dizendo_de_quanto_em_quanto_reconectar(self, client_sse):
+        r = client_sse.get("/api/v1/stream/events", headers=HEADERS)
+        assert frames(r.text)[0]["retry"] == str(settings.sse_retry_ms)
 
-    def test_id_do_sse_e_o_id_do_evento_do_nucleo(self, cliente_sse):
+    def test_id_do_sse_e_o_id_do_evento_do_nucleo(self, client_sse):
         """O `id:` é o que faz a retomada funcionar — e ele não é nosso.
 
         Um contador local seria um id que o núcleo não sabe traduzir em posição
         no log: na reconexão, `since_event_id` chegaria lá sem significado.
         """
-        r = cliente_sse.get("/api/v1/stream/events", headers=CABECALHOS)
-        eventos_sse = [q for q in quadros(r.text) if q.get("event") == "event"]
+        r = client_sse.get("/api/v1/stream/events", headers=HEADERS)
+        eventos_sse = [q for q in frames(r.text) if q.get("event") == "event"]
         assert [q["id"] for q in eventos_sse] == ["ev-1", "ev-2"]
-        assert dados(eventos_sse[0])["type"] == "dop.demand.stage.advanced"
-        assert dados(eventos_sse[0])["payload"] == {"stage": "build"}
+        assert data(eventos_sse[0])["type"] == "dop.demand.stage.advanced"
+        assert data(eventos_sse[0])["payload"] == {"stage": "build"}
 
-    def test_last_event_id_vira_o_cursor_do_nucleo(self, cliente_sse, eventos):
+    def test_last_event_id_vira_o_cursor_do_nucleo(self, client_sse, eventos):
         """A ligação que a ADR pede: cabeçalho do SSE → `since_event_id` do core."""
-        cliente_sse.get(
-            "/api/v1/stream/events", headers={**CABECALHOS, "Last-Event-ID": "ev-40"}
+        client_sse.get(
+            "/api/v1/stream/events", headers={**HEADERS, "Last-Event-ID": "ev-40"}
         )
-        assert eventos.ultima.request.since_event_id == "ev-40"
+        assert eventos.last.request.since_event_id == "ev-40"
 
-    def test_query_serve_a_quem_nao_pode_mandar_cabecalho(self, cliente_sse, eventos):
+    def test_query_serve_a_quem_nao_pode_mandar_cabecalho(self, client_sse, eventos):
         """EventSource não deixa definir cabeçalho na PRIMEIRA conexão."""
-        cliente_sse.get(
-            "/api/v1/stream/events?since_event_id=ev-7", headers=CABECALHOS
+        client_sse.get(
+            "/api/v1/stream/events?since_event_id=ev-7", headers=HEADERS
         )
-        assert eventos.ultima.request.since_event_id == "ev-7"
+        assert eventos.last.request.since_event_id == "ev-7"
 
-    def test_cabecalho_vence_a_query(self, cliente_sse, eventos):
+    def test_cabecalho_vence_a_query(self, client_sse, eventos):
         """A URL congela no momento em que o EventSource é criado; o cabeçalho não.
 
         Preferir a query traria eventos já vistos de volta a cada reconexão.
         """
-        cliente_sse.get(
+        client_sse.get(
             "/api/v1/stream/events?since_event_id=ev-7",
-            headers={**CABECALHOS, "Last-Event-ID": "ev-40"},
+            headers={**HEADERS, "Last-Event-ID": "ev-40"},
         )
-        assert eventos.ultima.request.since_event_id == "ev-40"
+        assert eventos.last.request.since_event_id == "ev-40"
 
-    def test_filtros_atravessam_para_o_nucleo(self, cliente_sse, eventos):
-        cliente_sse.get(
+    def test_filtros_atravessam_para_o_nucleo(self, client_sse, eventos):
+        client_sse.get(
             "/api/v1/stream/events?aggregate=demand&types=dop.demand.stage.advanced",
-            headers=CABECALHOS,
+            headers=HEADERS,
         )
-        pedido = eventos.ultima.request
-        assert list(pedido.aggregate) == ["demand"]
-        assert list(pedido.types) == ["dop.demand.stage.advanced"]
+        request = eventos.last.request
+        assert list(request.aggregate) == ["demand"]
+        assert list(request.types) == ["dop.demand.stage.advanced"]
 
-    def test_conta_ativa_atravessa_nos_metadados(self, cliente_sse, eventos):
-        cliente_sse.get("/api/v1/stream/events", headers=CABECALHOS)
-        assert eventos.ultima.metadata is not None
-        assert dict(eventos.ultima.metadata)["x-account-id"] == "acct-1"
+    def test_conta_ativa_atravessa_nos_metadados(self, client_sse, eventos):
+        client_sse.get("/api/v1/stream/events", headers=HEADERS)
+        assert eventos.last.metadata is not None
+        assert dict(eventos.last.metadata)["x-account-id"] == "acct-1"
 
-    def test_heartbeat_sai_como_comentario(self, nucleo, monkeypatch):
+    def test_heartbeat_sai_como_comentario(self, core, monkeypatch):
         """`: ping` é comentário SSE: o browser ignora, o proxy vê tráfego.
 
-        O duplo espera entre um evento e outro justamente para criar o silêncio
+        O double espera entre um evento e outro justamente para criar o silêncio
         em que o proxy derrubaria a conexão — é ali que o ping tem que aparecer.
         """
         monkeypatch.setattr(settings, "sse_ping_s", 0.01)
@@ -348,72 +348,72 @@ class TestSSE:
                 "WatchEvents", [envelope("ev-1"), envelope("ev-2")], pausa=0.05
             ),
         )
-        with TestClient(_app()) as cliente:
-            r = cliente.get("/api/v1/stream/events", headers=CABECALHOS)
-        assert any(q["comment"] and q["comment"][0].startswith("ping") for q in quadros(r.text))
+        with TestClient(_app()) as client:
+            r = client.get("/api/v1/stream/events", headers=HEADERS)
+        assert any(q["comment"] and q["comment"][0].startswith("ping") for q in frames(r.text))
 
 
 class TestErroDepoisDoPrimeiroByte:
     """A armadilha clássica: 200 já enviado, e aí o núcleo falha.
 
-    Não existe trocar o status depois disso. Ou o erro vira um evento que o
-    cliente sabe ler, ou vira um stream que morre em silêncio — e um cockpit que
-    mostra dados velhos achando que está ao vivo.
+    Não existe trocar o status depois disso. Ou o err vira um evento que o
+    client sabe ler, ou vira um stream que morre em silêncio — e um cockpit que
+    mostra data velhos achando que está ao vivo.
     """
 
     @pytest.fixture
-    def cliente_com_falha(self, nucleo, monkeypatch, request):
+    def failing_client(self, core, monkeypatch, request):
         code, detalhe = request.param
-        falso = ServicoFalso(
-            "WatchEvents", [envelope("ev-1")], erro=erro_grpc(code, detalhe)
+        fake = ServicoFalso(
+            "WatchEvents", [envelope("ev-1")], err=grpc_error(code, detalhe)
         )
-        monkeypatch.setattr(stubs, "event_stub", lambda: falso)
+        monkeypatch.setattr(stubs, "event_stub", lambda: fake)
         with TestClient(_app()) as c:
             yield c
 
     @pytest.mark.parametrize(
-        "cliente_com_falha",
+        "failing_client",
         [(grpc.StatusCode.UNAVAILABLE, "assinante lento demais: reconecte com since_event_id")],
         indirect=True,
     )
-    def test_consumidor_lento_vira_evento_de_erro_retentavel(self, cliente_com_falha):
-        r = cliente_com_falha.get("/api/v1/stream/events", headers=CABECALHOS)
+    def test_consumidor_lento_vira_evento_de_erro_retentavel(self, failing_client):
+        r = failing_client.get("/api/v1/stream/events", headers=HEADERS)
         # 200: o status foi decidido antes do primeiro evento e não muda mais.
         assert r.status_code == 200
-        erro = [q for q in quadros(r.text) if q.get("event") == "error"][0]
-        corpo = dados(erro)
-        assert corpo["code"] == "UNAVAILABLE"
-        assert corpo["retryable"] is True
-        # O cursor volta no corpo: quem reconecta por `fetch` (ou depois de um
+        err = [q for q in frames(r.text) if q.get("event") == "error"][0]
+        body = data(err)
+        assert body["code"] == "UNAVAILABLE"
+        assert body["retryable"] is True
+        # O cursor volta no body: quem reconecta por `fetch` (ou depois de um
         # F5) não tem o Last-Event-ID automático do EventSource.
-        assert corpo["since_event_id"] == "ev-1"
-        # O texto é NOSSO, não o do núcleo: UNAVAILABLE é 503, e o `_detail_for`
+        assert body["since_event_id"] == "ev-1"
+        # O text é NOSSO, não o do núcleo: UNAVAILABLE é 503, e o `_detail_for`
         # não deixa detalhe de 5xx do núcleo sair. Quem carrega a instrução é o
         # campo estruturado, que é de máquina.
-        assert corpo["detail"] == rotas._RECONNECT
+        assert body["detail"] == rotas._RECONNECT
         assert "assinante lento" not in r.text
 
     @pytest.mark.parametrize(
-        "cliente_com_falha",
+        "failing_client",
         [(grpc.StatusCode.INTERNAL, "pq://user:senha@10.0.0.7/dop falhou")],
         indirect=True,
     )
-    def test_detalhe_de_5xx_do_nucleo_nao_vaza(self, cliente_com_falha):
+    def test_detalhe_de_5xx_do_nucleo_nao_vaza(self, failing_client):
         """Mesmo redator do resto da borda (`_detail_for`), não um segundo."""
-        r = cliente_com_falha.get("/api/v1/stream/events", headers=CABECALHOS)
-        corpo = dados([q for q in quadros(r.text) if q.get("event") == "error"][0])
-        assert corpo["detail"] == "internal error"
-        assert corpo["retryable"] is False
+        r = failing_client.get("/api/v1/stream/events", headers=HEADERS)
+        body = data([q for q in frames(r.text) if q.get("event") == "error"][0])
+        assert body["detail"] == "internal error"
+        assert body["retryable"] is False
         assert "senha" not in r.text and "10.0.0.7" not in r.text
 
     @pytest.mark.parametrize(
-        "cliente_com_falha", [(grpc.StatusCode.NOT_FOUND, "demanda não existe")], indirect=True
+        "failing_client", [(grpc.StatusCode.NOT_FOUND, "demand não existe")], indirect=True
     )
-    def test_o_que_ja_saiu_continua_valendo(self, cliente_com_falha):
-        """O erro não invalida os eventos entregues antes dele."""
-        r = cliente_com_falha.get("/api/v1/stream/events", headers=CABECALHOS)
-        nomes = [q.get("event") for q in quadros(r.text) if q.get("event")]
-        assert nomes == ["event", "error"]
+    def test_o_que_ja_saiu_continua_valendo(self, failing_client):
+        """O err não invalida os eventos entregues antes dele."""
+        r = failing_client.get("/api/v1/stream/events", headers=HEADERS)
+        names = [q.get("event") for q in frames(r.text) if q.get("event")]
+        assert names == ["event", "error"]
 
 
 class TestAutorizacao:
@@ -421,35 +421,35 @@ class TestAutorizacao:
 
     Estas recusas acontecem ANTES do primeiro byte — o caso de uso é chamado
     dentro do handler, não dentro do gerador — e por isso são status HTTP de
-    verdade, com corpo JSON, e não um 200 que morre no primeiro quadro.
+    verdade, com body JSON, e não um 200 que morre no primeiro board.
     """
 
-    def test_sem_token_e_401(self, cliente_sse):
-        r = cliente_sse.get("/api/v1/stream/events")
+    def test_sem_token_e_401(self, client_sse):
+        r = client_sse.get("/api/v1/stream/events")
         assert r.status_code == 401
         assert r.headers["content-type"].startswith("application/json")
 
-    def test_sem_conta_ativa_e_400(self, cliente_sse):
-        r = cliente_sse.get(
-            "/api/v1/stream/events", headers={"authorization": token_de()}
+    def test_sem_conta_ativa_e_400(self, client_sse):
+        r = client_sse.get(
+            "/api/v1/stream/events", headers={"authorization": token_for()}
         )
         assert r.status_code == 400
 
-    def test_recusa_nao_abre_assinatura_no_nucleo(self, cliente_sse, eventos):
-        cliente_sse.get("/api/v1/stream/events", headers={"authorization": token_de()})
-        assert eventos.chamadas == []
+    def test_recusa_nao_abre_assinatura_no_nucleo(self, client_sse, eventos):
+        client_sse.get("/api/v1/stream/events", headers={"authorization": token_for()})
+        assert eventos.calls == []
 
 
 class TestDesconexao:
     """Cliente que some tem que matar a assinatura no núcleo.
 
-    Stream que continua depois do cliente ir embora é vazamento de goroutine do
+    Stream que continua depois do client ir embora é vazamento de goroutine do
     outro lado da rede: o watcher fica no fan-out do núcleo para sempre.
     """
 
-    async def test_abandonar_o_gerador_cancela_a_chamada(self, nucleo, monkeypatch):
-        falso = ServicoFalso("WatchEvents", [envelope("ev-1")], segura=True)
-        monkeypatch.setattr(stubs, "event_stub", lambda: falso)
+    async def test_abandonar_o_gerador_cancela_a_chamada(self, core, monkeypatch):
+        fake = ServicoFalso("WatchEvents", [envelope("ev-1")], segura=True)
+        monkeypatch.setattr(stubs, "event_stub", lambda: fake)
 
         from app.platform.context import AuthContext, Principal, auth_ctx
 
@@ -459,29 +459,29 @@ class TestDesconexao:
         try:
             gerador = uc.watch_account_events()
             assert (await anext(gerador)).id == "ev-1"
-            assert falso.ultima.cancelada is False
+            assert fake.last.cancelada is False
             # É isto que o EventSourceResponse faz quando vê `http.disconnect`.
             await gerador.aclose()
-            assert falso.ultima.cancelada is True
+            assert fake.last.cancelada is True
         finally:
             auth_ctx.reset(token)
 
     async def test_cliente_grpc_que_cancela_encerra_a_assinatura(
-        self, stub_stream, nucleo, monkeypatch
+        self, stub_stream, core, monkeypatch
     ):
         """O mesmo, ponta a ponta: o cancelamento vem do FIO, não do teste."""
-        falso = ServicoFalso("WatchEvents", [envelope("ev-1")], segura=True)
-        monkeypatch.setattr(stubs, "event_stub", lambda: falso)
+        fake = ServicoFalso("WatchEvents", [envelope("ev-1")], segura=True)
+        monkeypatch.setattr(stubs, "event_stub", lambda: fake)
 
-        chamada = stub_stream.WatchEvents(bff.WatchEventsRequest(), metadata=CONTA)
-        assert (await chamada.read()).id == "ev-1"
-        chamada.cancel()
+        call = stub_stream.WatchEvents(bff.WatchEventsRequest(), metadata=ACCOUNT)
+        assert (await call.read()).id == "ev-1"
+        call.cancel()
 
         for _ in range(100):
-            if falso.chamadas and falso.ultima.cancelada:
+            if fake.calls and fake.last.cancelada:
                 break
             await asyncio.sleep(0.01)
-        assert falso.ultima.cancelada is True
+        assert fake.last.cancelada is True
 
 
 # ── gRPC ────────────────────────────────────────────────────────────────────
@@ -490,66 +490,66 @@ class TestDesconexao:
 class TestGRPC:
     async def test_watch_events(self, stub_stream, eventos):
         recebidos = [e async for e in stub_stream.WatchEvents(
-            bff.WatchEventsRequest(), metadata=CONTA
+            bff.WatchEventsRequest(), metadata=ACCOUNT
         )]
         assert [e.id for e in recebidos] == ["ev-1", "ev-2"]
         assert recebidos[0].payload["stage"] == "build"
 
     async def test_cursor_e_campo_porque_grpc_nao_tem_cabecalho(self, stub_stream, eventos):
         async for _ in stub_stream.WatchEvents(
-            bff.WatchEventsRequest(since_event_id="ev-40"), metadata=CONTA
+            bff.WatchEventsRequest(since_event_id="ev-40"), metadata=ACCOUNT
         ):
             pass
-        assert eventos.ultima.request.since_event_id == "ev-40"
+        assert eventos.last.request.since_event_id == "ev-40"
 
     async def test_sem_token_e_unauthenticated(self, stub_stream, eventos):
         """O interceptor de auth passou a valer em streaming — antes não valia."""
         with pytest.raises(AioRpcError) as exc:
             async for _ in stub_stream.WatchEvents(
-                bff.WatchEventsRequest(), metadata=metadados_de(None)
+                bff.WatchEventsRequest(), metadata=metadata_for(None)
             ):
                 pass
         assert exc.value.code() == grpc.StatusCode.UNAUTHENTICATED
-        assert eventos.chamadas == []
+        assert eventos.calls == []
 
     async def test_sem_conta_ativa_e_invalid_argument(self, stub_stream, eventos):
         """Mesma regra do REST (SP-0), traduzida para o status equivalente ao 400."""
         with pytest.raises(AioRpcError) as exc:
             async for _ in stub_stream.WatchEvents(
-                bff.WatchEventsRequest(), metadata=metadados_de(token_de(), account_id="")
+                bff.WatchEventsRequest(), metadata=metadata_for(token_for(), account_id="")
             ):
                 pass
         assert exc.value.code() == grpc.StatusCode.INVALID_ARGUMENT
 
-    async def test_erro_depois_do_primeiro_item_vira_status(self, stub_stream, nucleo, monkeypatch):
+    async def test_erro_depois_do_primeiro_item_vira_status(self, stub_stream, core, monkeypatch):
         """Aqui o status ainda cabe: em gRPC ele viaja nos trailers.
 
         É a diferença de transporte que justifica o SSE precisar de um evento
         `error` e o gRPC não.
         """
-        falso = ServicoFalso(
+        fake = ServicoFalso(
             "WatchEvents",
             [envelope("ev-1")],
-            erro=erro_grpc(grpc.StatusCode.UNAVAILABLE, "assinante lento demais"),
+            err=grpc_error(grpc.StatusCode.UNAVAILABLE, "assinante lento demais"),
         )
-        monkeypatch.setattr(stubs, "event_stub", lambda: falso)
+        monkeypatch.setattr(stubs, "event_stub", lambda: fake)
 
-        chamada = stub_stream.WatchEvents(bff.WatchEventsRequest(), metadata=CONTA)
-        assert (await chamada.read()).id == "ev-1"
+        call = stub_stream.WatchEvents(bff.WatchEventsRequest(), metadata=ACCOUNT)
+        assert (await call.read()).id == "ev-1"
         with pytest.raises(AioRpcError) as exc:
-            await chamada.read()
+            await call.read()
         # O código é o sinal, e ele chega inteiro depois de um item já entregue.
         # O detalhe some pelo mesmo motivo do SSE: 503 do núcleo não se repete.
         assert exc.value.code() == grpc.StatusCode.UNAVAILABLE
         assert exc.value.details() == "internal error"
 
-    async def test_detalhe_de_5xx_nao_vaza_nem_aqui(self, stub_stream, nucleo, monkeypatch):
-        falso = ServicoFalso(
-            "WatchEvents", erro=erro_grpc(grpc.StatusCode.INTERNAL, "senha=hunter2")
+    async def test_detalhe_de_5xx_nao_vaza_nem_aqui(self, stub_stream, core, monkeypatch):
+        fake = ServicoFalso(
+            "WatchEvents", err=grpc_error(grpc.StatusCode.INTERNAL, "senha=hunter2")
         )
-        monkeypatch.setattr(stubs, "event_stub", lambda: falso)
+        monkeypatch.setattr(stubs, "event_stub", lambda: fake)
         with pytest.raises(AioRpcError) as exc:
-            async for _ in stub_stream.WatchEvents(bff.WatchEventsRequest(), metadata=CONTA):
+            async for _ in stub_stream.WatchEvents(bff.WatchEventsRequest(), metadata=ACCOUNT):
                 pass
         assert exc.value.details() == "internal error"
 
@@ -557,33 +557,33 @@ class TestGRPC:
         linhas = [
             ll
             async for ll in stub_stream.TailLogs(
-                bff.TailLogsRequest(sandbox_id="sbx-1", source="app"), metadata=CONTA
+                bff.TailLogsRequest(sandbox_id="sbx-1", source="app"), metadata=ACCOUNT
             )
         ]
         assert [ll.line for ll in linhas] == ["subiu"]
-        assert execucao.ultima.request.sandbox_id == "sbx-1"
-        assert execucao.ultima.request.source == "app"
+        assert execucao.last.request.sandbox_id == "sbx-1"
+        assert execucao.last.request.source == "app"
 
 
 class TestDemandaSemCursor:
     """`WatchDemand` não tem `since_event_id` no núcleo — e a borda não finge que tem."""
 
-    def test_sse_da_demanda_nao_emite_id(self, cliente_demanda):
-        r = cliente_demanda.get("/api/v1/stream/demands/dem-1", headers=CABECALHOS)
-        eventos_sse = [q for q in quadros(r.text) if q.get("event") == "event"]
+    def test_sse_da_demanda_nao_emite_id(self, client_demand):
+        r = client_demand.get("/api/v1/stream/demands/dem-1", headers=HEADERS)
+        eventos_sse = [q for q in frames(r.text) if q.get("event") == "event"]
         assert eventos_sse and all("id" not in q for q in eventos_sse)
 
-    def test_a_demanda_vira_o_aggregate_id(self, cliente_demanda):
-        r = cliente_demanda.get("/api/v1/stream/demands/dem-1", headers=CABECALHOS)
-        corpo = dados([q for q in quadros(r.text) if q.get("event") == "event"][0])
-        assert corpo["aggregate_id"] == "dem-1"
-        assert corpo["id"] == ""
+    def test_a_demanda_vira_o_aggregate_id(self, client_demand):
+        r = client_demand.get("/api/v1/stream/demands/dem-1", headers=HEADERS)
+        body = data([q for q in frames(r.text) if q.get("event") == "event"][0])
+        assert body["aggregate_id"] == "dem-1"
+        assert body["id"] == ""
 
     def test_log_sai_com_nome_de_evento_proprio(self, cliente_log):
-        """`log` e `event` são coisas diferentes na tela; separar é do protocolo."""
-        r = cliente_log.get("/api/v1/stream/sandboxes/sbx-1/logs", headers=CABECALHOS)
-        quadro = [q for q in quadros(r.text) if q.get("event") == "log"][0]
-        assert dados(quadro)["line"] == "subiu"
+        """`log` e `event` são coisas diferentes na screen; separar é do protocolo."""
+        r = cliente_log.get("/api/v1/stream/sandboxes/sbx-1/logs", headers=HEADERS)
+        board = [q for q in frames(r.text) if q.get("event") == "log"][0]
+        assert data(board)["line"] == "subiu"
 
 
 class TestParidadeEntreTransportes:
@@ -594,12 +594,12 @@ class TestParidadeEntreTransportes:
     """
 
     async def test_o_mesmo_evento_sai_pelas_duas_portas(self, eventos, stub_stream):
-        with TestClient(_app()) as cliente:
-            rest = cliente.get("/api/v1/stream/events", headers=CABECALHOS)
-        do_sse = [dados(q) for q in quadros(rest.text) if q.get("event") == "event"]
+        with TestClient(_app()) as client:
+            rest = client.get("/api/v1/stream/events", headers=HEADERS)
+        do_sse = [data(q) for q in frames(rest.text) if q.get("event") == "event"]
         do_grpc = [
             e
-            async for e in stub_stream.WatchEvents(bff.WatchEventsRequest(), metadata=CONTA)
+            async for e in stub_stream.WatchEvents(bff.WatchEventsRequest(), metadata=ACCOUNT)
         ]
 
         assert len(do_sse) == len(do_grpc) == 2

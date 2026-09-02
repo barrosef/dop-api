@@ -1,12 +1,12 @@
-"""Custo nos dois transportes, contra um núcleo falso.
+"""Custo nos dois transportes, contra um núcleo fake.
 
-Dois testes carregam o arquivo, e os dois são escritos procurando no corpo
+Dois testes carregam o arquivo, e os dois são escritos procurando no body
 serializado INTEIRO — a disciplina de `tests/test_resource.py`, aplicada aqui
 aos dois fatos que não podem se perder no caminho:
 
-  - **o dinheiro não pode virar `float`.** O valor em micros tem de aparecer
+  - **o dinheiro não pode virar `float`.** O value em micros tem de aparecer
     como inteiro exato, e a representação decimal dele NÃO pode aparecer em
-    lugar nenhum da resposta: procurar campo por campo só pegaria o campo que
+    lugar nenhum da response: procurar campo por campo só pegaria o campo que
     alguém lembrou de conferir, e basta um `/ 1_000_000` esquecido num campo
     novo para o centavo começar a sumir;
   - **a justificativa do roteamento não pode ser truncada.** Ela chega com a
@@ -35,54 +35,54 @@ from app.grpcapi.interceptors import (
 from app.main import create_app
 from app.platform.security.firebase import FirebaseVerifier
 from app.routers import cost as rotas
-from tests.conftest import PROJECT, ChamadaFalsa, metadados_de, token_de
+from tests.conftest import PROJECT, FakeCall, metadata_for, token_for
 
-CONTA = metadados_de(token_de())
-CABECALHOS_REST = {"authorization": token_de(), "x-account-id": "acct-1"}
+ACCOUNT = metadata_for(token_for())
+REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
 # 12,345678 USD. Escolhido de propósito com casas decimais que um float de 64
 # bits não representa exatamente e que uma divisão descuidada arredondaria.
 CUSTO_MICROS = 12_345_678
-# É esta a string que NÃO pode aparecer na resposta: ela é o que sobra quando
-# alguém "facilita para a tela" dividindo por um milhão.
+# É esta a string que NÃO pode aparecer na response: ela é o que sobra quando
+# alguém "facilita para a screen" dividindo por um milhão.
 CUSTO_EM_DECIMAL = "12.345678"
 
 # A justificativa como o núcleo a monta: proveniência + o porquê da linha.
 PROVENIENCIA = "ADR-0011 §3 (rascunho — calibrar com telemetria, P-7)"
 MOTIVO = (
     "não se economiza no crítico — é o freio (ADR-0007); economizar no freio "
-    "devolve o custo em PR reprovado, o retrabalho mais caro do fluxo"
+    "returns o custo em PR reprovado, o retrabalho mais caro do flow"
 )
 JUSTIFICATIVA = f"{PROVENIENCIA}: {MOTIVO}"
 
 
-# ── núcleo falso ────────────────────────────────────────────────────────────
+# ── núcleo fake ────────────────────────────────────────────────────────────
 
 
-class OrcamentoPorEscopo(ChamadaFalsa):
-    """`GetBudget` que responde CONFORME o escopo pedido — como o núcleo faz.
+class OrcamentoPorEscopo(FakeCall):
+    """`GetBudget` que responde CONFORME o scope request — como o núcleo faz.
 
-    Um duplo que devolvesse sempre o mesmo orçamento deixaria passar a borda
-    perguntando duas vezes pelo MESMO escopo: a caixa de atenção mostraria o
-    teto da demanda duas vezes e o da conta nenhuma.
+    Um double que devolvesse sempre o mesmo orçamento deixaria passar a borda
+    perguntando duas vezes pelo MESMO scope: a box de atenção mostraria o
+    teto da demand duas vezes e o da account nenhuma.
     """
 
-    def __init__(self, por_escopo: dict[str, cost_pb2.Budget]):
+    def __init__(self, by_scope: dict[str, cost_pb2.Budget]):
         super().__init__(None)
-        self.por_escopo = por_escopo
+        self.by_scope = by_scope
 
     async def __call__(self, request, **kwargs):
         await super().__call__(request, **kwargs)
-        return self.por_escopo[request.scope]
+        return self.by_scope[request.scope]
 
 
 class CustoFalso:
-    """Núcleo falso de custo.
+    """Núcleo fake de custo.
 
-    O `Budget` que ele devolve TEM moeda, igual ao núcleo de verdade desde que
+    O `Budget` que ele returns TEM moeda, igual ao núcleo de verdade desde que
     `dop.v1.Budget.currency` passou a existir (P-19). O caso do núcleo que não
     informa a moeda continua coberto — mas por um orçamento SEPARADO
-    (`orcamento_sem_moeda`), e não pelo duplo padrão: um duplo mudo faria o
+    (`orcamento_sem_moeda`), e não pelo double padrão: um double mudo faria o
     teste de "a borda não inventa USD" passar por acidente, e nenhum teste
     provaria que ela mostra a moeda quando ela vem.
     """
@@ -95,7 +95,7 @@ class CustoFalso:
             spent_micros=CUSTO_MICROS,
             currency="USD",
         )
-        # Sem moeda: o núcleo antigo, ou o escopo que ainda não a tem.
+        # Sem moeda: o núcleo antigo, ou o scope que ainda não a tem.
         self.orcamento_sem_moeda = cost_pb2.Budget(
             scope="demand", scope_id="dem-1", limit_micros=50_000_000, spent_micros=CUSTO_MICROS
         )
@@ -111,7 +111,7 @@ class CustoFalso:
             cost=common_pb2.Money(currency="USD", amount_micros=CUSTO_MICROS),
             at=timestamp_pb2.Timestamp(seconds=1_770_000_000),
         )
-        self.RouteModel = ChamadaFalsa(
+        self.RouteModel = FakeCall(
             cost_pb2.RoutingDecision(
                 task_kind="critic",
                 model="claude-opus",
@@ -119,12 +119,12 @@ class CustoFalso:
                 reason=JUSTIFICATIVA,
             )
         )
-        self.GetBudget = ChamadaFalsa(self.orcamento)
-        self.SetBudget = ChamadaFalsa(self.orcamento)
-        self.RecordUsage = ChamadaFalsa(
+        self.GetBudget = FakeCall(self.orcamento)
+        self.SetBudget = FakeCall(self.orcamento)
+        self.RecordUsage = FakeCall(
             cost_pb2.RecordUsageResponse(recorded=True, budget_exceeded=False)
         )
-        self.SummarizeCost = ChamadaFalsa(
+        self.SummarizeCost = FakeCall(
             cost_pb2.SummarizeCostResponse(
                 total=common_pb2.Money(currency="USD", amount_micros=CUSTO_MICROS),
                 cache_hit_ratio=0.42,
@@ -134,7 +134,7 @@ class CustoFalso:
 
     def estourou(self):
         """O núcleo avisando que o teto foi ultrapassado."""
-        self.RecordUsage.devolve(
+        self.RecordUsage.returns(
             cost_pb2.RecordUsageResponse(recorded=True, budget_exceeded=True)
         )
         self.GetBudget = OrcamentoPorEscopo(
@@ -155,7 +155,7 @@ class CustoFalso:
         )
 
     def sem_teto(self):
-        self.GetBudget.devolve(
+        self.GetBudget.returns(
             cost_pb2.Budget(scope="account", scope_id="acct-1", limit_micros=0,
                             spent_micros=CUSTO_MICROS)
         )
@@ -165,10 +165,10 @@ class CustoFalso:
 
 
 @pytest.fixture
-def custo(nucleo, monkeypatch):
-    falso = CustoFalso()
-    monkeypatch.setattr(stubs, "cost_stub", lambda: falso)
-    return falso
+def custo(core, monkeypatch):
+    fake = CustoFalso()
+    monkeypatch.setattr(stubs, "cost_stub", lambda: fake)
+    return fake
 
 
 def _app_com_rotas():
@@ -186,7 +186,7 @@ def _app_com_rotas():
 
 
 @pytest.fixture
-def cliente_cost(custo):
+def client_cost(custo):
     with TestClient(_app_com_rotas()) as c:
         yield c
 
@@ -195,36 +195,36 @@ def cliente_cost(custo):
 async def stub_cost(custo):
     """Servidor gRPC real, em porta efêmera, com o servicer deste domínio.
 
-    Não reusa `servidor_grpc` do conftest porque `GrpcServer` ainda não
+    Não reusa `grpc_server` do conftest porque `GrpcServer` ainda não
     registra este servicer (o registro é do dono do repositório). A pilha de
-    interceptores é a mesma — é ela que faz token, contexto e decorators
+    interceptores é a mesma — é ela que faz token, context e decorators
     valerem dentro do servicer.
     """
-    servidor = grpc.aio.server(
+    server = grpc.aio.server(
         interceptors=(
             LoggingInterceptor(),
             ErrorInterceptor(),
             AuthInterceptor(FirebaseVerifier(PROJECT), CoreResolver()),
         )
     )
-    bff_grpc.add_CostServiceServicer_to_server(CostServicer(), servidor)
-    porta = servidor.add_insecure_port("127.0.0.1:0")
-    await servidor.start()
+    bff_grpc.add_CostServiceServicer_to_server(CostServicer(), server)
+    porta = server.add_insecure_port("127.0.0.1:0")
+    await server.start()
     try:
-        async with grpc.aio.insecure_channel(f"127.0.0.1:{porta}") as canal:
-            yield bff_grpc.CostServiceStub(canal)
+        async with grpc.aio.insecure_channel(f"127.0.0.1:{porta}") as channel:
+            yield bff_grpc.CostServiceStub(channel)
     finally:
-        await servidor.stop(0)
+        await server.stop(0)
 
 
 # ── testes ──────────────────────────────────────────────────────────────────
 
 
 class TestDinheiroNaoViraFloat:
-    """Micros inteiros, com a moeda junto. Procurado no corpo inteiro."""
+    """Micros inteiros, com a moeda junto. Procurado no body inteiro."""
 
-    def test_rest_devolve_micros_exatos_e_nenhum_decimal(self, cliente_cost):
-        r = cliente_cost.get("/api/v1/cost/summary", headers=CABECALHOS_REST)
+    def test_rest_devolve_micros_exatos_e_nenhum_decimal(self, client_cost):
+        r = client_cost.get("/api/v1/cost/summary", headers=REST_HEADERS)
         assert r.status_code == 200
         assert str(CUSTO_MICROS) in r.text
         # Se alguém dividir por um milhão em QUALQUER campo, a representação
@@ -232,21 +232,21 @@ class TestDinheiroNaoViraFloat:
         assert CUSTO_EM_DECIMAL not in r.text
         assert r.json()["total"] == {"currency": "USD", "amount_micros": CUSTO_MICROS}
 
-    def test_rest_leva_a_moeda_junto_do_valor(self, cliente_cost):
-        recente = cliente_cost.get(
-            "/api/v1/cost/summary", headers=CABECALHOS_REST
+    def test_rest_leva_a_moeda_junto_do_valor(self, client_cost):
+        recente = client_cost.get(
+            "/api/v1/cost/summary", headers=REST_HEADERS
         ).json()["recent"][0]
         assert recente["cost"]["currency"] == "USD"
         assert isinstance(recente["cost"]["amount_micros"], int)
 
     async def test_grpc_devolve_int64_em_micros(self, stub_cost):
         resp = await stub_cost.SummarizeCost(
-            bff.SummarizeCostRequest(), metadata=CONTA
+            bff.SummarizeCostRequest(), metadata=ACCOUNT
         )
         assert resp.total.amount_micros == CUSTO_MICROS
         assert CUSTO_EM_DECIMAL.encode() not in resp.SerializeToString()
 
-    def test_a_moeda_do_orcamento_vem_do_campo_do_nucleo(self, cliente_cost):
+    def test_a_moeda_do_orcamento_vem_do_campo_do_nucleo(self, client_cost):
         """`dop.v1.Budget.currency` existe (P-19) e a borda o LÊ.
 
         Antes ela lia com `getattr`, porque o campo não estava no contrato. O
@@ -254,25 +254,25 @@ class TestDinheiroNaoViraFloat:
         limite, gasto e sobra —, e não só de um deles: micros sem moeda é
         número sem unidade em qualquer um dos três.
         """
-        b = cliente_cost.get(
-            "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=CABECALHOS_REST
+        b = client_cost.get(
+            "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=REST_HEADERS
         ).json()
         assert b["limit"] == {"currency": "USD", "amount_micros": 50_000_000}
         assert b["spent"]["currency"] == "USD"
         assert b["remaining"]["currency"] == "USD"
 
     def test_a_borda_nao_inventa_moeda_quando_o_nucleo_cala(
-        self, cliente_cost, custo
+        self, client_cost, custo
     ):
         """Moeda vazia diz "o núcleo não informou" — e continua dizendo isso.
 
         O campo passar a existir não autoriza preencher o silêncio: chutar o
         padrão do núcleo seria a borda afirmando algo que ela não sabe, e a
-        afirmação ficaria certa até a primeira conta em BRL.
+        afirmação ficaria certa até a primeira account em BRL.
         """
-        custo.GetBudget.devolve(custo.orcamento_sem_moeda)
-        b = cliente_cost.get(
-            "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=CABECALHOS_REST
+        custo.GetBudget.returns(custo.orcamento_sem_moeda)
+        b = client_cost.get(
+            "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=REST_HEADERS
         ).json()
         assert b["limit"]["currency"] == ""
         assert b["limit"]["amount_micros"] == 50_000_000
@@ -281,76 +281,76 @@ class TestDinheiroNaoViraFloat:
 class TestJustificativaDoRoteamento:
     """A decisão vem COM o porquê e a proveniência, inteiros."""
 
-    def test_rest_carrega_a_justificativa_inteira(self, cliente_cost):
-        r = cliente_cost.get(
-            "/api/v1/cost/routing?task_kind=critic", headers=CABECALHOS_REST
+    def test_rest_carrega_a_justificativa_inteira(self, client_cost):
+        r = client_cost.get(
+            "/api/v1/cost/routing?task_kind=critic", headers=REST_HEADERS
         )
         assert r.status_code == 200
-        # No corpo inteiro: nem truncada, nem escapada, nem partida em campos.
+        # No body inteiro: nem truncada, nem escapada, nem partida em campos.
         assert JUSTIFICATIVA in r.text
         assert r.json()["reason"] == JUSTIFICATIVA
         assert r.json()["model"] == "claude-opus"
         assert r.json()["effort"] == "max"
 
-    def test_a_proveniencia_diz_que_a_politica_e_rascunho(self, cliente_cost):
+    def test_a_proveniencia_diz_que_a_politica_e_rascunho(self, client_cost):
         """É esta frase que impede alguém de tratar a tabela como medida."""
-        razao = cliente_cost.get(
-            "/api/v1/cost/routing?task_kind=critic", headers=CABECALHOS_REST
+        razao = client_cost.get(
+            "/api/v1/cost/routing?task_kind=critic", headers=REST_HEADERS
         ).json()["reason"]
         assert razao.startswith(PROVENIENCIA)
         assert "rascunho" in razao and "P-7" in razao
 
     async def test_grpc_carrega_a_justificativa_inteira(self, stub_cost):
         resp = await stub_cost.RouteModel(
-            bff.RouteModelRequest(task_kind="critic"), metadata=CONTA
+            bff.RouteModelRequest(task_kind="critic"), metadata=ACCOUNT
         )
         assert resp.reason == JUSTIFICATIVA
         assert JUSTIFICATIVA.encode() in resp.SerializeToString()
 
-    def test_demanda_atravessa_para_a_calibracao(self, cliente_cost, custo):
-        cliente_cost.get(
+    def test_demanda_atravessa_para_a_calibracao(self, client_cost, custo):
+        client_cost.get(
             "/api/v1/cost/routing?task_kind=critic&demand_id=dem-1",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
         )
-        assert custo.RouteModel.pedidos[0].demand_id == "dem-1"
+        assert custo.RouteModel.requests[0].demand_id == "dem-1"
 
 
 class TestOrcamentoEstourado:
-    """Corte SUAVE (ADR-0011 §2): pausa e pergunta, não erro seco."""
+    """Corte SUAVE (ADR-0011 §2): pausa e pergunta, não err seco."""
 
-    def test_estouro_nao_e_erro_e_o_consumo_fica_registrado(self, cliente_cost, custo):
+    def test_estouro_nao_e_erro_e_o_consumo_fica_registrado(self, client_cost, custo):
         custo.estourou()
-        r = cliente_cost.post(
+        r = client_cost.post(
             "/api/v1/cost/usage",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"model": "claude-opus", "demand_id": "dem-1", "cost_micros": 1},
         )
         assert r.status_code == 200
-        corpo = r.json()
-        assert corpo["recorded"] is True
-        assert corpo["budget_exceeded"] is True
+        body = r.json()
+        assert body["recorded"] is True
+        assert body["budget_exceeded"] is True
 
-    def test_o_aviso_diz_que_a_demanda_pausa(self, cliente_cost, custo):
-        """Um "budget exceeded" seco faria cada cliente reinventar a explicação."""
+    def test_o_aviso_diz_que_a_demanda_pausa(self, client_cost, custo):
+        """Um "budget exceeded" seco faria cada client reinventar a explicação."""
         custo.estourou()
-        corpo = cliente_cost.post(
+        body = client_cost.post(
             "/api/v1/cost/usage",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"model": "claude-opus", "demand_id": "dem-1", "cost_micros": 1},
         ).json()
-        assert "PAUSES" in corpo["notice"]
-        assert "ADR-0011" in corpo["notice"]
+        assert "PAUSES" in body["notice"]
+        assert "ADR-0011" in body["notice"]
         # E os números com que o humano decide vêm junto.
-        assert [b["scope"] for b in corpo["budgets"]] == ["demand", "account"]
-        assert corpo["budgets"][0]["spent"]["amount_micros"] == 12_000_000
+        assert [b["scope"] for b in body["budgets"]] == ["demand", "account"]
+        assert body["budgets"][0]["spent"]["amount_micros"] == 12_000_000
 
-    def test_sem_estouro_nao_gasta_ida_extra_ao_nucleo(self, cliente_cost, custo):
-        cliente_cost.post(
+    def test_sem_estouro_nao_gasta_ida_extra_ao_nucleo(self, client_cost, custo):
+        client_cost.post(
             "/api/v1/cost/usage",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"model": "claude-opus", "demand_id": "dem-1", "cost_micros": 1},
         )
-        assert custo.GetBudget.chamadas == []
+        assert custo.GetBudget.calls == []
 
     async def test_grpc_tambem_responde_ok(self, stub_cost, custo):
         custo.estourou()
@@ -358,77 +358,77 @@ class TestOrcamentoEstourado:
             bff.RecordUsageRequest(
                 usage=bff.UsageEvent(model="claude-opus", demand_id="dem-1")
             ),
-            metadata=CONTA,
+            metadata=ACCOUNT,
         )
         assert resp.recorded is True
         assert resp.budget_exceeded is True
         assert "PAUSES" in resp.notice
 
-    def test_registro_carrega_idempotencia(self, cliente_cost, custo):
+    def test_registro_carrega_idempotencia(self, client_cost, custo):
         """Obrigatória no núcleo: duplicata aqui viraria consumo legítimo."""
-        cliente_cost.post(
+        client_cost.post(
             "/api/v1/cost/usage",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"model": "claude-opus", "cost_micros": 1},
         )
-        assert custo.RecordUsage.pedidos[0].idempotency_key != ""
+        assert custo.RecordUsage.requests[0].idempotency_key != ""
 
 
 class TestOrcamento:
-    def test_sobra_e_aritmetica_de_inteiro(self, cliente_cost):
-        b = cliente_cost.get(
-            "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=CABECALHOS_REST
+    def test_sobra_e_aritmetica_de_inteiro(self, client_cost):
+        b = client_cost.get(
+            "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=REST_HEADERS
         ).json()
         assert b["remaining"]["amount_micros"] == 50_000_000 - CUSTO_MICROS
 
-    def test_sem_teto_a_sobra_e_nula_nao_zero(self, cliente_cost, custo):
+    def test_sem_teto_a_sobra_e_nula_nao_zero(self, client_cost, custo):
         """Zero significaria "acabou o dinheiro", que é o oposto de "sem teto"."""
         custo.sem_teto()
-        b = cliente_cost.get("/api/v1/cost/budget", headers=CABECALHOS_REST).json()
+        b = client_cost.get("/api/v1/cost/budget", headers=REST_HEADERS).json()
         assert b["limit"]["amount_micros"] == 0
         assert b["remaining"] is None
 
-    def test_definir_teto_exige_papel(self, cliente_cost, nucleo):
+    def test_definir_teto_exige_papel(self, client_cost, core):
         """Orçamento é governança: quem gasta não decide quanto pode gastar."""
-        nucleo.papel_developer()
-        r = cliente_cost.put(
+        core.demote_to_developer()
+        r = client_cost.put(
             "/api/v1/cost/budget",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"scope": "demand", "scope_id": "dem-1", "limit_micros": 1_000_000},
         )
         assert r.status_code == 403
 
-    def test_definir_teto_nao_manda_o_gasto(self, cliente_cost, custo):
-        """Aceitar `spent` do cliente permitiria zerar o gasto pedindo."""
-        cliente_cost.put(
+    def test_definir_teto_nao_manda_o_gasto(self, client_cost, custo):
+        """Aceitar `spent` do client permitiria zerar o gasto pedindo."""
+        client_cost.put(
             "/api/v1/cost/budget",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"scope": "demand", "scope_id": "dem-1", "limit_micros": 1_000_000},
         )
-        assert custo.SetBudget.pedidos[0].budget.spent_micros == 0
-        assert custo.SetBudget.pedidos[0].budget.limit_micros == 1_000_000
+        assert custo.SetBudget.requests[0].budget.spent_micros == 0
+        assert custo.SetBudget.requests[0].budget.limit_micros == 1_000_000
 
-    def test_escopo_desconhecido_e_422(self, cliente_cost):
-        r = cliente_cost.put(
+    def test_escopo_desconhecido_e_422(self, client_cost):
+        r = client_cost.put(
             "/api/v1/cost/budget",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"scope": "galaxia", "limit_micros": 1},
         )
         assert r.status_code == 422
 
-    def test_limite_negativo_e_422(self, cliente_cost):
-        r = cliente_cost.put(
+    def test_limite_negativo_e_422(self, client_cost):
+        r = client_cost.put(
             "/api/v1/cost/budget",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"scope": "account", "limit_micros": -1},
         )
         assert r.status_code == 422
 
-    async def test_definir_teto_exige_papel_no_grpc(self, stub_cost, nucleo):
-        nucleo.papel_developer()
+    async def test_definir_teto_exige_papel_no_grpc(self, stub_cost, core):
+        core.demote_to_developer()
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_cost.SetBudget(
-                bff.SetBudgetRequest(scope="account", limit_micros=1), metadata=CONTA
+                bff.SetBudgetRequest(scope="account", limit_micros=1), metadata=ACCOUNT
             )
         assert e.value.code() == grpc.StatusCode.PERMISSION_DENIED
 
@@ -437,31 +437,31 @@ class TestGRPC:
     async def test_sem_token(self, stub_cost):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_cost.GetBudget(
-                bff.GetBudgetRequest(), metadata=metadados_de(None)
+                bff.GetBudgetRequest(), metadata=metadata_for(None)
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
     async def test_evento_sem_data_nao_vira_1970(self, stub_cost, custo):
-        custo.SummarizeCost.devolve(
+        custo.SummarizeCost.returns(
             cost_pb2.SummarizeCostResponse(
                 total=common_pb2.Money(currency="USD", amount_micros=1),
                 recent=[cost_pb2.UsageEvent(id="use-2", model="claude-haiku")],
             )
         )
         resp = await stub_cost.SummarizeCost(
-            bff.SummarizeCostRequest(), metadata=CONTA
+            bff.SummarizeCostRequest(), metadata=ACCOUNT
         )
         assert not resp.recent[0].HasField("at")
 
-    def test_evento_sem_data_e_nulo_no_rest(self, cliente_cost, custo):
-        custo.SummarizeCost.devolve(
+    def test_evento_sem_data_e_nulo_no_rest(self, client_cost, custo):
+        custo.SummarizeCost.returns(
             cost_pb2.SummarizeCostResponse(
                 total=common_pb2.Money(currency="USD", amount_micros=1),
                 recent=[cost_pb2.UsageEvent(id="use-2", model="claude-haiku")],
             )
         )
-        recente = cliente_cost.get(
-            "/api/v1/cost/summary", headers=CABECALHOS_REST
+        recente = client_cost.get(
+            "/api/v1/cost/summary", headers=REST_HEADERS
         ).json()["recent"][0]
         assert recente["at"] is None
 
@@ -469,12 +469,12 @@ class TestGRPC:
 class TestParidadeEntreTransportes:
     """O alarme que dispara se alguém reimplementar o caso de uso num adaptador."""
 
-    async def test_orcamento_igual_nas_duas_portas(self, cliente_cost, stub_cost):
-        rest = cliente_cost.get(
-            "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=CABECALHOS_REST
+    async def test_orcamento_igual_nas_duas_portas(self, client_cost, stub_cost):
+        rest = client_cost.get(
+            "/api/v1/cost/budget?scope=demand&scope_id=dem-1", headers=REST_HEADERS
         ).json()
         resp = await stub_cost.GetBudget(
-            bff.GetBudgetRequest(scope="demand", scope_id="dem-1"), metadata=CONTA
+            bff.GetBudgetRequest(scope="demand", scope_id="dem-1"), metadata=ACCOUNT
         )
         assert resp.scope == rest["scope"]
         assert resp.limit.amount_micros == rest["limit"]["amount_micros"]
@@ -483,13 +483,13 @@ class TestParidadeEntreTransportes:
         assert resp.HasField("remaining") is (rest["remaining"] is not None)
 
     async def test_decisao_de_roteamento_igual_nas_duas_portas(
-        self, cliente_cost, stub_cost
+        self, client_cost, stub_cost
     ):
-        rest = cliente_cost.get(
-            "/api/v1/cost/routing?task_kind=critic", headers=CABECALHOS_REST
+        rest = client_cost.get(
+            "/api/v1/cost/routing?task_kind=critic", headers=REST_HEADERS
         ).json()
         resp = await stub_cost.RouteModel(
-            bff.RouteModelRequest(task_kind="critic"), metadata=CONTA
+            bff.RouteModelRequest(task_kind="critic"), metadata=ACCOUNT
         )
         assert resp.task_kind == rest["task_kind"]
         assert resp.model == rest["model"]

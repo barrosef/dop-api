@@ -1,14 +1,14 @@
-"""Demanda nos dois transportes, contra um núcleo falso.
+"""Demanda nos dois transportes, contra um núcleo fake.
 
 O teste que mais importa aqui é o de paridade: é ele que impede alguém de
 reimplementar um caso de uso no servicer (ou no router) sem ninguém notar na
 revisão. Os outros protegem as duas coisas que a borda ACRESCENTA — os
-derivados de "onde a demanda está" e o cockpit numa chamada — e a disciplina de
+derivados de "onde a demand está" e o cockpit numa call — e a disciplina de
 ausente ≠ zerado, que aqui aparece em data de etapa e em ficha de agente.
 
-Os duplos e as fixtures vivem NESTE arquivo, e não no conftest: há outros
+Os doubles e as fixtures vivem NESTE arquivo, e não no conftest: há outros
 agentes escrevendo neste repositório, e conftest é território compartilhado. O
-que já existe lá (token, metadados, ChamadaFalsa, o núcleo de identidade) é
+que já existe lá (token, metadata, FakeCall, o núcleo de identidade) é
 importado.
 """
 
@@ -28,27 +28,27 @@ from app.grpcapi.interceptors import AuthInterceptor, ErrorInterceptor, LoggingI
 from app.main import create_app
 from app.platform.security.firebase import FirebaseVerifier
 from app.routers import demand as rotas
-from tests.conftest import PROJECT, ChamadaFalsa, metadados_de, token_de
+from tests.conftest import PROJECT, FakeCall, metadata_for, token_for
 
-CONTA = metadados_de(token_de())
-CABECALHOS_REST = {"authorization": token_de(), "x-account-id": "acct-1"}
+ACCOUNT = metadata_for(token_for())
+REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
 
-def papel_viewer(nucleo) -> None:
+def viewer_role(core) -> None:
     """Rebaixa o ator a viewer.
 
-    O papel é resolvido UMA vez, no login, a partir de ListMemberships — então
-    rebaixar é trocar o que esse RPC responde, não um atalho no contexto.
+    O role é resolvido UMA vez, no login, a partir de ListMemberships — então
+    rebaixar é trocar o que esse RPC responde, não um atalho no context.
     Viewer (e não developer) porque no ciclo de trabalho developer ESCREVE: é
-    ele quem toca a demanda.
+    ele quem toca a demand.
     """
-    nucleo.ListMemberships = ChamadaFalsa(
+    core.ListMemberships = FakeCall(
         identity_pb2.ListMembershipsResponse(
             memberships=[
                 identity_pb2.Membership(
                     id="m-1",
-                    user=common_pb2.UserRef(id=nucleo.user_id),
-                    account=common_pb2.AccountRef(id=nucleo.conta.id),
+                    user=common_pb2.UserRef(id=core.user_id),
+                    account=common_pb2.AccountRef(id=core.account.id),
                     role=identity_pb2.ROLE_VIEWER,
                 )
             ]
@@ -57,9 +57,9 @@ def papel_viewer(nucleo) -> None:
 
 
 class DemandasFalsas:
-    """Núcleo falso de demanda.
+    """Núcleo fake de demand.
 
-    A demanda tem três etapas de propósito: uma concluída, uma correndo com
+    A demand tem três etapas de propósito: uma concluída, uma correndo com
     portão humano (a que espera decisão) e uma que nem começou — sem data
     nenhuma, que é o caso onde ausente e zerado se confundem. As threads também
     são duas: uma com ficha de agente e outra SEM.
@@ -77,19 +77,19 @@ class DemandasFalsas:
             flow_id="flow-1",
             flow_version=2,
         )
-        contexto = d.stages.add(
-            key="contexto",
+        context = d.stages.add(
+            key="context",
             name="Contexto",
             type=workflow_pb2.STAGE_TYPE_CONTEXT,
             status=demand_pb2.STAGE_STATUS_DONE,
             gate=workflow_pb2.GATE_NONE,
         )
-        contexto.started_at.FromDatetime(datetime(2026, 8, 25, 9, 0))
-        contexto.finished_at.FromDatetime(datetime(2026, 8, 25, 9, 30))
-        contexto.artifacts.add(
+        context.started_at.FromDatetime(datetime(2026, 8, 25, 9, 0))
+        context.finished_at.FromDatetime(datetime(2026, 8, 25, 9, 30))
+        context.artifacts.add(
             id="art-1",
             kind=workflow_pb2.ARTIFACT_KIND_DOCUMENT,
-            name="contexto.md",
+            name="context.md",
             object_ref="obj://ctx",
             version=1,
         )
@@ -112,14 +112,14 @@ class DemandasFalsas:
             status=demand_pb2.STAGE_STATUS_PENDING,
             gate=workflow_pb2.GATE_NONE,
         )
-        self.demanda = d
+        self.demand = d
 
         principal = demand_pb2.Thread(
             id="th-1", demand=common_pb2.DemandRef(id="dem-1"), key="principal"
         )
         principal.card.CopyFrom(
             demand_pb2.AgentCard(
-                purpose="tocar a demanda",
+                purpose="tocar a demand",
                 tools=["mcp:mysql"],
                 model="opus",
                 effort="high",
@@ -135,20 +135,20 @@ class DemandasFalsas:
         )
         self.thread, self.thread_sem_ficha = principal, sem_ficha
 
-        self.ListDemands = ChamadaFalsa(
+        self.ListDemands = FakeCall(
             demand_pb2.ListDemandsResponse(
                 demands=[d], page=common_pb2.PageResponse(next_token="pag-2", total=1)
             )
         )
-        self.GetDemand = ChamadaFalsa(d)
-        self.StartDemand = ChamadaFalsa(d)
-        self.AdvanceStage = ChamadaFalsa(d.stages[2])
-        self.DecideGate = ChamadaFalsa(d.stages[1])
-        self.ListThreads = ChamadaFalsa(
+        self.GetDemand = FakeCall(d)
+        self.StartDemand = FakeCall(d)
+        self.AdvanceStage = FakeCall(d.stages[2])
+        self.DecideGate = FakeCall(d.stages[1])
+        self.ListThreads = FakeCall(
             demand_pb2.ListThreadsResponse(threads=[principal, sem_ficha])
         )
-        self.CreateThread = ChamadaFalsa(principal)
-        self.PostMessage = ChamadaFalsa(
+        self.CreateThread = FakeCall(principal)
+        self.PostMessage = FakeCall(
             demand_pb2.Message(
                 id="msg-1",
                 thread_id="th-1",
@@ -158,28 +158,28 @@ class DemandasFalsas:
                 text="pode seguir",
             )
         )
-        achado = demand_pb2.Finding(
-            id="fnd-1", thread_id="th-2", title="índice ausente em pedidos"
+        finding = demand_pb2.Finding(
+            id="fnd-1", thread_id="th-2", title="índice ausente em requests"
         )
-        achado.payload.update({"tabela": "pedidos", "linhas": 4200})
-        self.achado = achado
-        self.PublishFinding = ChamadaFalsa(achado)
+        finding.payload.update({"tabela": "requests", "linhas": 4200})
+        self.finding = finding
+        self.PublishFinding = FakeCall(finding)
         # A leitura que o núcleo passou a expor (P-19). Antes dela o cockpit
         # devolvia lista vazia com uma bandeira dizendo "não dá para saber".
-        self.ListFindings = ChamadaFalsa(
-            demand_pb2.ListFindingsResponse(findings=[achado])
+        self.ListFindings = FakeCall(
+            demand_pb2.ListFindingsResponse(findings=[finding])
         )
 
 
 @pytest.fixture
-def demandas(nucleo, monkeypatch):
-    falso = DemandasFalsas()
-    monkeypatch.setattr(stubs, "demand_stub", lambda: falso)
-    return falso
+def demands(core, monkeypatch):
+    fake = DemandasFalsas()
+    monkeypatch.setattr(stubs, "demand_stub", lambda: fake)
+    return fake
 
 
 def _app_com_rotas():
-    """O app com as rotas de demanda.
+    """O app com as rotas de demand.
 
     `app/main.py` não é deste agente: enquanto o registro não chega lá, o teste
     monta o app e acrescenta o router. O `if` deixa o teste continuar válido
@@ -192,155 +192,155 @@ def _app_com_rotas():
 
 
 @pytest.fixture
-def cliente_dem(demandas):
+def client_dem(demands):
     with TestClient(_app_com_rotas()) as c:
         yield c
 
 
 @pytest.fixture
-async def stub_dem(demandas):
+async def stub_dem(demands):
     """Servidor gRPC real, em porta efêmera, com os MESMOS interceptores da porta
     de produção — é o que prova que o ContextVar sobrevive até o servicer.
 
-    Próprio (e não o `servidor_grpc` do conftest) porque `app/grpcapi/server.py`
+    Próprio (e não o `grpc_server` do conftest) porque `app/grpcapi/server.py`
     ainda não registra este servicer, e esse arquivo não é deste agente.
     """
-    servidor = grpc.aio.server(
+    server = grpc.aio.server(
         interceptors=(
             LoggingInterceptor(),
             ErrorInterceptor(),
             AuthInterceptor(FirebaseVerifier(PROJECT), CoreResolver()),
         )
     )
-    bff_grpc.add_DemandServiceServicer_to_server(DemandServicer(), servidor)
-    porta = servidor.add_insecure_port("127.0.0.1:0")
-    await servidor.start()
+    bff_grpc.add_DemandServiceServicer_to_server(DemandServicer(), server)
+    porta = server.add_insecure_port("127.0.0.1:0")
+    await server.start()
     try:
-        async with grpc.aio.insecure_channel(f"127.0.0.1:{porta}") as canal:
-            yield bff_grpc.DemandServiceStub(canal)
+        async with grpc.aio.insecure_channel(f"127.0.0.1:{porta}") as channel:
+            yield bff_grpc.DemandServiceStub(channel)
     finally:
-        await servidor.stop(0)
+        await server.stop(0)
 
 
 class TestREST:
     def test_cockpit_traz_demanda_threads_e_achados_numa_resposta(
-        self, cliente_dem, demandas
+        self, client_dem, demands
     ):
-        r = cliente_dem.get("/api/v1/demands/dem-1/cockpit", headers=CABECALHOS_REST)
+        r = client_dem.get("/api/v1/demands/dem-1/cockpit", headers=REST_HEADERS)
         assert r.status_code == 200
-        corpo = r.json()
-        assert corpo["demand"]["external_key"] == "SUOPT-1315"
-        assert [t["key"] for t in corpo["threads"]] == ["principal", "forense-db"]
-        assert [f["title"] for f in corpo["findings"]] == ["índice ausente em pedidos"]
-        assert corpo["findings"][0]["payload"] == {"tabela": "pedidos", "linhas": 4200}
-        # TRÊS chamadas ao núcleo, uma resposta ao cliente.
-        assert len(demandas.GetDemand.chamadas) == 1
-        assert len(demandas.ListThreads.chamadas) == 1
-        assert len(demandas.ListFindings.chamadas) == 1
-        assert demandas.ListFindings.pedidos[0].demand_id == "dem-1"
-        # Sem thread: o quadro é o da demanda inteira.
-        assert demandas.ListFindings.pedidos[0].thread_id == ""
+        body = r.json()
+        assert body["demand"]["external_key"] == "SUOPT-1315"
+        assert [t["key"] for t in body["threads"]] == ["principal", "forense-db"]
+        assert [f["title"] for f in body["findings"]] == ["índice ausente em requests"]
+        assert body["findings"][0]["payload"] == {"tabela": "requests", "linhas": 4200}
+        # TRÊS calls ao núcleo, uma response ao client.
+        assert len(demands.GetDemand.calls) == 1
+        assert len(demands.ListThreads.calls) == 1
+        assert len(demands.ListFindings.calls) == 1
+        assert demands.ListFindings.requests[0].demand_id == "dem-1"
+        # Sem thread: o board é o da demand inteira.
+        assert demands.ListFindings.requests[0].thread_id == ""
 
     def test_lista_vazia_de_achados_agora_significa_lista_vazia(
-        self, cliente_dem, demandas
+        self, client_dem, demands
     ):
         """O fim de `findings_available`.
 
-        Ele existia porque o contrato do núcleo não tinha leitura de achados: a
-        lista vinha vazia e a bandeira separava "não tem achados" de "não dá
+        Ele existia porque o contrato do núcleo não tinha leitura de findings: a
+        lista vinha vazia e a bandeira separava "não tem findings" de "não dá
         para saber". Com `ListFindings` só resta o primeiro caso — e uma
         bandeira constante seria ruído que um dia alguém lê ao contrário.
         """
-        demandas.ListFindings.devolve(demand_pb2.ListFindingsResponse())
-        corpo = cliente_dem.get(
-            "/api/v1/demands/dem-1/cockpit", headers=CABECALHOS_REST
+        demands.ListFindings.returns(demand_pb2.ListFindingsResponse())
+        body = client_dem.get(
+            "/api/v1/demands/dem-1/cockpit", headers=REST_HEADERS
         ).json()
-        assert corpo["findings"] == []
-        assert "findings_available" not in corpo
+        assert body["findings"] == []
+        assert "findings_available" not in body
 
     def test_falha_ao_ler_achados_derruba_o_cockpit_inteiro(
-        self, cliente_dem, demandas
+        self, client_dem, demands
     ):
-        """Resposta pela metade sem dizer que está pela metade é pior que erro.
+        """Resposta pela metade sem dizer que está pela metade é pior que err.
 
         É o outro lado da mesma decisão: sem bandeira para dizer "não deu",
-        quem não consegue ler os achados devolve o status do núcleo, e não um
+        quem não consegue ler os findings returns o status do núcleo, e não um
         cockpit que parece completo com um pedaço faltando.
         """
-        demandas.ListFindings.falha_com(grpc.StatusCode.PERMISSION_DENIED)
-        r = cliente_dem.get("/api/v1/demands/dem-1/cockpit", headers=CABECALHOS_REST)
+        demands.ListFindings.fails_with(grpc.StatusCode.PERMISSION_DENIED)
+        r = client_dem.get("/api/v1/demands/dem-1/cockpit", headers=REST_HEADERS)
         assert r.status_code == 403
 
-    def test_etapa_que_nao_comecou_vem_nula_nao_zerada(self, cliente_dem):
+    def test_etapa_que_nao_comecou_vem_nula_nao_zerada(self, client_dem):
         """Ausente e zerado são coisas diferentes.
 
-        Um início zerado viraria 1º de janeiro de 1970 na tela — e data errada
+        Um início zerado viraria 1º de janeiro de 1970 na screen — e data errada
         é pior que data nenhuma.
         """
-        d = cliente_dem.get("/api/v1/demands/dem-1", headers=CABECALHOS_REST).json()
-        contexto, spec, impl = d["stages"]
-        assert contexto["started_at"] is not None
-        assert contexto["finished_at"] is not None
+        d = client_dem.get("/api/v1/demands/dem-1", headers=REST_HEADERS).json()
+        context, spec, impl = d["stages"]
+        assert context["started_at"] is not None
+        assert context["finished_at"] is not None
         assert spec["started_at"] is not None
         assert spec["finished_at"] is None
         assert impl["started_at"] is None
 
-    def test_derivados_dizem_onde_a_demanda_esta(self, cliente_dem):
+    def test_derivados_dizem_onde_a_demanda_esta(self, client_dem):
         """A primeira etapa não concluída, e quem espera gente.
 
-        É a conta que o cockpit, o dop-cli e o agente fariam cada um do seu
-        jeito — e é assim que a lista e a tela passam a discordar.
+        É a account que o cockpit, o dop-cli e o agente fariam cada um do seu
+        jeito — e é assim que a lista e a screen passam a discordar.
         """
-        d = cliente_dem.get("/api/v1/demands/dem-1", headers=CABECALHOS_REST).json()
+        d = client_dem.get("/api/v1/demands/dem-1", headers=REST_HEADERS).json()
         assert d["current_stage_key"] == "spec"
         assert d["awaiting_decision"] is True
         assert d["blocked"] is False
         # A etapa que espera é a do portão humano, e só ela.
         assert [s["awaiting_decision"] for s in d["stages"]] == [False, True, False]
 
-    def test_thread_sem_ficha_vem_nula(self, cliente_dem):
-        threads = cliente_dem.get(
-            "/api/v1/demands/dem-1/threads", headers=CABECALHOS_REST
+    def test_thread_sem_ficha_vem_nula(self, client_dem):
+        threads = client_dem.get(
+            "/api/v1/demands/dem-1/threads", headers=REST_HEADERS
         ).json()
         com, sem = threads
         assert com["card"]["model"] == "opus"
         assert sem["card"] is None
 
-    def test_lista_repassa_o_token_da_proxima_pagina(self, cliente_dem):
-        r = cliente_dem.get("/api/v1/demands", headers=CABECALHOS_REST)
+    def test_lista_repassa_o_token_da_proxima_pagina(self, client_dem):
+        r = client_dem.get("/api/v1/demands", headers=REST_HEADERS)
         assert r.json()["next_page_token"] == "pag-2"
 
-    def test_viewer_nao_inicia_demanda(self, cliente_dem, nucleo):
-        papel_viewer(nucleo)
-        r = cliente_dem.post(
+    def test_viewer_nao_inicia_demanda(self, client_dem, core):
+        viewer_role(core)
+        r = client_dem.post(
             "/api/v1/demands",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"project_id": "prj-1", "external_key": "SUOPT-1315"},
         )
         assert r.status_code == 403
 
-    def test_escrita_carrega_idempotencia(self, cliente_dem, demandas):
-        """Sem chave, o retry do canal abre duas demandas para o mesmo card."""
-        cliente_dem.post(
+    def test_escrita_carrega_idempotencia(self, client_dem, demands):
+        """Sem key, o retry do channel abre duas demands para o mesmo card."""
+        client_dem.post(
             "/api/v1/demands",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"project_id": "prj-1", "external_key": "SUOPT-1315"},
         )
-        assert demandas.StartDemand.pedidos[0].idempotency_key != ""
+        assert demands.StartDemand.requests[0].idempotency_key != ""
 
-    def test_status_de_etapa_inventado_e_recusado(self, cliente_dem):
+    def test_status_de_etapa_inventado_e_recusado(self, client_dem):
         """O vocabulário é fechado, e a recusa mora no caso de uso — por isso
         vale igual nas duas portas."""
-        r = cliente_dem.post(
+        r = client_dem.post(
             "/api/v1/demands/dem-1/stages/spec/advance",
-            headers=CABECALHOS_REST,
+            headers=REST_HEADERS,
             json={"status": "quase-la"},
         )
         assert r.status_code == 422
 
-    def test_sem_conta_ativa_e_recusado(self, cliente_dem):
-        r = cliente_dem.get(
-            "/api/v1/demands/dem-1", headers={"authorization": token_de()}
+    def test_sem_conta_ativa_e_recusado(self, client_dem):
+        r = client_dem.get(
+            "/api/v1/demands/dem-1", headers={"authorization": token_for()}
         )
         assert r.status_code == 400
 
@@ -348,71 +348,71 @@ class TestREST:
 class TestGRPC:
     async def test_cockpit(self, stub_dem):
         resp = await stub_dem.GetDemandCockpit(
-            bff.GetDemandCockpitRequest(demand_id="dem-1"), metadata=CONTA
+            bff.GetDemandCockpitRequest(demand_id="dem-1"), metadata=ACCOUNT
         )
         assert resp.demand.external_key == "SUOPT-1315"
         assert [t.key for t in resp.threads] == ["principal", "forense-db"]
-        assert [f.title for f in resp.findings] == ["índice ausente em pedidos"]
+        assert [f.title for f in resp.findings] == ["índice ausente em requests"]
 
     async def test_o_campo_findings_available_nao_existe_mais(self, stub_dem):
         """Removido do contrato da borda, com o número 4 reservado.
 
         Reservar impede que um campo novo herde o número da bandeira e seja
-        lido por um cliente antigo como se ainda fosse ela — em silêncio.
+        lido por um client antigo como se ainda fosse ela — em silêncio.
         """
         campos = bff.DemandCockpit.DESCRIPTOR.fields_by_name
         assert "findings_available" not in campos
         assert all(f.number != 4 for f in campos.values())
 
     async def test_etapa_sem_data_nao_tem_campo(self, stub_dem):
-        d = await stub_dem.GetDemand(bff.GetDemandRequest(id="dem-1"), metadata=CONTA)
-        contexto, spec, impl = d.stages
-        assert contexto.HasField("started_at") and contexto.HasField("finished_at")
+        d = await stub_dem.GetDemand(bff.GetDemandRequest(id="dem-1"), metadata=ACCOUNT)
+        context, spec, impl = d.stages
+        assert context.HasField("started_at") and context.HasField("finished_at")
         assert spec.HasField("started_at")
         assert not spec.HasField("finished_at")
         assert not impl.HasField("started_at")
 
     async def test_thread_sem_ficha_nao_tem_campo(self, stub_dem):
         resp = await stub_dem.ListThreads(
-            bff.ListThreadsRequest(demand_id="dem-1"), metadata=CONTA
+            bff.ListThreadsRequest(demand_id="dem-1"), metadata=ACCOUNT
         )
         com, sem = resp.threads
         assert com.HasField("card")
         assert not sem.HasField("card")
 
     async def test_thread_criada_sem_ficha_nao_manda_ficha_ao_nucleo(
-        self, stub_dem, demandas
+        self, stub_dem, demands
     ):
         """Ficha zerada declararia um agente sem propósito e sem orçamento."""
         await stub_dem.CreateThread(
-            bff.CreateThreadRequest(demand_id="dem-1", key="logs"), metadata=CONTA
+            bff.CreateThreadRequest(demand_id="dem-1", key="logs"), metadata=ACCOUNT
         )
-        assert not demandas.CreateThread.pedidos[0].HasField("card")
+        assert not demands.CreateThread.requests[0].HasField("card")
 
-    async def test_cliente_pode_mandar_a_propria_idempotencia(self, stub_dem, demandas):
-        """No gRPC quem sabe que está retentando é o cliente; o REST não tem
-        onde carregar a chave e recebe uma nossa."""
+    async def test_cliente_pode_mandar_a_propria_idempotencia(self, stub_dem, demands):
+        """No gRPC quem sabe que está retentando é o client; o REST não tem
+        onde carregar a key e recebe uma nossa."""
         await stub_dem.StartDemand(
             bff.StartDemandRequest(
-                project_id="prj-1", external_key="S-1", idempotency_key="minha-chave"
+                project_id="prj-1", external_key="S-1", idempotency_key="minha-key"
             ),
-            metadata=CONTA,
+            metadata=ACCOUNT,
         )
-        assert demandas.StartDemand.pedidos[0].idempotency_key == "minha-chave"
+        assert demands.StartDemand.requests[0].idempotency_key == "minha-key"
 
-    async def test_viewer_nao_decide_portao(self, stub_dem, nucleo):
-        papel_viewer(nucleo)
+    async def test_viewer_nao_decide_portao(self, stub_dem, core):
+        viewer_role(core)
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_dem.DecideGate(
                 bff.DecideGateRequest(demand_id="dem-1", stage_key="spec", approved=True),
-                metadata=CONTA,
+                metadata=ACCOUNT,
             )
         assert e.value.code() == grpc.StatusCode.PERMISSION_DENIED
 
     async def test_sem_token_e_unauthenticated(self, stub_dem):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_dem.GetDemand(
-                bff.GetDemandRequest(id="dem-1"), metadata=metadados_de(None)
+                bff.GetDemandRequest(id="dem-1"), metadata=metadata_for(None)
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
@@ -420,12 +420,12 @@ class TestGRPC:
 class TestParidadeEntreTransportes:
     """Uma função, dois adaptadores — e a prova de que continua assim."""
 
-    async def test_cockpit_igual_nas_duas_portas(self, cliente_dem, stub_dem):
-        rest = cliente_dem.get(
-            "/api/v1/demands/dem-1/cockpit", headers=CABECALHOS_REST
+    async def test_cockpit_igual_nas_duas_portas(self, client_dem, stub_dem):
+        rest = client_dem.get(
+            "/api/v1/demands/dem-1/cockpit", headers=REST_HEADERS
         ).json()
         grpc_resp = await stub_dem.GetDemandCockpit(
-            bff.GetDemandCockpitRequest(demand_id="dem-1"), metadata=CONTA
+            bff.GetDemandCockpitRequest(demand_id="dem-1"), metadata=ACCOUNT
         )
 
         assert grpc_resp.demand.id == rest["demand"]["id"]

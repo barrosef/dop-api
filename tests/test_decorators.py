@@ -20,7 +20,7 @@ def _ctx(account_id="", role="", grants=None):
 
 class TestAccountScoped:
     async def test_recusa_sem_conta_ativa(self):
-        """Regra do SP-0: requisição sem conta ativa é inválida."""
+        """Regra do SP-0: requisição sem account ativa é inválida."""
         token = auth_ctx.set(_ctx(account_id=""))
 
         @account_scoped
