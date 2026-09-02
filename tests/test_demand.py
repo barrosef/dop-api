@@ -1,15 +1,16 @@
-"""Demanda nos dois transportes, contra um núcleo fake.
+"""The demand on both transports, against a fake core.
 
-O teste que mais importa aqui é o de paridade: é ele que impede alguém de
-reimplementar um caso de uso no servicer (ou no router) sem ninguém notar na
-revisão. Os outros protegem as duas coisas que a borda ACRESCENTA — os
-derivados de "onde a demand está" e o cockpit numa call — e a disciplina de
-ausente ≠ zerado, que aqui aparece em data de etapa e em ficha de agente.
+The test that matters most here is the parity one: it is what stops anybody from
+reimplementing a use case in the servicer (or in the router) with nobody
+noticing in review. The others protect the two things the edge ADDS — the
+derived fields of "where the demand is" and the cockpit in one call — and the
+absent ≠ zeroed discipline, which shows up here in a stage's date and in an
+agent's brief.
 
-Os doubles e as fixtures vivem NESTE arquivo, e não no conftest: há outros
-agentes escrevendo neste repositório, e conftest é território compartilhado. O
-que já existe lá (token, metadata, FakeCall, o núcleo de identidade) é
-importado.
+The doubles and the fixtures live in THIS file, and not in conftest: there are
+other agents writing in this repository, and conftest is shared territory. What
+already exists there (the token, the metadata, FakeCall, the identity core) is
+imported.
 """
 
 from datetime import datetime
@@ -37,9 +38,9 @@ REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 def viewer_role(core) -> None:
     """Rebaixa o ator a viewer.
 
-    O role é resolvido UMA vez, no login, a partir de ListMemberships — então
-    rebaixar é trocar o que esse RPC responde, não um atalho no context.
-    Viewer (e não developer) porque no ciclo de trabalho developer ESCREVE: é
+    The role is resolved ONCE, at login, from ListMemberships — so demoting
+    means changing what that RPC answers, not a shortcut in the context. Viewer
+    (and not developer) because in the work cycle a developer WRITES: it is
     ele quem toca a demand.
     """
     core.ListMemberships = FakeCall(
@@ -59,10 +60,10 @@ def viewer_role(core) -> None:
 class DemandasFalsas:
     """Núcleo fake de demand.
 
-    A demand tem três etapas de propósito: uma concluída, uma correndo com
-    portão humano (a que espera decisão) e uma que nem começou — sem data
-    nenhuma, que é o caso onde ausente e zerado se confundem. As threads também
-    são duas: uma com ficha de agente e outra SEM.
+    The demand has three stages on purpose: one finished, one running with a
+    human gate (the one awaiting a decision) and one that has not even started —
+    with no date at all, which is the case where absent and zeroed get confused.
+    The threads are two as well: one with an agent brief and one WITHOUT.
     """
 
     def __init__(self):
@@ -102,12 +103,12 @@ class DemandasFalsas:
             gate=workflow_pb2.GATE_HUMAN,
         )
         spec.started_at.FromDatetime(datetime(2026, 8, 25, 10, 0))
-        # finished_at fica AUSENTE: a etapa não terminou.
+        # finished_at stays ABSENT: the stage did not finish.
 
         # Nem começou: sem início e sem fim.
         d.stages.add(
             key="implementacao",
-            name="Implementação",
+            name="Implementation",
             type=workflow_pb2.STAGE_TYPE_IMPLEMENTATION,
             status=demand_pb2.STAGE_STATUS_PENDING,
             gate=workflow_pb2.GATE_NONE,
@@ -126,7 +127,7 @@ class DemandasFalsas:
                 budget_micros=5_000_000,
             )
         )
-        # Thread SEM ficha: é o caso que distingue ausente de zerado.
+        # A thread with NO brief: it is the case that tells absent from zeroed.
         sem_ficha = demand_pb2.Thread(
             id="th-2",
             demand=common_pb2.DemandRef(id="dem-1"),
@@ -164,8 +165,8 @@ class DemandasFalsas:
         finding.payload.update({"tabela": "requests", "linhas": 4200})
         self.finding = finding
         self.PublishFinding = FakeCall(finding)
-        # A leitura que o núcleo passou a expor (P-19). Antes dela o cockpit
-        # devolvia lista vazia com uma bandeira dizendo "não dá para saber".
+        # The read the core came to expose (P-19). Before it, the cockpit
+        # returned an empty list with a flag saying "there is no way to know".
         self.ListFindings = FakeCall(
             demand_pb2.ListFindingsResponse(findings=[finding])
         )
@@ -181,7 +182,8 @@ def demands(core, monkeypatch):
 def _app_com_rotas():
     """O app com as rotas de demand.
 
-    `app/main.py` não é deste agente: enquanto o registro não chega lá, o teste
+    `app/main.py` is not this agent's: until the registration lands there, the
+    test
     monta o app e acrescenta o router. O `if` deixa o teste continuar válido
     depois do registro, sem rota duplicada.
     """
@@ -200,10 +202,11 @@ def client_dem(demands):
 @pytest.fixture
 async def stub_dem(demands):
     """Servidor gRPC real, em porta efêmera, com os MESMOS interceptores da porta
-    de produção — é o que prova que o ContextVar sobrevive até o servicer.
+    production one — it is what proves the ContextVar survives as far as the
+    servicer.
 
-    Próprio (e não o `grpc_server` do conftest) porque `app/grpcapi/server.py`
-    ainda não registra este servicer, e esse arquivo não é deste agente.
+    Its own (and not conftest's `grpc_server`) because `app/grpcapi/server.py`
+    does not register this servicer yet, and that file is not this agent's.
     """
     server = grpc.aio.server(
         interceptors=(
@@ -233,12 +236,12 @@ class TestREST:
         assert [t["key"] for t in body["threads"]] == ["principal", "forense-db"]
         assert [f["title"] for f in body["findings"]] == ["índice ausente em requests"]
         assert body["findings"][0]["payload"] == {"tabela": "requests", "linhas": 4200}
-        # TRÊS calls ao núcleo, uma response ao client.
+        # THREE calls to the core, one response to the client.
         assert len(demands.GetDemand.calls) == 1
         assert len(demands.ListThreads.calls) == 1
         assert len(demands.ListFindings.calls) == 1
         assert demands.ListFindings.requests[0].demand_id == "dem-1"
-        # Sem thread: o board é o da demand inteira.
+        # With no thread: the board is the whole demand's.
         assert demands.ListFindings.requests[0].thread_id == ""
 
     def test_an_empty_list_of_findings_now_means_an_empty_list(
@@ -246,10 +249,11 @@ class TestREST:
     ):
         """O fim de `findings_available`.
 
-        Ele existia porque o contrato do núcleo não tinha leitura de findings: a
-        lista vinha vazia e a bandeira separava "não tem findings" de "não dá
-        para saber". Com `ListFindings` só resta o primeiro caso — e uma
-        bandeira constante seria ruído que um dia alguém lê ao contrário.
+        It existed because the core's contract had no way to read findings: the
+        list came back empty and the flag separated "it has no findings" from
+        "there is no way to know". With `ListFindings` only the first case is
+        left — and a constant flag would be noise somebody one day reads
+        backwards.
         """
         demands.ListFindings.returns(demand_pb2.ListFindingsResponse())
         body = client_dem.get(
@@ -261,21 +265,21 @@ class TestREST:
     def test_a_failure_reading_findings_brings_the_whole_cockpit_down(
         self, client_dem, demands
     ):
-        """Resposta pela metade sem dizer que está pela metade é pior que err.
+        """A half response that does not say it is half is worse than an error.
 
-        É o outro lado da mesma decisão: sem bandeira para dizer "não deu",
-        quem não consegue ler os findings returns o status do núcleo, e não um
-        cockpit que parece completo com um pedaço faltando.
+        It is the other side of the same decision: with no flag to say "it did
+        not work", whoever cannot read the findings returns the core's status,
+        and not a cockpit that looks complete with a piece missing.
         """
         demands.ListFindings.fails_with(grpc.StatusCode.PERMISSION_DENIED)
         r = client_dem.get("/api/v1/demands/dem-1/cockpit", headers=REST_HEADERS)
         assert r.status_code == 403
 
     def test_a_stage_that_has_not_started_comes_back_null_not_zeroed(self, client_dem):
-        """Ausente e zerado são coisas diferentes.
+        """Absent and zeroed are different things.
 
         Um início zerado viraria 1º de janeiro de 1970 na screen — e data errada
-        é pior que data nenhuma.
+        is worse than no date at all.
         """
         d = client_dem.get("/api/v1/demands/dem-1", headers=REST_HEADERS).json()
         context, spec, impl = d["stages"]
@@ -286,16 +290,16 @@ class TestREST:
         assert impl["started_at"] is None
 
     def test_the_derived_fields_say_where_the_demand_is(self, client_dem):
-        """A primeira etapa não concluída, e quem espera gente.
+        """The first stage that is not finished, and the one waiting for a person.
 
-        É a account que o cockpit, o dop-cli e o agente fariam cada um do seu
-        jeito — e é assim que a lista e a screen passam a discordar.
+        It is the reading the cockpit, dop-cli and the agent would each do their
+        own way — and it is how the list and the screen start disagreeing.
         """
         d = client_dem.get("/api/v1/demands/dem-1", headers=REST_HEADERS).json()
         assert d["current_stage_key"] == "spec"
         assert d["awaiting_decision"] is True
         assert d["blocked"] is False
-        # A etapa que espera é a do portão humano, e só ela.
+        # The stage that waits is the human gate's, and only it.
         assert [s["awaiting_decision"] for s in d["stages"]] == [False, True, False]
 
     def test_a_thread_with_no_brief_comes_back_null(self, client_dem):
@@ -320,7 +324,7 @@ class TestREST:
         assert r.status_code == 403
 
     def test_a_write_carries_an_idempotency_key(self, client_dem, demands):
-        """Sem key, o retry do channel abre duas demands para o mesmo card."""
+        """With no key, the channel's retry opens two demands for the same card."""
         client_dem.post(
             "/api/v1/demands",
             headers=REST_HEADERS,
@@ -329,7 +333,8 @@ class TestREST:
         assert demands.StartDemand.requests[0].idempotency_key != ""
 
     def test_an_invented_stage_status_is_refused(self, client_dem):
-        """O vocabulário é fechado, e a recusa mora no caso de uso — por isso
+        """The vocabulary is closed, and the refusal lives in the use case — that
+        is why
         vale igual nas duas portas."""
         r = client_dem.post(
             "/api/v1/demands/dem-1/stages/spec/advance",
@@ -357,7 +362,7 @@ class TestGRPC:
     async def test_the_findings_available_field_no_longer_exists(self, stub_dem):
         """Removido do contrato da borda, com o número 4 reservado.
 
-        Reservar impede que um campo novo herde o número da bandeira e seja
+        Reserving stops a new field from inheriting the flag's number and being
         lido por um client antigo como se ainda fosse ela — em silêncio.
         """
         campos = bff.DemandCockpit.DESCRIPTOR.fields_by_name
@@ -390,8 +395,8 @@ class TestGRPC:
         assert not demands.CreateThread.requests[0].HasField("card")
 
     async def test_the_client_may_send_its_own_idempotency_key(self, stub_dem, demands):
-        """No gRPC quem sabe que está retentando é o client; o REST não tem
-        onde carregar a key e recebe uma nossa."""
+        """Over gRPC the one that knows it is retrying is the client; REST has
+        nowhere to carry the key and gets one of ours."""
         await stub_dem.StartDemand(
             bff.StartDemandRequest(
                 project_id="prj-1", external_key="S-1", idempotency_key="minha-key"
@@ -418,7 +423,7 @@ class TestGRPC:
 
 
 class TestParityBetweenTransports:
-    """Uma função, dois adaptadores — e a prova de que continua assim."""
+    """One function, two adapters — and the proof that it stays that way."""
 
     async def test_the_cockpit_is_the_same_on_both_ports(self, client_dem, stub_dem):
         rest = client_dem.get(
@@ -429,8 +434,8 @@ class TestParityBetweenTransports:
         )
 
         assert grpc_resp.demand.id == rest["demand"]["id"]
-        # Os DERIVADOS são o ponto: se um adaptador os recalculasse, seria aqui
-        # que a diferença apareceria.
+        # The DERIVED fields are the point: if an adapter recomputed them, this
+        # is where the difference would show up.
         assert grpc_resp.demand.current_stage_key == rest["demand"]["current_stage_key"]
         assert grpc_resp.demand.awaiting_decision == rest["demand"]["awaiting_decision"]
         assert grpc_resp.demand.blocked == rest["demand"]["blocked"]
@@ -438,7 +443,8 @@ class TestParityBetweenTransports:
         assert [f.id for f in grpc_resp.findings] == [f["id"] for f in rest["findings"]]
         assert dict(grpc_resp.findings[0].payload) == rest["findings"][0]["payload"]
 
-        # E o que é opcional, que é onde ausente≠zerado pode divergir entre pontas.
+        # And what is optional, which is where absent≠zeroed may diverge between
+        # the ends.
         for e_grpc, e_rest in zip(grpc_resp.demand.stages, rest["demand"]["stages"], strict=True):
             assert e_grpc.HasField("started_at") == (e_rest["started_at"] is not None)
             assert e_grpc.HasField("finished_at") == (e_rest["finished_at"] is not None)
