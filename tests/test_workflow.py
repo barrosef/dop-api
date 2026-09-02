@@ -1,16 +1,16 @@
-"""Fluxo de trabalho nos dois transportes, contra um núcleo fake.
+"""The workflow on both transports, against a fake core.
 
-Dois grupos de teste carregam o peso:
+Two groups of tests carry the weight:
 
-- **paridade** REST × gRPC, que impede alguém de reimplementar um caso de uso
-  num adaptador sem ninguém notar na revisão;
-- **procedência**, que é o que a borda entrega aqui: de onde veio cada etapa,
-  lido dos CAMPOS `contributors`/`origins` do núcleo. Um dos testes existe
-  justamente para provar que a borda NÃO depende mais do formato da frase
-  `resolved_from` — ela é repassada inteira, e nada mais.
+- **parity** REST × gRPC, which stops anybody from reimplementing a use case in
+  an adapter with nobody noticing in review;
+- **provenance**, which is what the edge delivers here: where each stage came
+  from, read from the core's `contributors`/`origins` FIELDS. One of the tests
+  exists precisely to prove the edge NO LONGER depends on the shape of the
+  `resolved_from` sentence — it is passed on whole, and nothing more.
 
-Os doubles e as fixtures vivem NESTE arquivo (conftest é território
-compartilhado); o que já existe lá é importado.
+The doubles and the fixtures live in THIS file (conftest is shared territory);
+what already exists there is imported.
 """
 
 import grpc
@@ -32,21 +32,21 @@ from tests.conftest import PROJECT, FakeCall, metadata_for, token_for
 ACCOUNT = metadata_for(token_for())
 REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
-# A frase exata que o núcleo escreve (renderTrail, em
-# internal/domain/workflow/entity.go): cadeia do mais específico ao mais
-# genérico, e o detalhe por etapa quando os níveis divergem.
-RASTRO = "account ◂ plataforma — etapas: context (plataforma), spec (account)"
+# The exact sentence the core writes (renderTrail, in
+# internal/domain/workflow/entity.go): the chain from the most specific to the
+# most generic, and the per-stage detail when the levels diverge.
+TRAIL = "account ◂ platform — stages: context (platform), spec (account)"
 
 
-def _fluxo(**campos) -> workflow_pb2.Flow:
+def _flow(**fields) -> workflow_pb2.Flow:
     f = workflow_pb2.Flow(
         id="flow-1",
-        name="flow da account",
-        description="composição da ACME",
+        name="the account's flow",
+        description="ACME's composition",
         version=3,
         owner_scope="account",
         owner_id="acct-1",
-        **campos,
+        **fields,
     )
     f.stages.add(
         key="context",
@@ -67,10 +67,10 @@ def _fluxo(**campos) -> workflow_pb2.Flow:
 
 
 class FluxosFalsos:
-    """Núcleo fake de flow. Registra o request e returns o que mandarem."""
+    """The flow's fake core. It records the request and returns what it is told to."""
 
     def __init__(self):
-        self.flow = _fluxo()
+        self.flow = _flow()
         self.ListFlows = FakeCall(workflow_pb2.ListFlowsResponse(flows=[self.flow]))
         self.GetFlow = FakeCall(self.flow)
         self.CreateFlow = FakeCall(self.flow)
@@ -85,16 +85,16 @@ class FluxosFalsos:
         )
         self.ResolveFlow = FakeCall(self.efetivo())
 
-    def efetivo(self, **campos) -> workflow_pb2.EffectiveFlow:
-        """O flow efetivo como o núcleo o returns: campos E frase.
+    def efetivo(self, **fields) -> workflow_pb2.EffectiveFlow:
+        """O flow efetivo como o núcleo o returns: fields E frase.
 
-        Os dois juntos porque é assim que ele responde — e é a única forma de o
-        teste conseguir provar que a borda lê os CAMPOS: se o double só mandasse
+        Both together because that is how it answers — and it is the only way
+        for the test to prove the edge reads the FIELDS: if the double sent only
         a frase, ler dela passaria despercebido.
         """
         padrao = {
             "flow": self.flow,
-            "resolved_from": RASTRO,
+            "resolved_from": TRAIL,
             "contributors": [
                 workflow_pb2.ScopeRef(scope="account", id="acct-1"),
                 workflow_pb2.ScopeRef(scope="platform"),
@@ -104,7 +104,7 @@ class FluxosFalsos:
                 workflow_pb2.StageOrigin(key="spec", scope="account", scope_id="acct-1"),
             ],
         }
-        return workflow_pb2.EffectiveFlow(**{**padrao, **campos})
+        return workflow_pb2.EffectiveFlow(**{**padrao, **fields})
 
 
 @pytest.fixture
@@ -117,7 +117,8 @@ def flows(core, monkeypatch):
 def _app_com_rotas():
     """O app com as rotas de flow.
 
-    `app/main.py` não é deste agente: enquanto o registro não chega lá, o teste
+    `app/main.py` is not this agent's: until the registration lands there, the
+    test
     monta o app e acrescenta o router. O `if` deixa o teste continuar válido
     depois do registro, sem rota duplicada.
     """
@@ -136,8 +137,8 @@ def client_flow(flows):
 @pytest.fixture
 async def stub_flow(flows):
     """Servidor gRPC real, em porta efêmera, com os MESMOS interceptores da
-    porta de produção. Próprio porque `app/grpcapi/server.py` ainda não
-    registra este servicer, e esse arquivo não é deste agente."""
+    production port. Its own because `app/grpcapi/server.py` does not register
+    this servicer yet, and that file is not this agent's."""
     server = grpc.aio.server(
         interceptors=(
             LoggingInterceptor(),
@@ -156,7 +157,7 @@ async def stub_flow(flows):
 
 
 class TestProvenance:
-    """De onde veio cada etapa — lido dos campos, não da frase."""
+    """Where each stage came from — read from the fields, not from the sentence."""
 
     def test_the_chain_and_the_origin_per_stage(self, client_flow):
         eff = client_flow.get(
@@ -165,25 +166,26 @@ class TestProvenance:
         ).json()
         p = eff["provenance"]
         # Do mais específico ao mais genérico, no MESMO vocabulário de
-        # owner_scope — que é o que o núcleo já manda no campo.
+        # owner_scope — which is what the core already sends in the field.
         assert p["contributors"] == ["account", "platform"]
         assert p["origins"] == [
             {"stage_key": "context", "scope": "platform"},
             {"stage_key": "spec", "scope": "account"},
         ]
-        # As origens seguem a ordem das etapas: origins[i] é a origem de stages[i].
+        # The origins follow the stages' order: origins[i] is stages[i]'s origin.
         assert [o["stage_key"] for o in p["origins"]] == [
             s["key"] for s in eff["flow"]["stages"]
         ]
         assert p["truncated"] is False
 
     def test_the_edge_does_not_depend_on_the_sentence_shape(self, client_flow, flows):
-        """O teste que existe para provar que o parser MORREU.
+        """The test that exists to prove the parser is DEAD.
 
-        A frase vem irreconhecível — outra pontuação, outro idioma, sem os
-        separadores e sem os parênteses que o parser antigo procurava. A
-        procedência tem de sair idêntica mesmo assim, porque ela vem dos
-        campos. Se alguém reintroduzir leitura da frase, é aqui que quebra.
+        The sentence arrives unrecognizable — different punctuation, another
+        language, without the separators and without the parentheses the old
+        parser looked for. The provenance has to come out identical all the same,
+        because it comes from the fields. If anybody reintroduces reading the
+        sentence, this is where it breaks.
         """
         flows.ResolveFlow.returns(
             flows.efetivo(resolved_from="resolved from account, then platform")
@@ -196,24 +198,24 @@ class TestProvenance:
             ("context", "platform"),
             ("spec", "account"),
         ]
-        # E a frase, seja ela qual for, atravessa inteira e sem interpretação.
+        # And the sentence, whatever it is, crosses whole and uninterpreted.
         assert p["sentence"] == "resolved from account, then platform"
 
     def test_the_original_sentence_is_not_lost(self, client_flow):
         """Quem só quer imprimir continua imprimindo — e quem desconfiar da
-        leitura estruturada tem contra o que conferir."""
+        structured reading has something to be checked against."""
         eff = client_flow.get(
             "/api/v1/flows/effective?scope=project", headers=REST_HEADERS
         ).json()
-        assert eff["provenance"]["sentence"] == RASTRO
+        assert eff["provenance"]["sentence"] == TRAIL
 
     def test_a_single_level_also_has_an_origin_per_stage(self, client_flow, flows):
-        """Quando só um nível declarou, a FRASE não traz o detalhe por etapa —
-        não há divergência para explicar. Os campos trazem.
+        """When only one level declared, the SENTENCE carries no per-stage detail
+        — there is no divergence to explain. The fields carry it.
 
-        É a diferença que a P-20 comprou: antes, a borda lia a frase e concluía
-        "não há origens"; agora ela responde de onde veio cada etapa mesmo no
-        caso em que o núcleo não achou que valia a pena escrever.
+        It is the difference P-20 bought: before, the edge read the sentence and
+        concluded "there are no origins"; now it answers where each stage came
+        from even in the case the core did not think worth writing out.
         """
         flows.ResolveFlow.returns(
             flows.efetivo(
@@ -233,13 +235,14 @@ class TestProvenance:
         assert p["truncated"] is False
 
     def test_a_stage_with_no_reported_origin_marks_truncated(self, client_flow, flows):
-        """`truncated` é MEDIDO: origens que não cobrem as etapas.
+        """`truncated` is MEASURED: origins that do not cover the stages.
 
-        Antes ele era deduzido do "…" com que o núcleo corta a frase em 12
-        etapas. O corte é da frase; a lista estruturada vem inteira. Medir
+        It used to be deduced from the "…" with which the core cuts the sentence
+        at 12 stages. The cut is of the sentence; the structured list comes
+        whole. Measuring
         mantém o campo correto se o núcleo passar a cortar a lista também — e
-        o que ele promete ao client é o mesmo: há etapa cuja origem ninguém
-        sabe informar, o que é diferente de ela não ter origem.
+        what it promises the client is the same: there is a stage whose origin
+        nobody can report, which is different from it having no origin.
         """
         flows.ResolveFlow.returns(
             flows.efetivo(
@@ -253,9 +256,9 @@ class TestProvenance:
         assert [o["stage_key"] for o in p["origins"]] == ["context"]
 
     def test_with_no_provenance_no_provenance_is_invented(self, client_flow, flows):
-        """Núcleo calado: nada se deduz, e `truncated` não vira alarme fake.
+        """A silent core: nothing is deduced, and `truncated` does not become a fake alarm.
 
-        Sem flow não há etapa para explicar — então não há origem faltando.
+        With no flow there is no stage to explain — so no origin is missing.
         """
         flows.ResolveFlow.returns(workflow_pb2.EffectiveFlow())
         p = client_flow.get(
@@ -272,7 +275,7 @@ class TestREST:
         assert f["stages"][1]["artifacts"] == ["spec"]
 
     def test_validation_is_a_report_not_an_error(self, client_flow):
-        """A screen precisa da lista para marcar as etapas; um 4xx só daria um toast."""
+        """The screen needs the list to mark the stages; a 4xx would only give a toast."""
         r = client_flow.post(
             "/api/v1/flows/validate",
             headers=REST_HEADERS,
@@ -302,12 +305,12 @@ class TestREST:
         )
         request = flows.CreateFlow.requests[0]
         assert request.idempotency_key != ""
-        # E o vocabulário volta a ser enum na saída para o núcleo.
+        # And the vocabulary becomes an enum again on the way out to the core.
         assert request.flow.stages[0].type == workflow_pb2.STAGE_TYPE_SPEC
         assert request.flow.stages[0].gate == workflow_pb2.GATE_HUMAN
 
     def test_a_developer_composes_a_flow(self, client_flow, core):
-        """Fluxo é conhecimento, aberto dentro da account (ADR-0014 §6)."""
+        """A flow is knowledge, open within the account (ADR-0014 §6)."""
         core.demote_to_developer()
         r = client_flow.post(
             "/api/v1/flows",
@@ -317,7 +320,7 @@ class TestREST:
         assert r.status_code == 201
 
     def test_a_developer_does_not_promote_a_flow(self, client_flow, core):
-        """Promover muda o jeito de trabalhar de quem não pediu — exige gestão."""
+        """Promoting changes the way of working of people who did not ask — it requires management."""
         core.demote_to_developer()
         r = client_flow.post(
             "/api/v1/flows/flow-1/promotion",
@@ -343,11 +346,11 @@ class TestGRPC:
             ("context", "platform"),
             ("spec", "account"),
         ]
-        assert eff.provenance.sentence == RASTRO
+        assert eff.provenance.sentence == TRAIL
 
     async def test_an_absent_flow_is_not_an_empty_flow(self, stub_flow, flows):
-        """Nenhum nível declarou flow: o campo não vem. Um flow zerado diria
-        que existe um flow sem name e sem etapas."""
+        """No level declared a flow: the field does not come. A zeroed flow would
+        say a flow exists with no name and no stages."""
         flows.ResolveFlow.returns(workflow_pb2.EffectiveFlow(resolved_from=""))
         eff = await stub_flow.ResolveFlow(
             bff.ResolveFlowRequest(scope="account"), metadata=ACCOUNT
@@ -371,14 +374,14 @@ class TestGRPC:
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
     async def test_a_core_error_crosses_with_its_own_status(self, stub_flow, flows):
-        flows.GetFlow.fails_with(grpc.StatusCode.NOT_FOUND, "flow não encontrado")
+        flows.GetFlow.fails_with(grpc.StatusCode.NOT_FOUND, "flow not found")
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_flow.GetFlow(bff.GetFlowRequest(id="sumiu"), metadata=ACCOUNT)
         assert e.value.code() == grpc.StatusCode.NOT_FOUND
 
 
 class TestParityBetweenTransports:
-    """Uma função, dois adaptadores — e a prova de que continua assim."""
+    """One function, two adapters — and the proof that it stays that way."""
 
     async def test_the_effective_flow_is_the_same_on_both_ports(self, client_flow, stub_flow):
         rest = client_flow.get(
@@ -393,7 +396,7 @@ class TestParityBetweenTransports:
         assert [s.key for s in grpc_resp.flow.stages] == [
             s["key"] for s in rest["flow"]["stages"]
         ]
-        # A procedência é o que a borda constrói — se um adaptador a refizesse,
+        # The provenance is what the edge builds — if an adapter rebuilt it,
         # a diferença apareceria aqui.
         p_grpc, p_rest = grpc_resp.provenance, rest["provenance"]
         assert list(p_grpc.contributors) == p_rest["contributors"]
