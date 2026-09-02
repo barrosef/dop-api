@@ -1,20 +1,20 @@
-"""Conhecimento nos dois transportes, contra um núcleo fake.
+"""Knowledge on both transports, against a fake core.
 
-Dois testes carregam o arquivo:
+Two tests carry this file:
 
-  - o de DESCARTE: o pacote de context é selecionado por orçamento (ADR-0012),
-    e a borda tem de conseguir dizer "não coube tudo". O núcleo informa o
-    descarte num `map<string,int32>` por camada, e o preenche sempre — mapa
-    VAZIO é o núcleo calado, e vira `null`, não zeros, que AFIRMARIAM que nada
-    ficou de fora;
-  - o de vazamento de convenção interna: as keys `dop.body`/`dop.scope` do
-    núcleo não podem atravessar para a screen. Ele é escrito procurando a key no
-    body serializado INTEIRO, e não campo por campo — do jeito que
-    `tests/test_resource.py` procura o segredo —, porque conferir campo a campo
-    só pega o vazamento que alguém lembrou de imaginar.
+  - the DROPS one: the context package is selected by a budget (ADR-0012), and
+    the edge has to be able to say "not everything fitted". The core reports the
+    drops in a `map<string,int32>` per layer, and always fills it in — an EMPTY
+    map is a silent core, and becomes `null`, not zeroes, which would ASSERT
+    nothing was left out;
+  - the internal-convention leak one: the core's `dop.body`/`dop.scope` keys
+    must not cross to the screen. It is written by looking for the key in the
+    WHOLE serialized body, and not field by field — the way
+    `tests/test_resource.py` looks for the secret — because checking field by
+    field only catches the leak somebody remembered to imagine.
 
-Fakes e fixtures ficam AQUI, e não no `conftest.py`: há outros agentes
-escrevendo neste repositório agora.
+The fakes and the fixtures live HERE, and not in `conftest.py`: there are other
+agents writing in this repository right now.
 """
 
 import base64
@@ -56,11 +56,11 @@ def _struct(d: dict) -> struct_pb2.Struct:
 
 
 class ConhecimentoFalso:
-    """Núcleo fake de conhecimento.
+    """Núcleo fake de knowledge.
 
-    Reproduz duas formas do núcleo de verdade que a borda existe para desfazer:
+    It reproduces two shapes of the real core that the edge exists to undo:
     o body do artefato pequeno viaja no `meta` sob a key interna `dop.body`,
-    e os scores da busca vêm numa lista PARALELA à dos artefatos.
+    and the search's scores come in a list PARALLEL to the artifacts'.
     """
 
     def __init__(self):
@@ -74,7 +74,7 @@ class ConhecimentoFalso:
                 {"dop.body": CORPO_DA_REGRA, "dop.scope": "project", "autor": "ed"}
             ),
         )
-        # Artefato GRANDE: mora no storage, então não tem body inline.
+        # A LARGE artifact: it lives in storage, so it has no inline body.
         self.indice = knowledge_pb2.KnowledgeArtifact(
             id="art-2",
             project=common_pb2.ProjectRef(id="prj-1"),
@@ -92,7 +92,7 @@ class ConhecimentoFalso:
             version=1,
             meta=_struct({"dop.body": "o timeout era do proxy", "dop.scope": "project"}),
         )
-        self.pacote = knowledge_pb2.ContextPackage(
+        self.package = knowledge_pb2.ContextPackage(
             demand=common_pb2.DemandRef(id="dem-1"),
             rules=[CORPO_DA_REGRA],
             index=[self.indice],
@@ -101,18 +101,18 @@ class ConhecimentoFalso:
                 demand_pb2.Finding(
                     id="f-1",
                     thread_id="th-1",
-                    title="o proxy derruba conexão ociosa",
+                    title="the proxy drops an idle connection",
                     payload=_struct({"summary": "30s"}),
                 )
             ],
             estimated_tokens=12_345,
-            # O núcleo preenche SEMPRE o mapa, inclusive com zeros: "nada
-            # descartado" e "não sei dizer" são fatos diferentes, e é o mapa
-            # vazio que significa o segundo.
+            # The core ALWAYS fills the map in, zeroes included: "nothing was
+            # dropped" and "I cannot tell" are different facts, and it is the
+            # empty map that means the second.
             dropped={"rules": 0, "findings": 2, "index": 1, "memories": 5},
         )
-        self.BuildContextPackage = FakeCall(self.pacote)
-        # Listas PARALELAS, como o núcleo returns.
+        self.BuildContextPackage = FakeCall(self.package)
+        # PARALLEL lists, as the core returns them.
         self.SearchMemory = FakeCall(
             knowledge_pb2.SearchMemoryResponse(
                 artifacts=[self.memoria], scores=[0.8203125]
@@ -125,15 +125,16 @@ class ConhecimentoFalso:
         )
 
 
-def pacote_com_descarte(base, **contagens) -> knowledge_pb2.ContextPackage:
-    """O mesmo pacote, com outro mapa de descarte.
+def package_with_drops(base, **contagens) -> knowledge_pb2.ContextPackage:
+    """O mesmo package, com outro mapa de drops.
 
-    Existe para que cada teste declare o descarte que está exercitando sem
-    montar um `ContextPackage` inteiro — e para que o caso "o núcleo não
-    informou" seja um mapa VAZIO de verdade, e não um double que imita presença
-    de campo. O double que morava aqui (`PacoteComDescarte`) fingia o campo pelo
-    descritor e por `HasField`; o campo chegou como MAPA, que não tem presença,
-    e a imitação escondia que o caminho de produção levantaria `ValueError`.
+    It exists so each test declares the drops it is exercising without building
+    a whole `ContextPackage` — and so the "the core did not report" case is a
+    genuinely EMPTY map, and not a double that imitates field presence. The
+    double that used to live here (`PacoteComDescarte`) faked the field through
+    the descriptor and `HasField`; the field arrived as a MAP, which has no
+    presence, and the imitation hid that the production path would raise a
+    `ValueError`.
     """
     p = knowledge_pb2.ContextPackage()
     p.CopyFrom(base)
@@ -146,42 +147,42 @@ def pacote_com_descarte(base, **contagens) -> knowledge_pb2.ContextPackage:
 
 
 @pytest.fixture
-def conhecimento(core, monkeypatch):
+def knowledge(core, monkeypatch):
     fake = ConhecimentoFalso()
     monkeypatch.setattr(stubs, "knowledge_stub", lambda: fake)
     return fake
 
 
-def _app_com_rotas():
-    """O app real do BFF, com as rotas deste domínio registradas.
+def _app_with_routes():
+    """The BFF's real app, with this domain's routes registered.
 
-    `app/main.py` é do dono do repositório e ainda não inclui este router (ver o
-    relatório). Registrar aqui mantém o teste honesto — ele exercita o app de
-    verdade, com os middlewares de verdade — sem tocar em arquivo alheio. A
-    checagem antes de incluir faz o teste continuar correto depois que o
-    registro entrar no `main`.
+    `app/main.py` belongs to the repository's owner and does not include this
+    router yet (see the report). Registering it here keeps the test honest — it
+    exercises the real app, with the real middlewares — without touching somebody
+    else's file. The check before including makes the test stay correct once the
+    registration lands in `main`.
     """
     app = create_app()
-    caminhos = {getattr(r, "path", "") for r in app.routes}
-    if "/api/v1/knowledge/rules" not in caminhos:
+    paths = {getattr(r, "path", "") for r in app.routes}
+    if "/api/v1/knowledge/rules" not in paths:
         app.include_router(rotas.router)
     return app
 
 
 @pytest.fixture
-def client_know(conhecimento):
-    with TestClient(_app_com_rotas()) as c:
+def client_know(knowledge):
+    with TestClient(_app_with_routes()) as c:
         yield c
 
 
 @pytest.fixture
-async def stub_know(conhecimento):
-    """Servidor gRPC real, em porta efêmera, com o servicer deste domínio.
+async def stub_know(knowledge):
+    """A real gRPC server, on an ephemeral port, with this domain's servicer.
 
-    Não reusa a fixture `grpc_server` do conftest porque `GrpcServer` ainda
-    não registra este servicer (o registro é do dono do repositório). A pilha
-    de interceptores é a MESMA, que é o que importa: é ela que faz o token, o
-    context e os decorators valerem dentro do servicer.
+    It does not reuse conftest's `grpc_server` fixture because `GrpcServer` does
+    not register this servicer yet (the registration is the repository owner's).
+    The interceptor stack is the SAME, which is what matters: it is what makes
+    the token, the context and the decorators hold inside the servicer.
     """
     server = grpc.aio.server(
         interceptors=(
@@ -204,16 +205,16 @@ async def stub_know(conhecimento):
 
 
 class TestContextDrops:
-    """O que não coube tem de aparecer. Ausente ≠ zerado."""
+    """What did not fit has to show up. Absent ≠ zeroed."""
 
     def test_the_drops_come_from_the_cores_field(self, client_know):
         """`ContextPackage.dropped` existe (P-19) e a borda o LÊ.
 
-        Antes a borda procurava o campo no DESCRITOR do protobuf, porque ele
-        não estava no contrato. O contorno apostava que ele chegaria como
-        mensagem; chegou como `map<string,int32>`, que não tem presença — e o
-        `HasField` do contorno passou a levantar `ValueError` no primeiro
-        pacote request. Este teste é o caminho novo, sem descritor no meio.
+        The edge used to look for the field in protobuf's DESCRIPTOR, because it
+        was not in the contract. The workaround bet it would arrive as a message;
+        it arrived as a `map<string,int32>`, which has no presence — and the
+        workaround's `HasField` started raising `ValueError` on the first package
+        requested. This test is the new path, with no descriptor in between.
         """
         r = client_know.get(
             "/api/v1/demands/dem-1/context-package", headers=REST_HEADERS
@@ -228,16 +229,17 @@ class TestContextDrops:
         }
         assert r.json()["estimated_tokens"] == 12_345
 
-    def test_an_empty_map_is_null_not_zeroes(self, client_know, conhecimento):
-        """`null` é "não dá para saber"; zeros seriam "nada foi descartado".
+    def test_an_empty_map_is_null_not_zeroes(self, client_know, knowledge):
+        """`null` is "there is no way to know"; zeroes would be "nothing was dropped".
 
-        O núcleo preenche o mapa sempre, com as quatro keys. Mapa vazio é o
+        The core always fills the map in, with all four keys. An empty map is
+        the
         núcleo anterior ao campo — e preencher com zeros faria a screen afirmar
-        que o context coube inteiro, que é justamente a mentira que a ADR-0012
+        that the context fitted whole, which is precisely the lie ADR-0012
         quer impedir.
         """
-        conhecimento.BuildContextPackage.returns(
-            pacote_com_descarte(conhecimento.pacote)
+        knowledge.BuildContextPackage.returns(
+            package_with_drops(knowledge.package)
         )
         assert (
             client_know.get(
@@ -246,31 +248,31 @@ class TestContextDrops:
             is None
         )
 
-    def test_zeroed_drops_are_not_truncated(self, client_know, conhecimento):
-        """Zerado é AFIRMAÇÃO: coube tudo. Diferente de mapa vazio."""
-        conhecimento.BuildContextPackage.returns(
-            pacote_com_descarte(
-                conhecimento.pacote, rules=0, findings=0, index=0, memories=0
+    def test_zeroed_drops_are_not_truncated(self, client_know, knowledge):
+        """Zeroed is an ASSERTION: everything fitted. Different from an empty map."""
+        knowledge.BuildContextPackage.returns(
+            package_with_drops(
+                knowledge.package, rules=0, findings=0, index=0, memories=0
             )
         )
-        descarte = client_know.get(
+        drops = client_know.get(
             "/api/v1/demands/dem-1/context-package", headers=REST_HEADERS
         ).json()["dropped"]
-        assert descarte["truncated"] is False
-        assert descarte["findings"] == 0
+        assert drops["truncated"] is False
+        assert drops["findings"] == 0
 
     def test_a_layer_the_edge_does_not_know_still_truncates(
-        self, client_know, conhecimento
+        self, client_know, knowledge
     ):
-        """Camada nova no núcleo não tem campo aqui — mas trunca do mesmo jeito.
+        """A new layer in the core has no field here — but it truncates all the same.
 
-        O número dela se perde (a borda só publica as quatro camadas da
-        ADR-0009 §1), e isso é aceitável. O que NÃO é aceitável é a screen dizer
-        "coube tudo" por causa de uma key que a borda não sabia ler.
+        Its number is lost (the edge only publishes ADR-0009 §1's four layers),
+        and that is acceptable. What is NOT acceptable is the screen saying
+        "everything fitted" because of a key the edge did not know how to read.
         """
-        conhecimento.BuildContextPackage.returns(
-            pacote_com_descarte(
-                conhecimento.pacote,
+        knowledge.BuildContextPackage.returns(
+            package_with_drops(
+                knowledge.package,
                 rules=0,
                 findings=0,
                 index=0,
@@ -278,15 +280,15 @@ class TestContextDrops:
                 diagramas=3,
             )
         )
-        descarte = client_know.get(
+        drops = client_know.get(
             "/api/v1/demands/dem-1/context-package", headers=REST_HEADERS
         ).json()["dropped"]
-        assert descarte["truncated"] is True
-        assert "diagramas" not in descarte
+        assert drops["truncated"] is True
+        assert "diagramas" not in drops
 
-    async def test_absent_drops_over_grpc_too(self, stub_know, conhecimento):
-        conhecimento.BuildContextPackage.returns(
-            pacote_com_descarte(conhecimento.pacote)
+    async def test_absent_drops_over_grpc_too(self, stub_know, knowledge):
+        knowledge.BuildContextPackage.returns(
+            package_with_drops(knowledge.package)
         )
         resp = await stub_know.GetContextPackage(
             bff.GetContextPackageRequest(demand_id="dem-1"), metadata=ACCOUNT
@@ -303,11 +305,11 @@ class TestContextDrops:
 
 
 class TestTheInternalConventionDoesNotLeak:
-    """As keys `dop.*` do núcleo não atravessam para a screen.
+    """The core's `dop.*` keys do not cross to the screen.
 
-    Procuradas no body serializado INTEIRO: conferir campo a campo só pegaria
-    o vazamento que alguém lembrou de imaginar — e o próximo campo que carregar
-    meta não estaria na lista.
+    Looked for in the WHOLE serialized body: checking field by field would only
+    catch the leak somebody remembered to imagine — and the next field to carry a
+    meta would not be on the list.
     """
 
     def test_rest_promotes_body_and_scope_to_fields(self, client_know):
@@ -320,11 +322,11 @@ class TestTheInternalConventionDoesNotLeak:
         assert "dop.scope" not in r.text
         assert r.json()["scope"] == "project"
         assert r.json()["object_ref"].endswith("index/dop-api")
-        # Artefato grande não tem body inline — ele mora no storage.
+        # A large artifact has no inline body — it lives in storage.
         assert r.json()["body"] == ""
 
-    def test_rest_keeps_the_authors_meta(self, client_know, conhecimento):
-        conhecimento.ReadIndex.returns(conhecimento.regra)
+    def test_rest_keeps_the_authors_meta(self, client_know, knowledge):
+        knowledge.ReadIndex.returns(knowledge.regra)
         artefato = client_know.get(
             "/api/v1/knowledge/index?project_id=prj-1&repo=x", headers=REST_HEADERS
         ).json()
@@ -357,11 +359,11 @@ class TestREST:
         assert hits[0]["artifact"]["id"] == "art-3"
         assert hits[0]["score"] == pytest.approx(0.8203125)
 
-    def test_an_absent_score_is_null_not_zero(self, client_know, conhecimento):
-        """Score que o núcleo não mandou não vira "nenhuma semelhança"."""
-        conhecimento.SearchMemory.returns(
+    def test_an_absent_score_is_null_not_zero(self, client_know, knowledge):
+        """A score the core did not send does not become "no similarity"."""
+        knowledge.SearchMemory.returns(
             knowledge_pb2.SearchMemoryResponse(
-                artifacts=[conhecimento.memoria], scores=[]
+                artifacts=[knowledge.memoria], scores=[]
             )
         )
         hits = client_know.get(
@@ -369,11 +371,11 @@ class TestREST:
         ).json()
         assert hits[0]["score"] is None
 
-    def test_a_search_with_no_project_goes_to_the_account_scope(self, client_know, conhecimento):
+    def test_a_search_with_no_project_goes_to_the_account_scope(self, client_know, knowledge):
         client_know.get("/api/v1/knowledge/memory?q=x", headers=REST_HEADERS)
-        # Sem project o campo não é preenchido — o núcleo entende isso como
+        # With no project the field is not filled in — the core reads that as
         # memória de account. Um ProjectRef vazio seria um project de id "".
-        assert not conhecimento.SearchMemory.requests[0].HasField("project")
+        assert not knowledge.SearchMemory.requests[0].HasField("project")
 
     def test_listing_rules(self, client_know):
         regras = client_know.get(
@@ -381,8 +383,8 @@ class TestREST:
         ).json()
         assert regras == [CORPO_DA_REGRA, "sem PR sem verde"]
 
-    def test_writing_carries_an_idempotency_key(self, client_know, conhecimento):
-        """Sem key, o retry do channel vira versão nova em silêncio."""
+    def test_writing_carries_an_idempotency_key(self, client_know, knowledge):
+        """With no key, the channel's retry silently becomes a new version."""
         r = client_know.post(
             "/api/v1/knowledge/artifacts",
             headers=REST_HEADERS,
@@ -394,7 +396,7 @@ class TestREST:
             },
         )
         assert r.status_code == 201
-        request = conhecimento.PutArtifact.requests[0]
+        request = knowledge.PutArtifact.requests[0]
         assert request.idempotency_key != ""
         assert request.content == CORPO_DA_REGRA.encode()
         assert request.artifact.kind == knowledge_pb2.KnowledgeArtifact.KIND_RULE
@@ -412,12 +414,12 @@ class TestREST:
         r = client_know.post(
             "/api/v1/knowledge/artifacts",
             headers=REST_HEADERS,
-            json={"kind": "memory", "name": "x", "content_base64": "não é base64!"},
+            json={"kind": "memory", "name": "x", "content_base64": "not base64!"},
         )
         assert r.status_code == 422
 
     def test_with_no_active_account_it_is_refused(self, client_know):
-        """Regra do SP-0, aplicada pelo decorator no CASO DE USO."""
+        """SP-0's rule, applied by the decorator in the USE CASE."""
         r = client_know.get(
             "/api/v1/knowledge/rules?project_id=prj-1",
             headers={"authorization": token_for()},
@@ -440,10 +442,10 @@ class TestGRPC:
         assert resp.hits[0].artifact.id == "art-3"
         assert resp.hits[0].HasField("score")
 
-    async def test_an_absent_score_stays_absent(self, stub_know, conhecimento):
-        conhecimento.SearchMemory.returns(
+    async def test_an_absent_score_stays_absent(self, stub_know, knowledge):
+        knowledge.SearchMemory.returns(
             knowledge_pb2.SearchMemoryResponse(
-                artifacts=[conhecimento.memoria], scores=[]
+                artifacts=[knowledge.memoria], scores=[]
             )
         )
         resp = await stub_know.SearchMemory(
@@ -451,18 +453,18 @@ class TestGRPC:
         )
         assert not resp.hits[0].HasField("score")
 
-    async def test_the_client_sends_its_own_idempotency_key(self, stub_know, conhecimento):
+    async def test_the_client_sends_its_own_idempotency_key(self, stub_know, knowledge):
         await stub_know.PutArtifact(
             bff.PutArtifactRequest(
                 kind=bff.KNOWLEDGE_KIND_MEMORY,
-                name="lição",
+                name="lesson",
                 project_id="prj-1",
                 content=b"o timeout era do proxy",
                 idempotency_key="key-do-client",
             ),
             metadata=ACCOUNT,
         )
-        assert conhecimento.PutArtifact.requests[0].idempotency_key == "key-do-client"
+        assert knowledge.PutArtifact.requests[0].idempotency_key == "key-do-client"
 
     async def test_with_no_token(self, stub_know):
         with pytest.raises(grpc.aio.AioRpcError) as e:
@@ -471,17 +473,17 @@ class TestGRPC:
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_an_invalid_kind_is_invalid_argument(self, stub_know, conhecimento):
+    async def test_an_invalid_kind_is_invalid_argument(self, stub_know, knowledge):
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_know.PutArtifact(
                 bff.PutArtifactRequest(name="x", content=b"y"), metadata=ACCOUNT
             )
         assert e.value.code() == grpc.StatusCode.INVALID_ARGUMENT
-        assert conhecimento.PutArtifact.calls == []
+        assert knowledge.PutArtifact.calls == []
 
 
 class TestParityBetweenTransports:
-    """O alarme que dispara se alguém reimplementar o caso de uso num adaptador."""
+    """The alarm that fires if anybody reimplements the use case in an adapter."""
 
     async def test_the_package_is_the_same_on_both_ports(self, client_know, stub_know):
         rest = client_know.get(
@@ -493,8 +495,8 @@ class TestParityBetweenTransports:
         assert resp.demand_id == rest["demand_id"]
         assert list(resp.rules) == rest["rules"]
         assert resp.estimated_tokens == rest["estimated_tokens"]
-        # Ausência do descarte é a MESMA nas duas portas: null no JSON, campo
-        # não preenchido no protobuf.
+        # The absence of drops is the SAME on both ports: null in the JSON, an
+        # unfilled field in the protobuf.
         assert resp.HasField("dropped") is (rest["dropped"] is not None)
         for g, j in zip(resp.memories, rest["memories"], strict=True):
             assert g.id == j["id"]
