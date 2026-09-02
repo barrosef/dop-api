@@ -42,7 +42,7 @@ class TestTheAuthorizationResolver:
         """Asking for an account you are not a member of is not a 404: it is a 403."""
         core.ListAccounts.returns(
             identity_pb2.ListAccountsResponse(
-                accounts=[identity_pb2.Account(id="acct-de-outro")]
+                accounts=[identity_pb2.Account(id="acct-of-another")]
             )
         )
         r = client.get("/api/v1/me", headers=ACCOUNT)
@@ -82,7 +82,7 @@ class TestContextPropagation:
         assert md["x-account-id"] == "acct-1"
         assert md["x-actor-id"] == "u-1"
         assert md["x-actor-kind"] == "user"
-        assert md["x-request-id"] == "trace-1"  # mesmo rastro do BFF ao core
+        assert md["x-request-id"] == "trace-1"  # the same trail from the BFF to the core
 
     def test_the_call_context_goes_in_the_requests_body(self, client, core):
         client.get("/api/v1/accounts/current/members", headers=ACCOUNT)
@@ -206,7 +206,7 @@ class TestWrites:
             "/api/v1/invites",
             headers=ACCOUNT,
             json={
-                "email": "novo@dop.local",
+                "email": "new@dop.local",
                 "role": "developer",
                 "grants": [{"resource_id": "res-1", "level": "use"}],
             },

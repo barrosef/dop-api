@@ -26,13 +26,13 @@ class TestREST:
     def test_a_project_with_no_board_comes_back_null_not_zeroed(self, client_hier):
         """Absent and zeroed are different things.
 
-        Um vínculo zerado faria o cockpit desenhar 'board configurado' com
+        A zeroed link would make the cockpit draw 'a board is configured' with
         empty fields, when the truth is that there is no board at all.
         """
-        nos = client_hier.get("/api/v1/tree", headers=REST_HEADERS).json()
-        com, sem = nos[0]["projects"]
-        assert com["task_manager"]["external_space_id"] == "sp-901"
-        assert sem["task_manager"] is None
+        nodes = client_hier.get("/api/v1/tree", headers=REST_HEADERS).json()
+        with_board, without_board = nodes[0]["projects"]
+        assert with_board["task_manager"]["external_space_id"] == "sp-901"
+        assert without_board["task_manager"] is None
 
     def test_creating_a_workspace_requires_a_role(self, client_hier, core):
         """A developer does not reorganize the account."""
@@ -75,9 +75,9 @@ class TestGRPC:
 
     async def test_a_project_with_no_board_has_no_field(self, stub_hier):
         resp = await stub_hier.GetTree(bff.GetTreeRequest(), metadata=ACCOUNT)
-        com, sem = resp.nodes[0].projects
-        assert com.HasField("task_manager")
-        assert not sem.HasField("task_manager")
+        with_board, without_board = resp.nodes[0].projects
+        assert with_board.HasField("task_manager")
+        assert not without_board.HasField("task_manager")
 
     async def test_with_no_token_it_is_unauthenticated(self, stub_hier):
         import grpc

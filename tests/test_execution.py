@@ -61,10 +61,10 @@ def viewer_role(core) -> None:
     )
 
 
-# ── núcleo fake ────────────────────────────────────────────────────────────
+# ── a fake core ────────────────────────────────────────────────────────────
 
 
-class ExecucaoFalsa:
+class FakeExecution:
     """Núcleo fake do substrato.
 
     The ACTIVE sandbox has `last_active_at`; the freshly provisioned one does
@@ -110,18 +110,17 @@ class ExecucaoFalsa:
 
 
 @pytest.fixture
-def execucao(core, monkeypatch):
-    fake = ExecucaoFalsa()
+def execution(core, monkeypatch):
+    fake = FakeExecution()
     monkeypatch.setattr(stubs, "execution_stub", lambda: fake)
     return fake
 
 
-def _app_com_rotas():
-    """O app real do BFF, com as rotas deste domínio registradas.
+def _app_with_routes():
+    """The BFF's real app, with this domain's routes registered.
 
     `app/main.py` belongs to the repository's owner and does not include this
-    router yet (see the
-    relatório). A checagem antes de incluir faz o teste continuar correto
+    router yet (see the report). Checking before including keeps the test correct
     once the registration lands in `main`.
     """
     app = create_app()
@@ -132,14 +131,14 @@ def _app_com_rotas():
 
 
 @pytest.fixture
-def client_exec(execucao):
-    with TestClient(_app_com_rotas()) as c:
+def client_exec(execution):
+    with TestClient(_app_with_routes()) as c:
         yield c
 
 
 @pytest.fixture
-async def stub_exec(execucao):
-    """Servidor gRPC real, em porta efêmera, com o servicer deste domínio.
+async def stub_exec(execution):
+    """A real gRPC server, on an ephemeral port, with this domain's servicer.
 
     It does not reuse conftest's `grpc_server` because `GrpcServer` does not
     register this servicer yet (the registration is the repository owner's). The
@@ -168,49 +167,49 @@ async def stub_exec(execucao):
 
 
 class TestIsolationIsDeclaredNeverPresumed:
-    def test_rest_with_no_tier_is_a_422_and_the_core_is_not_called(self, client_exec, execucao):
+    def test_rest_with_no_tier_is_a_422_and_the_core_is_not_called(self, client_exec, execution):
         """The refusal is the behaviour; NOT calling the core is the proof.
 
-        Se a borda tivesse um default, o núcleo seria chamado com ele e este
-        test would start showing a call — which is exactly the symptom nobody
-        would notice in a review.
+        If the edge had a default, the core would be called with it and this test
+        would start showing a call — which is exactly the symptom nobody would
+        notice in a review.
         """
         r = client_exec.post(
             "/api/v1/sandboxes", headers=REST_HEADERS, json={"demand_id": "dem-1"}
         )
         assert r.status_code == 422
-        assert execucao.ProvisionSandbox.calls == []
+        assert execution.ProvisionSandbox.calls == []
 
-    def test_rest_with_an_unknown_tier_is_a_422(self, client_exec, execucao):
+    def test_rest_with_an_unknown_tier_is_a_422(self, client_exec, execution):
         r = client_exec.post(
             "/api/v1/sandboxes",
             headers=REST_HEADERS,
             json={"demand_id": "dem-1", "min_tier": "microvm"},
         )
         assert r.status_code == 422
-        assert execucao.ProvisionSandbox.calls == []
+        assert execution.ProvisionSandbox.calls == []
 
-    async def test_grpc_unspecified_is_invalid_argument(self, stub_exec, execucao):
+    async def test_grpc_unspecified_is_invalid_argument(self, stub_exec, execution):
         """UNSPECIFIED in protobuf is the absence, and the absence does not become a default."""
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_exec.ProvisionSandbox(
                 bff.ProvisionSandboxRequest(demand_id="dem-1"), metadata=ACCOUNT
             )
         assert e.value.code() == grpc.StatusCode.INVALID_ARGUMENT
-        assert execucao.ProvisionSandbox.calls == []
+        assert execution.ProvisionSandbox.calls == []
 
-    def test_the_declared_tier_goes_down_as_it_came(self, client_exec, execucao):
+    def test_the_declared_tier_goes_down_as_it_came(self, client_exec, execution):
         """Neither downgraded "because the cluster may not have it", nor promoted."""
         client_exec.post(
             "/api/v1/sandboxes",
             headers=REST_HEADERS,
             json={"demand_id": "dem-1", "min_tier": "hardware"},
         )
-        request = execucao.ProvisionSandbox.requests[0]
+        request = execution.ProvisionSandbox.requests[0]
         assert request.min_tier == execution_pb2.ISOLATION_TIER_HARDWARE
         assert request.idempotency_key != ""
 
-    async def test_the_declared_tier_goes_down_as_it_came_over_grpc(self, stub_exec, execucao):
+    async def test_the_declared_tier_goes_down_as_it_came_over_grpc(self, stub_exec, execution):
         await stub_exec.ProvisionSandbox(
             bff.ProvisionSandboxRequest(
                 demand_id="dem-1",
@@ -219,7 +218,7 @@ class TestIsolationIsDeclaredNeverPresumed:
             ),
             metadata=ACCOUNT,
         )
-        request = execucao.ProvisionSandbox.requests[0]
+        request = execution.ProvisionSandbox.requests[0]
         assert request.min_tier == execution_pb2.ISOLATION_TIER_KERNEL_EMULATED
         assert request.idempotency_key == "key-do-client"
 
@@ -232,9 +231,9 @@ class TestIsolationIsDeclaredNeverPresumed:
         ).json()
         assert s["tier"] == "hardware"
 
-    def test_the_cores_refusal_crosses_as_a_412(self, client_exec, execucao):
+    def test_the_cores_refusal_crosses_as_a_412(self, client_exec, execution):
         """A substrate without the requested level = a refusal with a message, not degradation."""
-        execucao.ProvisionSandbox.fails_with(
+        execution.ProvisionSandbox.fails_with(
             grpc.StatusCode.FAILED_PRECONDITION,
             "this substrate does not offer \"hardware\" isolation",
         )
@@ -260,7 +259,7 @@ class TestDestruction:
         )
         assert resp.destroyed is True
 
-    def test_suspending_and_destroying_are_different_rpcs(self, client_exec, execucao):
+    def test_suspending_and_destroying_are_different_rpcs(self, client_exec, execution):
         """Suspender preserva o workspace; destruir o leva junto.
 
         The test exists to lock down the most expensive confusion possible in
@@ -268,15 +267,15 @@ class TestDestruction:
         destroyed) would pass any test that only looked at the status code.
         """
         client_exec.post("/api/v1/sandboxes/sbx-1/suspend", headers=REST_HEADERS)
-        assert len(execucao.SuspendSandbox.calls) == 1
-        assert execucao.DestroySandbox.calls == []
+        assert len(execution.SuspendSandbox.calls) == 1
+        assert execution.DestroySandbox.calls == []
 
         client_exec.delete("/api/v1/sandboxes/sbx-1", headers=REST_HEADERS)
-        assert len(execucao.DestroySandbox.calls) == 1
-        assert len(execucao.SuspendSandbox.calls) == 1
+        assert len(execution.DestroySandbox.calls) == 1
+        assert len(execution.SuspendSandbox.calls) == 1
 
-    def test_resuming_a_destroyed_sandbox_crosses_with_the_reason(self, client_exec, execucao):
-        execucao.ResumeSandbox.fails_with(
+    def test_resuming_a_destroyed_sandbox_crosses_with_the_reason(self, client_exec, execution):
+        execution.ResumeSandbox.fails_with(
             grpc.StatusCode.FAILED_PRECONDITION,
             "a destroyed sandbox does not resume — the destruction takes the workspace with it",
         )
@@ -288,7 +287,7 @@ class TestDestruction:
 
 
 class TestRole:
-    def test_a_viewer_does_not_provision(self, client_exec, core, execucao):
+    def test_a_viewer_does_not_provision(self, client_exec, core, execution):
         viewer_role(core)
         r = client_exec.post(
             "/api/v1/sandboxes",
@@ -296,13 +295,13 @@ class TestRole:
             json={"demand_id": "dem-1", "min_tier": "namespace"},
         )
         assert r.status_code == 403
-        assert execucao.ProvisionSandbox.calls == []
+        assert execution.ProvisionSandbox.calls == []
 
-    def test_a_viewer_does_not_destroy(self, client_exec, core, execucao):
+    def test_a_viewer_does_not_destroy(self, client_exec, core, execution):
         viewer_role(core)
         r = client_exec.delete("/api/v1/sandboxes/sbx-1", headers=REST_HEADERS)
         assert r.status_code == 403
-        assert execucao.DestroySandbox.calls == []
+        assert execution.DestroySandbox.calls == []
 
     def test_a_viewer_sees_the_sandbox(self, client_exec, core):
         """Seeing which isolation the demand runs at is what the spec wants visible."""
@@ -339,9 +338,9 @@ class TestREST:
         assert s["namespace"] == "dop-dem1"
         assert s["endpoints"][0]["state"] == "running"
 
-    def test_with_no_activity_it_comes_back_null_not_zeroed(self, client_exec, execucao):
+    def test_with_no_activity_it_comes_back_null_not_zeroed(self, client_exec, execution):
         """Epoch zero would make the automatic suspension read "idle since 1970"."""
-        execucao.DescribeSandbox.returns(execucao.recem_criado)
+        execution.DescribeSandbox.returns(execution.recem_criado)
         s = client_exec.get(
             "/api/v1/sandboxes/sbx-2", headers=REST_HEADERS
         ).json()
@@ -364,15 +363,15 @@ class TestGRPC:
             )
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
-    async def test_with_no_activity_it_stays_absent(self, stub_exec, execucao):
-        execucao.DescribeSandbox.returns(execucao.recem_criado)
+    async def test_with_no_activity_it_stays_absent(self, stub_exec, execution):
+        execution.DescribeSandbox.returns(execution.recem_criado)
         resp = await stub_exec.DescribeSandbox(
             bff.DescribeSandboxRequest(id="sbx-2"), metadata=ACCOUNT
         )
         assert not resp.HasField("last_active_at")
 
-    async def test_a_5xx_detail_from_the_core_does_not_leak(self, stub_exec, execucao):
-        execucao.DescribeSandbox.fails_with(
+    async def test_a_5xx_detail_from_the_core_does_not_leak(self, stub_exec, execution):
+        execution.DescribeSandbox.fails_with(
             grpc.StatusCode.INTERNAL, "pq://user:senha@db:5432 caiu"
         )
         with pytest.raises(grpc.aio.AioRpcError) as e:
@@ -396,7 +395,7 @@ class TestParityBetweenTransports:
         assert resp.id == rest["id"]
         assert resp.demand_id == rest["demand_id"]
         assert resp.namespace == rest["namespace"]
-        # O enum da borda e o name da borda dizem a MESMA coisa sobre o tier —
+        # The edge's enum and the edge's name say the SAME thing about the tier —
         # this is where a divergent conversion table would show up.
         assert bff.IsolationTier.Name(resp.tier) == f"ISOLATION_TIER_{rest['tier'].upper()}"
         assert bff.Sandbox.State.Name(resp.state) == f"STATE_{rest['state'].upper()}"

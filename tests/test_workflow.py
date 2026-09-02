@@ -66,7 +66,7 @@ def _flow(**fields) -> workflow_pb2.Flow:
     return f
 
 
-class FluxosFalsos:
+class FakeFlows:
     """The flow's fake core. It records the request and returns what it is told to."""
 
     def __init__(self):
@@ -79,14 +79,14 @@ class FluxosFalsos:
         self.ValidateFlow = FakeCall(
             workflow_pb2.ValidateFlowResponse(
                 valid=False,
-                errors=["etapa 'spec' repetida"],
-                warnings=["flow sem etapa de teste"],
+                errors=["stage 'spec' repeated"],
+                warnings=["a flow with no test stage"],
             )
         )
-        self.ResolveFlow = FakeCall(self.efetivo())
+        self.ResolveFlow = FakeCall(self.effective())
 
-    def efetivo(self, **fields) -> workflow_pb2.EffectiveFlow:
-        """O flow efetivo como o núcleo o returns: fields E frase.
+    def effective(self, **fields) -> workflow_pb2.EffectiveFlow:
+        """The effective flow as the core returns it: the fields AND the sentence.
 
         Both together because that is how it answers — and it is the only way
         for the test to prove the edge reads the FIELDS: if the double sent only
@@ -109,18 +109,17 @@ class FluxosFalsos:
 
 @pytest.fixture
 def flows(core, monkeypatch):
-    fake = FluxosFalsos()
+    fake = FakeFlows()
     monkeypatch.setattr(stubs, "workflow_stub", lambda: fake)
     return fake
 
 
-def _app_com_rotas():
-    """O app com as rotas de flow.
+def _app_with_routes():
+    """The app with the flow routes.
 
     `app/main.py` is not this agent's: until the registration lands there, the
-    test
-    monta o app e acrescenta o router. O `if` deixa o teste continuar válido
-    depois do registro, sem rota duplicada.
+    test assembles the app and adds the router. The `if` keeps the test valid
+    after the registration, with no duplicated route.
     """
     app = create_app()
     if not any(getattr(r, "path", "") == "/api/v1/flows" for r in app.routes):
@@ -130,14 +129,14 @@ def _app_com_rotas():
 
 @pytest.fixture
 def client_flow(flows):
-    with TestClient(_app_com_rotas()) as c:
+    with TestClient(_app_with_routes()) as c:
         yield c
 
 
 @pytest.fixture
 async def stub_flow(flows):
-    """Servidor gRPC real, em porta efêmera, com os MESMOS interceptores da
-    production port. Its own because `app/grpcapi/server.py` does not register
+    """A real gRPC server, on an ephemeral port, with the SAME interceptors as
+    the production port. Its own because `app/grpcapi/server.py` does not register
     this servicer yet, and that file is not this agent's."""
     server = grpc.aio.server(
         interceptors=(
@@ -188,7 +187,7 @@ class TestProvenance:
         sentence, this is where it breaks.
         """
         flows.ResolveFlow.returns(
-            flows.efetivo(resolved_from="resolved from account, then platform")
+            flows.effective(resolved_from="resolved from account, then platform")
         )
         p = client_flow.get(
             "/api/v1/flows/effective?scope=project", headers=REST_HEADERS
@@ -202,8 +201,8 @@ class TestProvenance:
         assert p["sentence"] == "resolved from account, then platform"
 
     def test_the_original_sentence_is_not_lost(self, client_flow):
-        """Quem só quer imprimir continua imprimindo — e quem desconfiar da
-        structured reading has something to be checked against."""
+        """Whoever only wants to print keeps printing — and whoever distrusts the
+        structured reading has something to check it against."""
         eff = client_flow.get(
             "/api/v1/flows/effective?scope=project", headers=REST_HEADERS
         ).json()
@@ -218,7 +217,7 @@ class TestProvenance:
         from even in the case the core did not think worth writing out.
         """
         flows.ResolveFlow.returns(
-            flows.efetivo(
+            flows.effective(
                 resolved_from="project",
                 contributors=[workflow_pb2.ScopeRef(scope="project", id="prj-1")],
                 origins=[
@@ -239,13 +238,13 @@ class TestProvenance:
 
         It used to be deduced from the "…" with which the core cuts the sentence
         at 12 stages. The cut is of the sentence; the structured list comes
-        whole. Measuring
-        mantém o campo correto se o núcleo passar a cortar a lista também — e
+        whole. Measuring keeps the field correct if the core starts cutting the
+        list too — and
         what it promises the client is the same: there is a stage whose origin
         nobody can report, which is different from it having no origin.
         """
         flows.ResolveFlow.returns(
-            flows.efetivo(
+            flows.effective(
                 origins=[workflow_pb2.StageOrigin(key="context", scope="platform")]
             )
         )
@@ -283,11 +282,11 @@ class TestREST:
         )
         assert r.status_code == 200
         assert r.json()["valid"] is False
-        assert r.json()["warnings"] == ["flow sem etapa de teste"]
+        assert r.json()["warnings"] == ["a flow with no test stage"]
 
     def test_effective_is_not_captured_as_a_flow_id(self, client_flow, flows):
-        """A rota /flows/effective vem antes de /flows/{id} — se a ordem
-        inverter, este teste cai."""
+        """The /flows/effective route comes before /flows/{id} — if the order is
+        inverted, this test falls."""
         client_flow.get("/api/v1/flows/effective?scope=account", headers=REST_HEADERS)
         assert flows.ResolveFlow.calls
         assert not flows.GetFlow.calls
@@ -297,7 +296,7 @@ class TestREST:
             "/api/v1/flows",
             headers=REST_HEADERS,
             json={
-                "name": "novo",
+                "name": "new",
                 "owner_scope": "project",
                 "owner_id": "prj-1",
                 "stages": [{"key": "spec", "type": "spec", "gate": "human"}],
@@ -315,7 +314,7 @@ class TestREST:
         r = client_flow.post(
             "/api/v1/flows",
             headers=REST_HEADERS,
-            json={"name": "novo", "owner_scope": "project", "owner_id": "prj-1"},
+            json={"name": "new", "owner_scope": "project", "owner_id": "prj-1"},
         )
         assert r.status_code == 201
 
@@ -398,7 +397,7 @@ class TestParityBetweenTransports:
             s["key"] for s in rest["flow"]["stages"]
         ]
         # The provenance is what the edge builds — if an adapter rebuilt it,
-        # a diferença apareceria aqui.
+        # the difference would show up here.
         p_grpc, p_rest = grpc_resp.provenance, rest["provenance"]
         assert list(p_grpc.contributors) == p_rest["contributors"]
         assert [(o.stage_key, o.scope) for o in p_grpc.origins] == [

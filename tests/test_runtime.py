@@ -39,7 +39,7 @@ class AgenteFalso:
                     model="claude-sonnet",
                     effort="medium",
                     effort_applied="medium",
-                    reason="ADR-0011 §3 (rascunho — calibrar com telemetria, P-7): forense",
+                    reason="ADR-0011 §3 (a draft — calibrate with telemetry, P-7): forensics",
                 ),
                 reply="The slowness comes from the missing index.",
                 message_ids=["m-1", "m-2"],
@@ -54,26 +54,26 @@ class AgenteFalso:
 
 
 @pytest.fixture
-def agente(core, monkeypatch):
+def agent(core, monkeypatch):
     fake = AgenteFalso()
     monkeypatch.setattr(stubs, "agent_stub", lambda: fake)
     return fake
 
 
 @pytest.fixture
-def client_rt(agente):
+def client_rt(agent):
     with TestClient(create_app()) as c:
         yield c
 
 
 @pytest.fixture
-async def stub_rt(grpc_server, agente):
+async def stub_rt(grpc_server, agent):
     async with grpc.aio.insecure_channel(f"127.0.0.1:{grpc_server.port}") as channel:
         yield bff_runtime_grpc.RuntimeServiceStub(channel)
 
 
 class TestTranslation:
-    def test_the_turn_reaches_the_core(self, client_rt, agente):
+    def test_the_turn_reaches_the_core(self, client_rt, agent):
         r = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
             headers={**HEADERS, "Idempotency-Key": "minha-key"},
@@ -81,9 +81,9 @@ class TestTranslation:
         )
         assert r.status_code == 200
         assert r.json()["reply"].startswith("The slowness")
-        assert agente.RunTurn.requests[0].demand_id == "dem-1"
+        assert agent.RunTurn.requests[0].demand_id == "dem-1"
 
-    def test_the_edge_does_not_invent_an_idempotency_key(self, client_rt, agente):
+    def test_the_edge_does_not_invent_an_idempotency_key(self, client_rt, agent):
         """Turno gasta dinheiro.
 
         On every other write the edge generates the key, because it protects
@@ -94,14 +94,14 @@ class TestTranslation:
         client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
             headers=HEADERS,
-            json={"text": "oi"},
+            json={"text": "hi"},
         )
-        assert agente.RunTurn.requests[0].idempotency_key == ""
+        assert agent.RunTurn.requests[0].idempotency_key == ""
 
     def test_a_truncated_context_crosses(self, client_rt):
         r = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
-            headers=HEADERS, json={"text": "oi"},
+            headers=HEADERS, json={"text": "hi"},
         )
         assert r.json()["context_truncated"] is True
 
@@ -109,7 +109,7 @@ class TestTranslation:
         """A zero with `cache_creation_known=false` is "I do not know", not "there was none"."""
         u = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
-            headers=HEADERS, json={"text": "oi"},
+            headers=HEADERS, json={"text": "hi"},
         ).json()["usage"]
         assert u["cache_creation_tokens"] == 0
         assert u["cache_creation_known"] is False
@@ -118,17 +118,17 @@ class TestTranslation:
         """It is the only auditable part of the decision (ADR-0011 §3)."""
         r = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
-            headers=HEADERS, json={"text": "oi"},
+            headers=HEADERS, json={"text": "hi"},
         )
         assert "ADR-0011 §3" in r.json()["routing"]["reason"]
 
-    def test_the_turns_deadline_is_longer_than_the_normal_one(self, client_rt, agente):
-        """Turno leva minutos; o prazo normal do núcleo derrubaria todos."""
+    def test_the_turns_deadline_is_longer_than_the_normal_one(self, client_rt, agent):
+        """A turn takes minutes; the core's normal deadline would drop them all."""
         client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
-            headers=HEADERS, json={"text": "oi"},
+            headers=HEADERS, json={"text": "hi"},
         )
-        assert agente.RunTurn.calls[0]["timeout"] > 60
+        assert agent.RunTurn.calls[0]["timeout"] > 60
 
 
 class TestGRPC:

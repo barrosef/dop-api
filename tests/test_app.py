@@ -22,7 +22,7 @@ def test_a_protected_route_refuses_with_no_token():
 
 
 def test_the_request_id_comes_back_in_the_header():
-    """Rastro entre serviços: o mesmo id aparece no log do BFF e do core."""
+    """A trail between services: the same id appears in the BFF's and the core's log."""
     with TestClient(create_app()) as client:
         r = client.get("/healthz", headers={"x-request-id": "trace-abc-123"})
         assert r.headers["x-request-id"] == "trace-abc-123"
@@ -35,7 +35,7 @@ def test_the_request_id_is_generated_when_absent():
 
 
 def test_the_log_goes_out_as_valid_json(capsys):
-    """As duas pontas escrevem JSON com os mesmos campos canônicos."""
+    """Both ends write JSON with the same canonical fields."""
     with TestClient(create_app()) as client:
         client.get("/healthz")
     lines = [

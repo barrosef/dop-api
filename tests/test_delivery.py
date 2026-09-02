@@ -83,7 +83,7 @@ class EntregasFalsas:
             state=delivery_pb2.MergeQueueEntry.STATE_QUEUED,
             overlapping_files=["app/main.py"],
         )
-        diretriz = delivery_pb2.Directive(
+        directive = delivery_pb2.Directive(
             id="dir-1",
             project=common_pb2.ProjectRef(id="prj-1"),
             kind=delivery_pb2.Directive.KIND_CHERRY_PICK,
@@ -91,9 +91,9 @@ class EntregasFalsas:
                 kind=common_pb2.ActorRef.KIND_USER, id="u-1", name="Dev"
             ),
         )
-        diretriz.payload.update({"de": "dem-0", "para": "dem-1"})
+        directive.payload.update({"from": "dem-0", "to": "dem-1"})
 
-        self.pr, self.entry, self.diretriz = pr, entry, diretriz
+        self.pr, self.entry, self.directive = pr, entry, directive
         self.ListPullRequests = FakeCall(
             delivery_pb2.ListPullRequestsResponse(pull_requests=[pr])
         )
@@ -102,9 +102,9 @@ class EntregasFalsas:
         )
         self.EnqueueMerge = FakeCall(entry)
         self.ListDirectives = FakeCall(
-            delivery_pb2.ListDirectivesResponse(directives=[diretriz])
+            delivery_pb2.ListDirectivesResponse(directives=[directive])
         )
-        self.DecideDirective = FakeCall(diretriz)
+        self.DecideDirective = FakeCall(directive)
 
     def sem_verde(self) -> None:
         """The core refuses the entry into the queue, listing what is missing."""
@@ -118,13 +118,12 @@ def deliveries(core, monkeypatch):
     return fake
 
 
-def _app_com_rotas():
-    """O app com as rotas de entrega.
+def _app_with_routes():
+    """The app with the delivery routes.
 
     `app/main.py` is not this agent's: until the registration lands there, the
-    test
-    monta o app e acrescenta o router. O `if` deixa o teste continuar válido
-    depois do registro, sem rota duplicada.
+    test assembles the app and adds the router. The `if` keeps the test valid
+    after the registration, with no duplicated route.
     """
     app = create_app()
     if not any(getattr(r, "path", "") == "/api/v1/delivery/board" for r in app.routes):
@@ -134,14 +133,14 @@ def _app_com_rotas():
 
 @pytest.fixture
 def client_del(deliveries):
-    with TestClient(_app_com_rotas()) as c:
+    with TestClient(_app_with_routes()) as c:
         yield c
 
 
 @pytest.fixture
 async def stub_ent(deliveries):
-    """Servidor gRPC real, em porta efêmera, com os MESMOS interceptores da
-    production port. Its own because `app/grpcapi/server.py` does not register
+    """A real gRPC server, on an ephemeral port, with the SAME interceptors as
+    the production port. Its own because `app/grpcapi/server.py` does not register
     this servicer yet, and that file is not this agent's."""
     server = grpc.aio.server(
         interceptors=(
@@ -198,7 +197,7 @@ class TestWithoutGreen:
         reason and nothing else. A one-item list repeating the reason would be
         noise."""
         deliveries.EnqueueMerge.fails_with(
-            grpc.StatusCode.FAILED_PRECONDITION, "o PR da demand dem-1 já foi mergeado"
+            grpc.StatusCode.FAILED_PRECONDITION, "the PR of demand dem-1 has already been merged"
         )
         r = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
@@ -207,13 +206,13 @@ class TestWithoutGreen:
         )
         assert r.status_code == 412
         assert r.json()["detail"] == {
-            "reason": "o PR da demand dem-1 já foi mergeado",
+            "reason": "the PR of demand dem-1 has already been merged",
             "missing": [],
         }
 
     def test_another_core_error_does_not_become_a_refusal(self, client_del, deliveries):
-        """Um `except` largo transformaria NOT_FOUND em 'falta verde' — e o dev
-        would look for a test run for a repository that does not exist."""
+        """A broad `except` would turn NOT_FOUND into 'green is missing' — and the
+        dev would look for a test run for a repository that does not exist."""
         deliveries.EnqueueMerge.fails_with(grpc.StatusCode.NOT_FOUND, "repository not found")
         r = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
@@ -224,9 +223,8 @@ class TestWithoutGreen:
 
     def test_a_5xx_detail_from_the_core_does_not_leak(self, client_del, deliveries):
         """Diverting the error from the normal path must not divert the writer: a
-        failure
-        interna do núcleo pode carregar host, query ou credencial."""
-        deliveries.EnqueueMerge.fails_with(grpc.StatusCode.INTERNAL, "dsn=postgres://user:senha@db")
+        internal failure of the core may carry a host, a query or a credential."""
+        deliveries.EnqueueMerge.fails_with(grpc.StatusCode.INTERNAL, "dsn=postgres://user:password@db")
         r = client_del.post(
             "/api/v1/repos/repo-1/merge-queue",
             headers=REST_HEADERS,
@@ -293,7 +291,7 @@ class TestREST:
         d = client_del.get(
             "/api/v1/directives?project_id=prj-1", headers=REST_HEADERS
         ).json()
-        assert d[0]["payload"] == {"de": "dem-0", "para": "dem-1"}
+        assert d[0]["payload"] == {"from": "dem-0", "to": "dem-1"}
         assert d[0]["decided_by_name"] == "Dev"
 
     def test_a_viewer_does_not_push_the_queue(self, client_del, core):

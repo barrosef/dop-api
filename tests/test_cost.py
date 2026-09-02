@@ -53,18 +53,18 @@ REASON = (
     "you do not save on the critic — it is the brake (ADR-0007); saving on the "
     "brake returns the cost as a rejected PR, the most expensive rework in the flow"
 )
-JUSTIFICATIVA = f"{PROVENANCE}: {REASON}"
+JUSTIFICATION = f"{PROVENANCE}: {REASON}"
 
 
-# ── núcleo fake ────────────────────────────────────────────────────────────
+# ── a fake core ────────────────────────────────────────────────────────────
 
 
-class OrcamentoPorEscopo(FakeCall):
+class BudgetPerScope(FakeCall):
     """A `GetBudget` that answers ACCORDING to the requested scope — as the core does.
 
     A double that always returned the same budget would let through an edge
     asking twice for the SAME scope: the attention box would show the
-    teto da demand duas vezes e o da account nenhuma.
+    demand's ceiling twice and the account's none.
     """
 
     def __init__(self, by_scope: dict[str, cost_pb2.Budget]):
@@ -117,7 +117,7 @@ class CustoFalso:
                 task_kind="critic",
                 model="claude-opus",
                 effort="max",
-                reason=JUSTIFICATIVA,
+                reason=JUSTIFICATION,
             )
         )
         self.GetBudget = FakeCall(self.budget)
@@ -138,7 +138,7 @@ class CustoFalso:
         self.RecordUsage.returns(
             cost_pb2.RecordUsageResponse(recorded=True, budget_exceeded=True)
         )
-        self.GetBudget = OrcamentoPorEscopo(
+        self.GetBudget = BudgetPerScope(
             {
                 "demand": cost_pb2.Budget(
                     scope="demand",
@@ -172,12 +172,11 @@ def cost(core, monkeypatch):
     return fake
 
 
-def _app_com_rotas():
-    """O app real do BFF, com as rotas deste domínio registradas.
+def _app_with_routes():
+    """The BFF's real app, with this domain's routes registered.
 
     `app/main.py` belongs to the repository's owner and does not include this
-    router yet (see the
-    relatório). A checagem antes de incluir faz o teste continuar correto
+    router yet (see the report). Checking before including keeps the test correct
     once the registration lands in `main`.
     """
     app = create_app()
@@ -189,13 +188,13 @@ def _app_com_rotas():
 
 @pytest.fixture
 def client_cost(cost):
-    with TestClient(_app_com_rotas()) as c:
+    with TestClient(_app_with_routes()) as c:
         yield c
 
 
 @pytest.fixture
 async def stub_cost(cost):
-    """Servidor gRPC real, em porta efêmera, com o servicer deste domínio.
+    """A real gRPC server, on an ephemeral port, with this domain's servicer.
 
     It does not reuse conftest's `grpc_server` because `GrpcServer` does not
     register this servicer yet (the registration is the repository owner's). The
@@ -224,7 +223,7 @@ async def stub_cost(cost):
 
 
 class TestMoneyNeverBecomesAFloat:
-    """Micros inteiros, com a moeda junto. Procurado no body inteiro."""
+    """Integer micros, with the currency alongside. Looked for in the whole body."""
 
     def test_rest_returns_exact_micros_and_no_decimal(self, client_cost):
         r = client_cost.get("/api/v1/cost/summary", headers=REST_HEADERS)
@@ -251,7 +250,7 @@ class TestMoneyNeverBecomesAFloat:
         assert COST_AS_DECIMAL.encode() not in resp.SerializeToString()
 
     def test_the_budget_currency_comes_from_the_cores_field(self, client_cost):
-        """`dop.v1.Budget.currency` existe (P-19) e a borda o LÊ.
+        """`dop.v1.Budget.currency` exists (P-19) and the edge READS it.
 
         It used to read it with `getattr`, because the field was not in the
         contract. What this test guarantees is that the currency arrives
@@ -293,8 +292,8 @@ class TestTheRoutingJustification:
         )
         assert r.status_code == 200
         # No body inteiro: nem truncada, nem escapada, nem partida em campos.
-        assert JUSTIFICATIVA in r.text
-        assert r.json()["reason"] == JUSTIFICATIVA
+        assert JUSTIFICATION in r.text
+        assert r.json()["reason"] == JUSTIFICATION
         assert r.json()["model"] == "claude-opus"
         assert r.json()["effort"] == "max"
 
@@ -310,8 +309,8 @@ class TestTheRoutingJustification:
         resp = await stub_cost.RouteModel(
             bff.RouteModelRequest(task_kind="critic"), metadata=ACCOUNT
         )
-        assert resp.reason == JUSTIFICATIVA
-        assert JUSTIFICATIVA.encode() in resp.SerializeToString()
+        assert resp.reason == JUSTIFICATION
+        assert JUSTIFICATION.encode() in resp.SerializeToString()
 
     def test_the_demand_crosses_for_the_calibration(self, client_cost, cost):
         client_cost.get(
@@ -371,7 +370,7 @@ class TestABlownBudget:
         assert "PAUSES" in resp.notice
 
     def test_recording_carries_an_idempotency_key(self, client_cost, cost):
-        """Obrigatória no núcleo: duplicata aqui viraria consumo legítimo."""
+        """Mandatory in the core: a duplicate here would become legitimate consumption."""
         client_cost.post(
             "/api/v1/cost/usage",
             headers=REST_HEADERS,

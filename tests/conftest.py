@@ -124,7 +124,7 @@ class FakeCore:
         self.CreateInvite = FakeCall(
             identity_pb2.Invite(
                 id="inv-1",
-                email="novo@dop.local",
+                email="new@dop.local",
                 role=identity_pb2.ROLE_DEVELOPER,
                 status=identity_pb2.Invite.STATUS_PENDING,
             )

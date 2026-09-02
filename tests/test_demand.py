@@ -105,7 +105,7 @@ class DemandasFalsas:
         spec.started_at.FromDatetime(datetime(2026, 8, 25, 10, 0))
         # finished_at stays ABSENT: the stage did not finish.
 
-        # Nem começou: sem início e sem fim.
+        # It has not even started: no start and no end.
         d.stages.add(
             key="implementacao",
             name="Implementation",
@@ -115,10 +115,10 @@ class DemandasFalsas:
         )
         self.demand = d
 
-        principal = demand_pb2.Thread(
-            id="th-1", demand=common_pb2.DemandRef(id="dem-1"), key="principal"
+        main = demand_pb2.Thread(
+            id="th-1", demand=common_pb2.DemandRef(id="dem-1"), key="main"
         )
-        principal.card.CopyFrom(
+        main.card.CopyFrom(
             demand_pb2.AgentCard(
                 purpose="tocar a demand",
                 tools=["mcp:mysql"],
@@ -128,13 +128,13 @@ class DemandasFalsas:
             )
         )
         # A thread with NO brief: it is the case that tells absent from zeroed.
-        sem_ficha = demand_pb2.Thread(
+        without_card = demand_pb2.Thread(
             id="th-2",
             demand=common_pb2.DemandRef(id="dem-1"),
-            key="forense-db",
+            key="db-forensics",
             blocked=True,
         )
-        self.thread, self.thread_sem_ficha = principal, sem_ficha
+        self.thread, self.thread_without_card = main, without_card
 
         self.ListDemands = FakeCall(
             demand_pb2.ListDemandsResponse(
@@ -146,9 +146,9 @@ class DemandasFalsas:
         self.AdvanceStage = FakeCall(d.stages[2])
         self.DecideGate = FakeCall(d.stages[1])
         self.ListThreads = FakeCall(
-            demand_pb2.ListThreadsResponse(threads=[principal, sem_ficha])
+            demand_pb2.ListThreadsResponse(threads=[main, without_card])
         )
-        self.CreateThread = FakeCall(principal)
+        self.CreateThread = FakeCall(main)
         self.PostMessage = FakeCall(
             demand_pb2.Message(
                 id="msg-1",
@@ -156,11 +156,11 @@ class DemandasFalsas:
                 author=common_pb2.ActorRef(
                     kind=common_pb2.ActorRef.KIND_USER, id="u-1", name="Dev"
                 ),
-                text="pode seguir",
+                text="you may proceed",
             )
         )
         finding = demand_pb2.Finding(
-            id="fnd-1", thread_id="th-2", title="índice ausente em requests"
+            id="fnd-1", thread_id="th-2", title="a missing index on requests"
         )
         finding.payload.update({"tabela": "requests", "linhas": 4200})
         self.finding = finding
@@ -179,13 +179,12 @@ def demands(core, monkeypatch):
     return fake
 
 
-def _app_com_rotas():
-    """O app com as rotas de demand.
+def _app_with_routes():
+    """The app with the demand routes.
 
     `app/main.py` is not this agent's: until the registration lands there, the
-    test
-    monta o app e acrescenta o router. O `if` deixa o teste continuar válido
-    depois do registro, sem rota duplicada.
+    test assembles the app and adds the router. The `if` keeps the test valid
+    after the registration, with no duplicated route.
     """
     app = create_app()
     if not any(getattr(r, "path", "") == "/api/v1/demands" for r in app.routes):
@@ -195,14 +194,14 @@ def _app_com_rotas():
 
 @pytest.fixture
 def client_dem(demands):
-    with TestClient(_app_com_rotas()) as c:
+    with TestClient(_app_with_routes()) as c:
         yield c
 
 
 @pytest.fixture
 async def stub_dem(demands):
-    """Servidor gRPC real, em porta efêmera, com os MESMOS interceptores da porta
-    production one — it is what proves the ContextVar survives as far as the
+    """A real gRPC server, on an ephemeral port, with the SAME interceptors as
+    the production port — it is what proves the ContextVar survives as far as the
     servicer.
 
     Its own (and not conftest's `grpc_server`) because `app/grpcapi/server.py`
@@ -233,8 +232,8 @@ class TestREST:
         assert r.status_code == 200
         body = r.json()
         assert body["demand"]["external_key"] == "SUOPT-1315"
-        assert [t["key"] for t in body["threads"]] == ["principal", "forense-db"]
-        assert [f["title"] for f in body["findings"]] == ["índice ausente em requests"]
+        assert [t["key"] for t in body["threads"]] == ["main", "db-forensics"]
+        assert [f["title"] for f in body["findings"]] == ["a missing index on requests"]
         assert body["findings"][0]["payload"] == {"tabela": "requests", "linhas": 4200}
         # THREE calls to the core, one response to the client.
         assert len(demands.GetDemand.calls) == 1
@@ -278,8 +277,8 @@ class TestREST:
     def test_a_stage_that_has_not_started_comes_back_null_not_zeroed(self, client_dem):
         """Absent and zeroed are different things.
 
-        Um início zerado viraria 1º de janeiro de 1970 na screen — e data errada
-        is worse than no date at all.
+        A zeroed start would become 1 January 1970 on the screen — and a wrong
+        date is worse than no date at all.
         """
         d = client_dem.get("/api/v1/demands/dem-1", headers=REST_HEADERS).json()
         context, spec, impl = d["stages"]
@@ -306,9 +305,9 @@ class TestREST:
         threads = client_dem.get(
             "/api/v1/demands/dem-1/threads", headers=REST_HEADERS
         ).json()
-        com, sem = threads
-        assert com["card"]["model"] == "opus"
-        assert sem["card"] is None
+        with_card, without_card = threads
+        assert with_card["card"]["model"] == "opus"
+        assert without_card["card"] is None
 
     def test_the_list_passes_on_the_next_page_token(self, client_dem):
         r = client_dem.get("/api/v1/demands", headers=REST_HEADERS)
@@ -334,8 +333,7 @@ class TestREST:
 
     def test_an_invented_stage_status_is_refused(self, client_dem):
         """The vocabulary is closed, and the refusal lives in the use case — that
-        is why
-        vale igual nas duas portas."""
+        is why it holds the same at both ports."""
         r = client_dem.post(
             "/api/v1/demands/dem-1/stages/spec/advance",
             headers=REST_HEADERS,
@@ -356,18 +354,18 @@ class TestGRPC:
             bff.GetDemandCockpitRequest(demand_id="dem-1"), metadata=ACCOUNT
         )
         assert resp.demand.external_key == "SUOPT-1315"
-        assert [t.key for t in resp.threads] == ["principal", "forense-db"]
-        assert [f.title for f in resp.findings] == ["índice ausente em requests"]
+        assert [t.key for t in resp.threads] == ["main", "db-forensics"]
+        assert [f.title for f in resp.findings] == ["a missing index on requests"]
 
     async def test_the_findings_available_field_no_longer_exists(self, stub_dem):
-        """Removido do contrato da borda, com o número 4 reservado.
+        """Removed from the edge's contract, with number 4 reserved.
 
         Reserving stops a new field from inheriting the flag's number and being
-        lido por um client antigo como se ainda fosse ela — em silêncio.
+        read by an old client as if it still were it — in silence.
         """
-        campos = bff.DemandCockpit.DESCRIPTOR.fields_by_name
-        assert "findings_available" not in campos
-        assert all(f.number != 4 for f in campos.values())
+        fields = bff.DemandCockpit.DESCRIPTOR.fields_by_name
+        assert "findings_available" not in fields
+        assert all(f.number != 4 for f in fields.values())
 
     async def test_a_stage_with_no_date_has_no_field(self, stub_dem):
         d = await stub_dem.GetDemand(bff.GetDemandRequest(id="dem-1"), metadata=ACCOUNT)
@@ -381,14 +379,14 @@ class TestGRPC:
         resp = await stub_dem.ListThreads(
             bff.ListThreadsRequest(demand_id="dem-1"), metadata=ACCOUNT
         )
-        com, sem = resp.threads
-        assert com.HasField("card")
-        assert not sem.HasField("card")
+        with_card, without_card = resp.threads
+        assert with_card.HasField("card")
+        assert not without_card.HasField("card")
 
     async def test_a_thread_created_with_no_brief_sends_no_brief_to_the_core(
         self, stub_dem, demands
     ):
-        """Ficha zerada declararia um agente sem propósito e sem orçamento."""
+        """A zeroed card would declare an agent with no purpose and no budget."""
         await stub_dem.CreateThread(
             bff.CreateThreadRequest(demand_id="dem-1", key="logs"), metadata=ACCOUNT
         )

@@ -21,7 +21,7 @@ from app.platform.security.decorator import public
 from tests.conftest import metadata_for, token_for
 
 ACCOUNT = metadata_for(token_for())
-SEM_CONTA = metadata_for(token_for(), account_id="")
+NO_ACCOUNT = metadata_for(token_for(), account_id="")
 # The same data, in the other transport's clothes — used in the parity proof.
 REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
@@ -94,16 +94,16 @@ class TestHappyPath:
         assert core.CreateAccount.last["request"].idempotency_key  # ADR-0017
 
     async def test_create_invite_carries_the_role_and_the_grants(self, stub_grpc, core):
-        convite = await stub_grpc.CreateInvite(
+        invite = await stub_grpc.CreateInvite(
             bff.CreateInviteRequest(
-                email="novo@dop.local",
+                email="new@dop.local",
                 role=bff.ROLE_DEVELOPER,
                 grants=[bff.ResourceGrantSpec(resource_id="res-1", level="use")],
             ),
             metadata=ACCOUNT,
         )
-        assert convite.status == bff.InviteSummary.STATUS_PENDING
-        assert convite.role == bff.ROLE_DEVELOPER
+        assert invite.status == bff.InviteSummary.STATUS_PENDING
+        assert invite.role == bff.ROLE_DEVELOPER
         req = core.CreateInvite.last["request"]
         assert req.role == identity_pb2.ROLE_DEVELOPER
         assert req.grants[0].resource.id == "res-1"
@@ -113,7 +113,7 @@ class TestHappyPath:
     async def test_an_omitted_role_falls_to_the_same_default_as_rest(self, stub_grpc, core):
         """ROLE_UNSPECIFIED does not become an empty role: it becomes the use case's default."""
         await stub_grpc.CreateInvite(
-            bff.CreateInviteRequest(email="novo@dop.local"), metadata=ACCOUNT
+            bff.CreateInviteRequest(email="new@dop.local"), metadata=ACCOUNT
         )
         assert core.CreateInvite.last["request"].role == identity_pb2.ROLE_DEVELOPER
 
@@ -130,7 +130,7 @@ class TestContextPropagation:
         assert md["x-account-id"] == "acct-1"
         assert md["x-actor-id"] == "u-1"
         assert md["x-actor-kind"] == "user"
-        assert md["x-request-id"] == "trace-grpc"  # mesmo rastro das duas pontas
+        assert md["x-request-id"] == "trace-grpc"  # the same trail at both ends
 
     async def test_the_call_context_goes_in_the_body_of_the_call_to_the_core(self, stub_grpc, core):
         await stub_grpc.ListMembers(bff.ListMembersRequest(), metadata=ACCOUNT)
@@ -165,7 +165,7 @@ class TestAuthorization:
         """Asking for an account you are not a member of is not NOT_FOUND: it is a refusal."""
         core.ListAccounts.returns(
             identity_pb2.ListAccountsResponse(
-                accounts=[identity_pb2.Account(id="acct-de-outro")]
+                accounts=[identity_pb2.Account(id="acct-of-another")]
             )
         )
         exc = await _err(stub_grpc.GetMe(bff.GetMeRequest(), metadata=ACCOUNT))
@@ -189,15 +189,15 @@ class TestAuthorization:
         assert not core.CreateInvite.calls
 
     async def test_with_no_active_account_it_gives_invalid_argument(self, stub_grpc):
-        """Regra do SP-0 (@account_scoped): 400 no REST, INVALID_ARGUMENT aqui."""
+        """SP-0's rule (@account_scoped): 400 in REST, INVALID_ARGUMENT here."""
         exc = await _err(
-            stub_grpc.ListMembers(bff.ListMembersRequest(), metadata=SEM_CONTA)
+            stub_grpc.ListMembers(bff.ListMembersRequest(), metadata=NO_ACCOUNT)
         )
         assert exc.code() == grpc.StatusCode.INVALID_ARGUMENT
 
     async def test_login_with_no_active_account_still_works(self, stub_grpc):
         """It is how the client loads the account selector."""
-        me = await stub_grpc.GetMe(bff.GetMeRequest(), metadata=SEM_CONTA)
+        me = await stub_grpc.GetMe(bff.GetMeRequest(), metadata=NO_ACCOUNT)
         assert me.user_id == "u-1"
         assert me.account_id == ""
         assert me.role == bff.ROLE_UNSPECIFIED
@@ -233,14 +233,14 @@ class TestErrorTranslation:
         )
         assert exc.code() == grpc.StatusCode.INTERNAL
         assert exc.details() == "internal error"
-        assert "senha" not in exc.details()
+        assert "password" not in exc.details()
 
     async def test_an_internal_in_the_resolver_does_not_leak_either(self, stub_grpc, core):
         """The auth interceptor translates by hand — and has to write it the same way."""
         core.EnsureUser.fails_with(grpc.StatusCode.INTERNAL, "senha do banco no log")
         exc = await _err(stub_grpc.GetMe(bff.GetMeRequest(), metadata=ACCOUNT))
         assert exc.code() == grpc.StatusCode.INTERNAL
-        assert "senha" not in exc.details()
+        assert "password" not in exc.details()
 
     async def test_a_core_that_is_down_crosses_but_with_no_detail(self, stub_grpc, core):
         """UNAVAILABLE is a 503 — the 5xx class, so the detail is redacted too.
@@ -252,10 +252,10 @@ class TestErrorTranslation:
         core.EnsureUser.fails_with(grpc.StatusCode.UNAVAILABLE, "pgbouncer://user:senha@db")
         exc = await _err(stub_grpc.GetMe(bff.GetMeRequest(), metadata=ACCOUNT))
         assert exc.code() == grpc.StatusCode.UNAVAILABLE
-        assert "senha" not in exc.details()
+        assert "password" not in exc.details()
 
     async def test_an_invalid_message_becomes_invalid_argument(self, stub_grpc):
-        """email com menos de 3 caracteres: 422 no REST, INVALID_ARGUMENT aqui."""
+        """an e-mail with fewer than 3 characters: 422 in REST, INVALID_ARGUMENT here."""
         exc = await _err(
             stub_grpc.CreateInvite(bff.CreateInviteRequest(email="x"), metadata=ACCOUNT)
         )
@@ -336,10 +336,10 @@ class TestParityBetweenTransports:
 
 
 class TestStructuredLogging:
-    """Log agregado só serve se as duas portas falarem a mesma língua."""
+    """An aggregated log is only useful if both ports speak the same language."""
 
     async def test_the_grpc_port_writes_the_same_json_as_rest(self, stub_grpc, capsys):
-        # O `configure()` roda no lifespan do FastAPI; aqui o server gRPC sobe
+        # `configure()` runs in FastAPI's lifespan; here the gRPC server comes up
         # on its own, so we configure it by hand — the same `configure`, not another.
         configure_logging()
         await stub_grpc.GetMe(bff.GetMeRequest(), metadata=ACCOUNT)
@@ -356,8 +356,8 @@ class TestStructuredLogging:
             assert campo in entry, f"campo canônico ausente: {campo}"
         assert entry["component"] == "dop-api"
         # `method=grpc` and `path` with the full method: it is what allows
-        # separating
-        # os transportes num log onde as duas portas escrevem no mesmo lugar.
+        # separating the transports in a log where both ports write to the same
+        # place.
         assert entry["method"] == "grpc"
         assert entry["path"] == "/dop.bff.v1.IdentityService/GetMe"
 

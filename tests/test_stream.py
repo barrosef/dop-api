@@ -39,7 +39,7 @@ ACCOUNT = metadata_for(token_for())
 HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
 
-# ── doubles do núcleo ────────────────────────────────────────────────────────
+# ── doubles of the core ──────────────────────────────────────────────────────
 
 
 def _struct(data: dict) -> struct_pb2.Struct:
@@ -143,7 +143,7 @@ class FakeService:
 
 @pytest.fixture
 def events(core, monkeypatch):
-    """EventService fake, com dois events e a assinatura encerrando sozinha."""
+    """A fake EventService, with two events and the subscription ending on its own."""
     fake = FakeService("WatchEvents", [envelope("ev-1"), envelope("ev-2")])
     monkeypatch.setattr(stubs, "event_stub", lambda: fake)
     return fake
@@ -291,13 +291,14 @@ class TestSSE:
         """The `id:` is what makes resuming work — and it is not ours.
 
         A local counter would be an id the core cannot translate into a position
-        no log: na reconexão, `since_event_id` chegaria lá sem significado.
+        in the log: on reconnection, `since_event_id` would arrive there with no
+        meaning.
         """
         r = client_sse.get("/api/v1/stream/events", headers=HEADERS)
-        eventos_sse = [q for q in frames(r.text) if q.get("event") == "event"]
-        assert [q["id"] for q in eventos_sse] == ["ev-1", "ev-2"]
-        assert data(eventos_sse[0])["type"] == "dop.demand.stage.advanced"
-        assert data(eventos_sse[0])["payload"] == {"stage": "build"}
+        sse_events = [q for q in frames(r.text) if q.get("event") == "event"]
+        assert [q["id"] for q in sse_events] == ["ev-1", "ev-2"]
+        assert data(sse_events[0])["type"] == "dop.demand.stage.advanced"
+        assert data(sse_events[0])["payload"] == {"stage": "build"}
 
     def test_last_event_id_becomes_the_cores_cursor(self, client_sse, events):
         """The link the ADR asks for: the SSE header → the core's `since_event_id`."""
@@ -317,7 +318,8 @@ class TestSSE:
         """The URL freezes at the moment the EventSource is created; the header
         does not.
 
-        Preferir a query traria events já vistos de volta a cada reconexão.
+        Preferring the query would bring already seen events back on every
+        reconnection.
         """
         client_sse.get(
             "/api/v1/stream/events?since_event_id=ev-7",
@@ -360,7 +362,7 @@ class TestSSE:
 
 
 class TestAnErrorAfterTheFirstByte:
-    """A armadilha clássica: 200 já enviado, e aí o núcleo falha.
+    """The classic trap: the 200 is already sent, and then the core fails.
 
     There is no swapping the status after that. Either the error becomes an
     event the client knows how to read, or it becomes a stream that dies in
@@ -379,7 +381,12 @@ class TestAnErrorAfterTheFirstByte:
 
     @pytest.mark.parametrize(
         "failing_client",
-        [(grpc.StatusCode.UNAVAILABLE, "assinante lento demais: reconecte com since_event_id")],
+        [
+            (
+                grpc.StatusCode.UNAVAILABLE,
+                "the subscriber is too slow: reconnect with since_event_id",
+            )
+        ],
         indirect=True,
     )
     def test_a_slow_consumer_becomes_a_retryable_error_event(self, failing_client):
@@ -390,8 +397,8 @@ class TestAnErrorAfterTheFirstByte:
         body = data(err)
         assert body["code"] == "UNAVAILABLE"
         assert body["retryable"] is True
-        # O cursor volta no body: quem reconecta por `fetch` (ou depois de um
-        # an F5) has no automatic Last-Event-ID from the EventSource.
+        # The cursor comes back in the body: whoever reconnects through `fetch`
+        # (or after an F5) has no automatic Last-Event-ID from the EventSource.
         assert body["since_event_id"] == "ev-1"
         # The text is OURS, not the core's: UNAVAILABLE is a 503, and
         # `_detail_for` does not let a 5xx detail from the core out. What carries
@@ -581,8 +588,8 @@ class TestADemandHasNoCursor:
 
     def test_the_demands_sse_emits_no_id(self, client_demand):
         r = client_demand.get("/api/v1/stream/demands/dem-1", headers=HEADERS)
-        eventos_sse = [q for q in frames(r.text) if q.get("event") == "event"]
-        assert eventos_sse and all("id" not in q for q in eventos_sse)
+        sse_events = [q for q in frames(r.text) if q.get("event") == "event"]
+        assert sse_events and all("id" not in q for q in sse_events)
 
     def test_the_demand_becomes_the_aggregate_id(self, client_demand):
         r = client_demand.get("/api/v1/stream/demands/dem-1", headers=HEADERS)

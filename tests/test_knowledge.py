@@ -43,7 +43,7 @@ from tests.conftest import PROJECT, FakeCall, metadata_for, token_for
 ACCOUNT = metadata_for(token_for())
 REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
-CORPO_DA_REGRA = "nunca mergear desenv na feature"
+RULE_BODY = "nunca mergear desenv na feature"
 
 
 def _struct(d: dict) -> struct_pb2.Struct:
@@ -52,10 +52,10 @@ def _struct(d: dict) -> struct_pb2.Struct:
     return s
 
 
-# ── núcleo fake ────────────────────────────────────────────────────────────
+# ── a fake core ────────────────────────────────────────────────────────────
 
 
-class ConhecimentoFalso:
+class FakeKnowledge:
     """Núcleo fake de knowledge.
 
     It reproduces two shapes of the real core that the edge exists to undo:
@@ -64,18 +64,18 @@ class ConhecimentoFalso:
     """
 
     def __init__(self):
-        self.regra = knowledge_pb2.KnowledgeArtifact(
+        self.rule = knowledge_pb2.KnowledgeArtifact(
             id="art-1",
             project=common_pb2.ProjectRef(id="prj-1"),
             kind=knowledge_pb2.KnowledgeArtifact.KIND_RULE,
             name="no-green-no-pr",
             version=2,
             meta=_struct(
-                {"dop.body": CORPO_DA_REGRA, "dop.scope": "project", "autor": "ed"}
+                {"dop.body": RULE_BODY, "dop.scope": "project", "autor": "ed"}
             ),
         )
         # A LARGE artifact: it lives in storage, so it has no inline body.
-        self.indice = knowledge_pb2.KnowledgeArtifact(
+        self.index_ = knowledge_pb2.KnowledgeArtifact(
             id="art-2",
             project=common_pb2.ProjectRef(id="prj-1"),
             kind=knowledge_pb2.KnowledgeArtifact.KIND_INDEX,
@@ -88,14 +88,14 @@ class ConhecimentoFalso:
             id="art-3",
             project=common_pb2.ProjectRef(id="prj-1"),
             kind=knowledge_pb2.KnowledgeArtifact.KIND_MEMORY,
-            name="forense-timeout-2026-07",
+            name="forensics-timeout-2026-07",
             version=1,
             meta=_struct({"dop.body": "o timeout era do proxy", "dop.scope": "project"}),
         )
         self.package = knowledge_pb2.ContextPackage(
             demand=common_pb2.DemandRef(id="dem-1"),
-            rules=[CORPO_DA_REGRA],
-            index=[self.indice],
+            rules=[RULE_BODY],
+            index=[self.index_],
             memories=[self.memoria],
             findings=[
                 demand_pb2.Finding(
@@ -118,15 +118,15 @@ class ConhecimentoFalso:
                 artifacts=[self.memoria], scores=[0.8203125]
             )
         )
-        self.ReadIndex = FakeCall(self.indice)
-        self.PutArtifact = FakeCall(self.regra)
+        self.ReadIndex = FakeCall(self.index_)
+        self.PutArtifact = FakeCall(self.rule)
         self.ListRules = FakeCall(
-            knowledge_pb2.ListRulesResponse(rules=[CORPO_DA_REGRA, "sem PR sem verde"])
+            knowledge_pb2.ListRulesResponse(rules=[RULE_BODY, "no PR without green"])
         )
 
 
-def package_with_drops(base, **contagens) -> knowledge_pb2.ContextPackage:
-    """O mesmo package, com outro mapa de drops.
+def package_with_drops(base, **counts) -> knowledge_pb2.ContextPackage:
+    """The same package, with another map of drops.
 
     It exists so each test declares the drops it is exercising without building
     a whole `ContextPackage` — and so the "the core did not report" case is a
@@ -139,7 +139,7 @@ def package_with_drops(base, **contagens) -> knowledge_pb2.ContextPackage:
     p = knowledge_pb2.ContextPackage()
     p.CopyFrom(base)
     p.ClearField("dropped")
-    p.dropped.update(contagens)
+    p.dropped.update(counts)
     return p
 
 
@@ -148,7 +148,7 @@ def package_with_drops(base, **contagens) -> knowledge_pb2.ContextPackage:
 
 @pytest.fixture
 def knowledge(core, monkeypatch):
-    fake = ConhecimentoFalso()
+    fake = FakeKnowledge()
     monkeypatch.setattr(stubs, "knowledge_stub", lambda: fake)
     return fake
 
@@ -208,7 +208,7 @@ class TestContextDrops:
     """What did not fit has to show up. Absent ≠ zeroed."""
 
     def test_the_drops_come_from_the_cores_field(self, client_know):
-        """`ContextPackage.dropped` existe (P-19) e a borda o LÊ.
+        """`ContextPackage.dropped` exists (P-19) and the edge READS it.
 
         The edge used to look for the field in protobuf's DESCRIPTOR, because it
         was not in the contract. The workaround bet it would arrive as a message;
@@ -233,10 +233,9 @@ class TestContextDrops:
         """`null` is "there is no way to know"; zeroes would be "nothing was dropped".
 
         The core always fills the map in, with all four keys. An empty map is
-        the
-        núcleo anterior ao campo — e preencher com zeros faria a screen afirmar
-        that the context fitted whole, which is precisely the lie ADR-0012
-        quer impedir.
+        the core from before the field — and filling it with zeroes would make the
+        screen assert that the context fitted whole, which is precisely the lie
+        ADR-0012 wants to prevent.
         """
         knowledge.BuildContextPackage.returns(
             package_with_drops(knowledge.package)
@@ -326,12 +325,12 @@ class TestTheInternalConventionDoesNotLeak:
         assert r.json()["body"] == ""
 
     def test_rest_keeps_the_authors_meta(self, client_know, knowledge):
-        knowledge.ReadIndex.returns(knowledge.regra)
+        knowledge.ReadIndex.returns(knowledge.rule)
         artefato = client_know.get(
             "/api/v1/knowledge/index?project_id=prj-1&repo=x", headers=REST_HEADERS
         ).json()
         assert artefato["meta"] == {"autor": "ed"}
-        assert artefato["body"] == CORPO_DA_REGRA
+        assert artefato["body"] == RULE_BODY
 
     async def test_grpc_does_not_carry_the_convention_either(self, stub_know):
         resp = await stub_know.ReadIndex(
@@ -347,7 +346,7 @@ class TestREST:
             "/api/v1/demands/dem-1/context-package", headers=REST_HEADERS
         ).json()
         assert p["demand_id"] == "dem-1"
-        assert p["rules"] == [CORPO_DA_REGRA]
+        assert p["rules"] == [RULE_BODY]
         assert p["memories"][0]["kind"] == "memory"
         assert p["findings"][0]["payload"] == {"summary": "30s"}
 
@@ -378,10 +377,10 @@ class TestREST:
         assert not knowledge.SearchMemory.requests[0].HasField("project")
 
     def test_listing_rules(self, client_know):
-        regras = client_know.get(
+        rules = client_know.get(
             "/api/v1/knowledge/rules?project_id=prj-1", headers=REST_HEADERS
         ).json()
-        assert regras == [CORPO_DA_REGRA, "sem PR sem verde"]
+        assert rules == [RULE_BODY, "no PR without green"]
 
     def test_writing_carries_an_idempotency_key(self, client_know, knowledge):
         """With no key, the channel's retry silently becomes a new version."""
@@ -392,17 +391,17 @@ class TestREST:
                 "kind": "rule",
                 "name": "no-green-no-pr",
                 "project_id": "prj-1",
-                "content_base64": base64.b64encode(CORPO_DA_REGRA.encode()).decode(),
+                "content_base64": base64.b64encode(RULE_BODY.encode()).decode(),
             },
         )
         assert r.status_code == 201
         request = knowledge.PutArtifact.requests[0]
         assert request.idempotency_key != ""
-        assert request.content == CORPO_DA_REGRA.encode()
+        assert request.content == RULE_BODY.encode()
         assert request.artifact.kind == knowledge_pb2.KnowledgeArtifact.KIND_RULE
 
     def test_the_knowledge_kind_is_validated_at_the_edge(self, client_know):
-        """`kind` só aceita rule, index ou memory — 422 antes da ida ao núcleo."""
+        """`kind` accepts only rule, index or memory — a 422 before the trip to the core."""
         r = client_know.post(
             "/api/v1/knowledge/artifacts",
             headers=REST_HEADERS,

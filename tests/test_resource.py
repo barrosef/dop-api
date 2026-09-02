@@ -72,7 +72,7 @@ class TestREST:
         assert resources.CreateResource.requests[0].idempotency_key != ""
 
     def test_the_grant_level_is_validated_at_the_edge(self, client_res):
-        """`level` só aceita use ou manage — 422 antes de gastar ida ao núcleo."""
+        """`level` accepts only use or manage — a 422 before spending a trip to the core."""
         r = client_res.post(
             "/api/v1/grants",
             headers=REST_HEADERS,

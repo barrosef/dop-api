@@ -160,7 +160,7 @@ class TestClaims:
     async def test_another_project_is_refused(self, verifier):
         v, key = verifier
         with pytest.raises(InvalidToken):
-            await v.verify(_token(key, aud="outro-project"))
+            await v.verify(_token(key, aud="another-project"))
 
     async def test_another_issuer_is_refused(self, verifier):
         v, key = verifier
@@ -213,6 +213,6 @@ class TestEmulator:
         def b64(d):
             return base64.urlsafe_b64encode(json.dumps(d).encode()).decode().rstrip("=")
 
-        t = f"{b64({'alg': 'none'})}.{b64({'sub': 'x', 'aud': 'outro'})}."
+        t = f"{b64({'alg': 'none'})}.{b64({'sub': 'x', 'aud': 'another'})}."
         with pytest.raises(InvalidToken):
             await v.verify(t)
