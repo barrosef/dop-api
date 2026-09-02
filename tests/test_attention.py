@@ -1,25 +1,26 @@
-"""Caixa de atenção nos dois transportes, contra um núcleo fake.
+"""The attention box on both transports, against a fake core.
 
-Quatro grupos carregam o arquivo, e cada um protege uma decisão da spec
-(conversação-e-atenção §3):
+Four groups carry this file, and each protects a decision of the spec
+(conversation-and-attention §3):
 
-  - **a ordem é do núcleo.** A prioridade é DERIVADA lá (impacto do tipo,
-    depois idade) e não se recalcula aqui: uma segunda régua faria a queue
-    deixar de ter uma ordem só. O teste manda a queue embaralhada de propósito —
-    se a borda ordenasse, ela sairia diferente;
-  - **o badge é `open_total`.** Contar a página daria um número que muda quando
-    o dev pagina;
-  - **o que o contrato NÃO oferece.** Não existe rota nem RPC de "marcar como
-    lido" ou "descartar": item nasce e morre de evento, e item que some sem o
-    problema resolvido é mentira confortável (risco R-1). Há teste para a
-    ausência, porque ausência que ninguém testa alguém "conserta";
-  - **paridade** REST × gRPC, o alarme que dispara se o agrupamento ou os
-    names forem reimplementados num adaptador.
+  - **the order is the core's.** The priority is DERIVED there (the kind's
+    impact, then age) and is not recomputed here: a second ruler would make the
+    queue stop having a single order. The test sends the queue shuffled on
+    purpose — if the edge reordered, it would break;
+  - **the badge is `open_total`.** Counting the page would give a number that
+    changes when you paginate;
+  - **what the contract does NOT offer.** There is no route and no RPC to "mark
+    as read" or "dismiss": an item is born of and dies of an event, and an item
+    that disappears with the problem unsolved is a comfortable lie (risk R-1).
+    There is a test for the absence, because an absence nobody tests somebody
+    "fixes";
+  - **parity** REST × gRPC, the alarm that fires if the grouping or the names
+    are reimplemented in an adapter.
 
-Os doubles e as fixtures vivem NESTE arquivo, e não no `conftest.py`: conftest é
-território compartilhado e há outros agentes escrevendo aqui agora. O que já
-existe lá (token, metadata, `FakeCall`, o núcleo de identidade e
-`grpc_error`) é importado.
+The doubles and the fixtures live in THIS file, and not in `conftest.py`:
+conftest is shared territory and there are other agents writing here right now.
+What already exists there (the token, the metadata, FakeCall, `grpc_error`) is
+imported.
 """
 
 import asyncio
@@ -61,44 +62,44 @@ def item(
     id_: str,
     kind: int,
     *,
-    prioridade: int,
+    priority: int,
     demand: str = "",
-    alvo: tuple[str, str] = ("thread", "th-1"),
-    resolvido: bool = False,
+    target: tuple[str, str] = ("thread", "th-1"),
+    resolved_update: bool = False,
 ) -> Item:
-    """Um item como o núcleo o returns — com a prioridade JÁ derivada por ele."""
+    """Um item como o núcleo o returns — com a priority JÁ derivada por ele."""
     msg = Item(
         id=id_,
         account=common_pb2.AccountRef(id="acct-1"),
         kind=kind,
-        target_kind=alvo[0],
-        target_id=alvo[1],
+        target_kind=target[0],
+        target_id=target[1],
         title=f"título de {id_}",
         summary=f"resumo de {id_}",
-        priority=prioridade,
+        priority=priority,
         opened_at=_quando(1_700_000_000),
     )
-    # Ausente ≠ zerado: item de account não pertence a demand nenhuma, e um
-    # DemandRef vazio faria a borda agrupar sob uma demand de id "".
+    # Absent ≠ zeroed: an account item belongs to no demand, and an empty
+    # DemandRef would make the edge group under a demand with id "".
     if demand:
         msg.demand.CopyFrom(common_pb2.DemandRef(id=demand))
-    if resolvido:
+    if resolved_update:
         msg.resolved_at.CopyFrom(_quando(1_700_003_600))
     return msg
 
 
-# A queue como o núcleo a entrega: JÁ ORDENADA por ele, e de propósito numa
-# ordem que nenhuma regra óbvia da borda reproduziria por acaso — a demand
-# dem-2 aparece antes de dem-1, e o item de account (sem demand) vem no meio.
-# Se a borda reordenasse por prioridade, por demand ou por id, quebraria.
-FILA = [
-    item("at-1", Item.KIND_MERGE_CONFLICT, prioridade=10_100, demand="dem-2"),
-    item("at-2", Item.KIND_INTEGRATION_BROKEN, prioridade=20_100,
-         alvo=("resource", "res-1")),
-    item("at-3", Item.KIND_GATE_PENDING, prioridade=40_050, demand="dem-1",
-         alvo=("stage", "spec")),
-    item("at-4", Item.KIND_THREAD_BLOCKED, prioridade=70_010, demand="dem-2"),
-    item("at-5", Item.KIND_THREAD_BLOCKED, prioridade=70_120, demand="dem-1"),
+# The queue as the core delivers it: ALREADY ORDERED by it, and deliberately in
+# an order no obvious rule of the edge would reproduce by accident — demand dem-2
+# appears before dem-1, and the account item (with no demand) comes in the
+# middle. If the edge reordered by priority, by demand or by id, it would break.
+QUEUE = [
+    item("at-1", Item.KIND_MERGE_CONFLICT, priority=10_100, demand="dem-2"),
+    item("at-2", Item.KIND_INTEGRATION_BROKEN, priority=20_100,
+         target=("resource", "res-1")),
+    item("at-3", Item.KIND_GATE_PENDING, priority=40_050, demand="dem-1",
+         target=("stage", "spec")),
+    item("at-4", Item.KIND_THREAD_BLOCKED, priority=70_010, demand="dem-2"),
+    item("at-5", Item.KIND_THREAD_BLOCKED, priority=70_120, demand="dem-1"),
 ]
 
 
@@ -109,16 +110,18 @@ class StreamFalso:
     """UMA assinatura de streaming no núcleo.
 
     Imita o objeto de call do `grpc.aio`: iterável e com `cancel()`. Guarda o
-    request que recebeu e se foi cancelado — é a segunda parte que permite provar
-    a coisa mais difícil de provar num stream: que o client indo embora mata a
-    assinatura lá, em vez de deixá-la pendurada para sempre.
+    request it received and whether it was cancelled — it is the second part that
+    makes it possible to prove the hardest thing to prove in a stream: that the
+    client going away kills the subscription over there, instead of leaving it
+    hanging forever.
     """
 
     def __init__(self, items, *, err=None, segura=False, request=None, metadata=None):
         self.items = list(items)
         self.err = err
         # `segura` mantém a assinatura ABERTA depois do último item, como um
-        # stream de verdade num período sem acontecimentos. Sem isso não dá para
+        # real stream in a period with nothing happening. Without it there is no
+        # way to
         # testar desconexão: o stream acabaria sozinho antes.
         self.segura = asyncio.Event() if segura else None
         self.request = request
@@ -142,21 +145,22 @@ class StreamFalso:
 
 
 class AtencaoFalsa:
-    """Núcleo fake da box de atenção.
+    """The attention box's fake core.
 
-    `ListAttention` returns a queue JÁ ordenada e um `open_total` MAIOR que o
-    número de items da página — é assim que se prova que o badge não é uma
+    `ListAttention` returns a queue ALREADY ordered and an `open_total` LARGER
+    than the number of items on the page — that is how it is proven the badge is
+    not a
     contagem da página disfarçada.
 
-    `WatchAttention` abre uma assinatura NOVA por call, porque o teste de
-    paridade assina duas vezes (uma por porta) e um double que devolvesse o mesmo
+    `WatchAttention` opens a NEW subscription per call, because the parity test
+    subscribes twice (once per port) and a double that returned the same
     stream esgotado faria a segunda porta parecer vazia.
     """
 
     # Aberto na account inteira: sete, contra os cinco desta página.
     OPEN_TOTAL = 7
 
-    def __init__(self, items=FILA, atualizacoes=(), *, err=None, segura=False):
+    def __init__(self, items=QUEUE, atualizacoes=(), *, err=None, segura=False):
         self.ListAttention = FakeCall(
             attention_pb2.ListAttentionResponse(
                 items=items, open_total=self.OPEN_TOTAL
@@ -179,7 +183,7 @@ class AtencaoFalsa:
 
     @property
     def ultimo_stream(self) -> StreamFalso:
-        assert self.streams, "o stream não foi aberto"
+        assert self.streams, "the stream was not opened"
         return self.streams[-1]
 
 
@@ -189,21 +193,21 @@ def aberto(it: Item) -> attention_pb2.AttentionUpdate:
     )
 
 
-def resolvido(kind: int, alvo: tuple[str, str]) -> attention_pb2.AttentionUpdate:
-    """O aviso de fechamento como o núcleo o manda: PARCIAL, pelo alvo.
+def resolved_update(kind: int, target: tuple[str, str]) -> attention_pb2.AttentionUpdate:
+    """The close notice as the core sends it: PARTIAL, by the target.
 
-    Quem fecha conhece o alvo, não o id da projeção — então não vem id, nem
-    título, nem `opened_at`, nem `resolved_at`. É o formato de verdade
-    (internal/domain/attention/service.go), e imitar um item inteiro aqui
-    esconderia que o client precisa casar pelo alvo.
+    Whoever closes it knows the target, not the projection's id — so no id
+    comes, no title, no `opened_at` and no `resolved_at`. It is the real shape
+    (internal/domain/attention/service.go), and imitating a whole item here would
+    hide that the client has to match by the target.
     """
     return attention_pb2.AttentionUpdate(
         change=attention_pb2.AttentionUpdate.CHANGE_RESOLVED,
         item=Item(
             account=common_pb2.AccountRef(id="acct-1"),
             kind=kind,
-            target_kind=alvo[0],
-            target_id=alvo[1],
+            target_kind=target[0],
+            target_id=target[1],
         ),
     )
 
@@ -221,10 +225,11 @@ def attention(core, monkeypatch):
 def _app_com_rotas():
     """O app real do BFF, com as rotas deste domínio registradas.
 
-    `app/main.py` é do dono do repositório e ainda não inclui este router (ver o
+    `app/main.py` belongs to the repository's owner and does not include this
+    router yet (see the
     relatório). Montar aqui exercita o app de verdade — middlewares, decorators
     e tudo — sem disputar o arquivo com quem o mantém. O `if` deixa o teste
-    continuar correto depois que o registro entrar no `main`.
+    stay correct once the registration lands in `main`.
     """
     app = create_app()
     caminhos = {getattr(r, "path", "") for r in app.routes}
@@ -243,9 +248,10 @@ def client(attention):
 async def stub(attention):
     """Servidor gRPC real, em porta efêmera, com o servicer deste domínio.
 
-    Não reusa `grpc_server` do conftest porque `GrpcServer` ainda não registra
-    este servicer (o registro é do dono do repositório). A pilha de
-    interceptores é a MESMA, na mesma ordem — é ela que faz token, context e
+    It does not reuse conftest's `grpc_server` because `GrpcServer` does not
+    register this servicer yet (the registration is the repository owner's). The
+    interceptor stack is the SAME, in the same order — it is what makes the
+    token, the context and
     decorators valerem dentro do servicer, inclusive em streaming.
     """
     server = grpc.aio.server(
@@ -275,22 +281,22 @@ def com_stream(monkeypatch, atualizacoes=(), **kwargs) -> AtencaoFalsa:
 
 
 def frames(text: str) -> list[dict]:
-    """Texto SSE → frames. À mão de propósito: um parser de terceiros
-    esconderia justamente o que se quer verificar (que o `id:` NÃO sai, que o
-    `event:` sai com o name certo)."""
-    saida = []
-    for bruto in text.split("\r\n\r\n"):
-        if not bruto.strip():
+    """SSE text → frames. By hand on purpose: a third-party parser would hide
+    precisely what we want to check (that the `id:` does NOT go out, that the
+    `event:` goes out with the right name)."""
+    out = []
+    for raw in text.split("\r\n\r\n"):
+        if not raw.strip():
             continue
         board: dict = {"comment": []}
-        for linha in bruto.split("\r\n"):
+        for linha in raw.split("\r\n"):
             if linha.startswith(": "):
                 board["comment"].append(linha[2:])
             elif ": " in linha:
                 key, value = linha.split(": ", 1)
                 board[key] = value
-        saida.append(board)
-    return saida
+        out.append(board)
+    return out
 
 
 def data(board: dict) -> dict:
@@ -305,12 +311,13 @@ def atencoes(text: str) -> list[dict]:
 
 
 class TestOrderAndBadge:
-    """As duas coisas que a borda NÃO decide: a ordem e o badge."""
+    """The two things the edge does NOT decide: the order and the badge."""
 
     def test_the_order_is_the_cores(self, client):
-        """A prioridade é derivada lá; uma segunda régua aqui furaria a queue.
+        """The priority is derived there; a second ruler here would puncture the queue.
 
-        A queue do double é embaralhada de propósito em relação a demand e id: se
+        The double's queue is deliberately shuffled with respect to demand and
+        id: if
         a borda ordenasse por qualquer critério próprio, a lista sairia diferente
         desta.
         """
@@ -323,14 +330,15 @@ class TestOrderAndBadge:
         ]
 
     def test_the_priority_crosses_without_being_recomputed(self, client, attention):
-        """Prioridade absurda continua absurda: a borda não conserta a régua.
+        """An absurd priority stays absurd: the edge does not fix the ruler.
 
         Se ela recalculasse (por idade, por tipo, por qualquer coisa), este
-        número mudaria — e passariam a existir duas réguas para a mesma queue.
+        number would change — and there would come to be two rulers for the same
+        queue.
         """
         attention.ListAttention.returns(
             attention_pb2.ListAttentionResponse(
-                items=[item("at-9", Item.KIND_PR_REVIEW, prioridade=999_999)],
+                items=[item("at-9", Item.KIND_PR_REVIEW, priority=999_999)],
                 open_total=1,
             )
         )
@@ -338,14 +346,14 @@ class TestOrderAndBadge:
         assert box["items"][0]["priority"] == 999_999
 
     def test_the_badge_is_the_cores_and_not_the_pages_count(self, client):
-        """Contar a página daria um badge que muda ao paginar."""
+        """Counting the page would give a badge that changes when you paginate."""
         box = client.get("/api/v1/attention", headers=HEADERS).json()
         assert box["open_total"] == AtencaoFalsa.OPEN_TOTAL
         assert len(box["items"]) == 5
         assert box["open_total"] != len(box["items"])
 
     def test_filtering_by_demand_does_not_touch_the_badge(self, client, attention):
-        """`open_total` é da ACCOUNT — é o número do sino, não o da screen aberta."""
+        """`open_total` is the ACCOUNT's — it is the bell's number, not the open screen's."""
         box = client.get(
             "/api/v1/attention?demand_id=dem-1", headers=HEADERS
         ).json()
@@ -353,7 +361,8 @@ class TestOrderAndBadge:
         assert attention.ListAttention.requests[0].demand.id == "dem-1"
 
     def test_with_no_filter_the_demand_is_not_filled_in(self, client, attention):
-        """Um DemandRef vazio seria uma demand de id "" — filtro, não ausência
+        """An empty DemandRef would be a demand with id "" — a filter, not the
+        absence
         de filtro."""
         client.get("/api/v1/attention", headers=HEADERS)
         assert not attention.ListAttention.requests[0].HasField("demand")
@@ -370,12 +379,13 @@ class TestOrderAndBadge:
 
 
 class TestGroupingByDemand:
-    """O que a borda ACRESCENTA — e o que ela não deixa de preservar."""
+    """What the edge ADDS — and what it never stops preserving."""
 
     def test_it_groups_by_demand_preserving_the_order(self, client):
         """Os grupos saem na ordem do item mais urgente de cada um.
 
-        Que é a ordem da primeira aparição na queue — nenhuma comparação nova. Um
+        Which is the order of the first appearance in the queue — no new
+        comparison. A
         `sorted` daria o mesmo result hoje e passaria a divergir no dia em que
         a régua do núcleo mudasse.
         """
@@ -386,30 +396,33 @@ class TestGroupingByDemand:
         assert por_demanda["dem-1"] == ["at-3", "at-5"]
 
     def test_an_account_item_is_a_group_and_not_a_leftover(self, client):
-        """Integração quebrada para a account inteira: é dos mais urgentes que
-        existem, e jogá-lo num rodapé "outros" o esconderia justamente quando
+        """A broken integration affects the whole account: it is among the most
+        urgent items there are, and throwing it into an "others" footer would hide
+        it precisely when
         nada mais anda."""
         box = client.get("/api/v1/attention", headers=HEADERS).json()
         account = [g for g in box["groups"] if g["demand_id"] == ""][0]
         assert [i["id"] for i in account["items"]] == ["at-2"]
         assert account["items"][0]["target_kind"] == "resource"
-        # E o item continua na queue plana também: agrupar não é mover.
+        # And the item stays in the flat queue too: grouping is not moving.
         assert "at-2" in [i["id"] for i in box["items"]]
 
     def test_the_groups_contain_the_same_items_as_the_queue(self, client):
-        """Agrupar não pode perder nem duplicar item — seria uma queue mentindo
+        """Grouping must neither lose nor duplicate an item — it would be a queue
+        lying
         sobre si mesma em dois lugares da mesma response."""
         box = client.get("/api/v1/attention", headers=HEADERS).json()
-        agrupados = [i["id"] for g in box["groups"] for i in g["items"]]
-        assert sorted(agrupados) == sorted(i["id"] for i in box["items"])
+        grouped = [i["id"] for g in box["groups"] for i in g["items"]]
+        assert sorted(grouped) == sorted(i["id"] for i in box["items"])
 
 
 class TestWhatTheContractDoesNotOffer:
-    """A ausência é a decisão, e por isso é testada.
+    """The absence is the decision, and that is why it is tested.
 
-    A box é PROJEÇÃO: item nasce de evento e morre de evento, e quem fecha é o
-    fato — o portão decidido, a thread destravada. Um "descartar" na borda
-    tiraria o item da screen sem tirar o problema do mundo, e box que mente vira
+    The box is a PROJECTION: an item is born of an event and dies of an event,
+    and what closes it is the fact — the gate decided, the thread unblocked. A
+    "dismiss" at the edge would take the item off the screen without taking the
+    problem out of the world, and a box that lies becomes
     box ignorada (risco R-1 da spec).
     """
 
@@ -441,19 +454,19 @@ class TestTheItemAtTheEdge:
         assert portao["kind"] == "gate_pending"
 
     def test_an_open_item_has_no_resolution_date(self, client):
-        """None, não a época zero: 1970 numa queue ordenada por idade apareceria
+        """None, not epoch zero: 1970 in a queue ordered by age would show up
         como o item mais antigo do mundo."""
         box = client.get("/api/v1/attention", headers=HEADERS).json()
         assert all(i["resolved_at"] is None for i in box["items"])
         assert all(i["opened_at"] is not None for i in box["items"])
 
     def test_a_resolved_item_brings_the_date(self, client, attention):
-        """Item resolvido sai da box mas permanece na projeção: é dele que sai
-        quanto tempo o dev levou para responder."""
+        """A resolved item leaves the box but stays in the projection: it is what
+        tells how long the dev took to answer."""
         attention.ListAttention.returns(
             attention_pb2.ListAttentionResponse(
                 items=[
-                    item("at-8", Item.KIND_PR_REVIEW, prioridade=50_000, resolvido=True)
+                    item("at-8", Item.KIND_PR_REVIEW, priority=50_000, resolved_update=True)
                 ],
                 open_total=0,
             )
@@ -469,32 +482,32 @@ class TestTheItemAtTheEdge:
 
 class TestSSE:
     def test_it_answers_text_event_stream(self, core, monkeypatch):
-        com_stream(monkeypatch, [aberto(FILA[0])])
+        com_stream(monkeypatch, [aberto(QUEUE[0])])
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=HEADERS)
         assert r.status_code == 200
         assert r.headers["content-type"].startswith("text/event-stream")
-        # Sem buffer intermediário: um proxy que acumula transforma tempo real
-        # em lote, e a box fica parada até a conexão fechar.
+        # No intermediate buffer: a proxy that accumulates turns real time into
+        # a batch, and the box sits still until the connection closes.
         assert r.headers["x-accel-buffering"] == "no"
 
     def test_it_opens_saying_how_often_to_reconnect(self, core, monkeypatch):
-        com_stream(monkeypatch, [aberto(FILA[0])])
+        com_stream(monkeypatch, [aberto(QUEUE[0])])
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=HEADERS)
         assert frames(r.text)[0]["retry"] == str(settings.sse_retry_ms)
 
     def test_its_own_event_name(self, core, monkeypatch):
-        """`attention` e não `event`: o body é uma MUDANÇA na queue, não um
-        evento do log. São renderizadores diferentes na screen — a mesma razão
-        pela qual `log` já é separado de `event`."""
-        com_stream(monkeypatch, [aberto(FILA[0])])
+        """`attention` and not `event`: the body is a CHANGE in the queue, not an
+        event from the log. They are different renderers on the screen — the same
+        reason `log` is already separate from `event`."""
+        com_stream(monkeypatch, [aberto(QUEUE[0])])
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=HEADERS)
         assert [q.get("event") for q in frames(r.text) if q.get("event")] == ["attention"]
 
     def test_the_opening_brings_the_whole_item(self, core, monkeypatch):
-        com_stream(monkeypatch, [aberto(FILA[2])])
+        com_stream(monkeypatch, [aberto(QUEUE[2])])
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=HEADERS)
         (upd,) = atencoes(r.text)
@@ -506,14 +519,15 @@ class TestSSE:
     def test_the_close_identifies_by_target_and_the_edge_invents_no_id(
         self, core, monkeypatch
     ):
-        """O núcleo fecha pelo ALVO — quem fecha conhece o alvo, não o id.
+        """The core closes by the TARGET — whoever closes it knows the target, not the id.
 
         A borda repassa como está. Fabricar um id aqui, ou carimbar
-        `resolved_at` com a hora do BFF, daria ao cockpit um dado que ninguém
-        mediu: quem casa o aviso com o item na screen é o par (kind, alvo), e
-        quem diz que ele fechou é o `change`.
+        `resolved_at` with the BFF's clock, would give the cockpit a datum nobody
+        measured: what matches the notice with the item on the screen is the
+        (kind, target) pair, and
+        what says it closed is the `change`.
         """
-        com_stream(monkeypatch, [resolvido(Item.KIND_THREAD_BLOCKED, ("thread", "th-1"))])
+        com_stream(monkeypatch, [resolved_update(Item.KIND_THREAD_BLOCKED, ("thread", "th-1"))])
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=HEADERS)
         (upd,) = atencoes(r.text)
@@ -526,8 +540,8 @@ class TestSSE:
         )
 
     def test_last_event_id_becomes_the_cores_cursor(self, core, monkeypatch):
-        """A ligação que a ADR-0017 pede: cabeçalho do SSE → `since_event_id`."""
-        fake = com_stream(monkeypatch, [aberto(FILA[0])])
+        """The link ADR-0017 asks for: the SSE header → `since_event_id`."""
+        fake = com_stream(monkeypatch, [aberto(QUEUE[0])])
         with TestClient(_app_com_rotas()) as c:
             c.get(
                 "/api/v1/stream/attention",
@@ -536,11 +550,11 @@ class TestSSE:
         assert fake.ultimo_stream.request.since_event_id == "ev-40"
 
     def test_the_header_beats_the_query(self, core, monkeypatch):
-        """A URL congela quando o EventSource é criado; o cabeçalho não.
+        """The URL freezes when the EventSource is created; the header does not.
 
         Preferir a query traria mudanças já vistas de volta a cada reconexão.
         """
-        fake = com_stream(monkeypatch, [aberto(FILA[0])])
+        fake = com_stream(monkeypatch, [aberto(QUEUE[0])])
         with TestClient(_app_com_rotas()) as c:
             c.get(
                 "/api/v1/stream/attention?since_event_id=ev-7",
@@ -549,7 +563,7 @@ class TestSSE:
         assert fake.ultimo_stream.request.since_event_id == "ev-40"
 
     def test_the_query_serves_whoever_cannot_send_a_header(self, core, monkeypatch):
-        fake = com_stream(monkeypatch, [aberto(FILA[0])])
+        fake = com_stream(monkeypatch, [aberto(QUEUE[0])])
         with TestClient(_app_com_rotas()) as c:
             c.get("/api/v1/stream/attention?since_event_id=ev-7", headers=HEADERS)
         assert fake.ultimo_stream.request.since_event_id == "ev-7"
@@ -557,38 +571,40 @@ class TestSSE:
     def test_it_emits_no_id_because_the_core_does_not_send_the_event_id(
         self, core, monkeypatch
     ):
-        """`dop.v1.AttentionUpdate` não carrega o id do evento que a gerou.
+        """`dop.v1.AttentionUpdate` does not carry the id of the event that produced it.
 
-        Sem ele não há `id:` HONESTO para emitir. Usar o id do ITEM seria pior
-        que não emitir: ele não é posição no log, e voltaria ao núcleo como
-        cursor sem significado na primeira reconexão. Este teste é o que impede
+        Without it there is no HONEST `id:` to emit. Using the ITEM's id would be
+        worse than emitting none: it is not a position in the log, and it would
+        go back to the core as a meaningless cursor on the first reconnection.
+        This test is what stops
         alguém de "consertar" a retomada assim.
         """
-        com_stream(monkeypatch, [aberto(FILA[0]), aberto(FILA[2])])
+        com_stream(monkeypatch, [aberto(QUEUE[0]), aberto(QUEUE[2])])
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=HEADERS)
         eventos = [q for q in frames(r.text) if q.get("event") == rotas.ATTENTION]
         assert eventos and all("id" not in q for q in eventos)
 
     def test_the_active_account_crosses_in_the_metadata(self, core, monkeypatch):
-        fake = com_stream(monkeypatch, [aberto(FILA[0])])
+        fake = com_stream(monkeypatch, [aberto(QUEUE[0])])
         with TestClient(_app_com_rotas()) as c:
             c.get("/api/v1/stream/attention", headers=HEADERS)
         assert fake.ultimo_stream.metadata["x-account-id"] == "acct-1"
 
 
 class TestAnErrorAfterTheFirstByte:
-    """200 já enviado, e aí o núcleo falha. Não existe trocar o status.
+    """The 200 has already been sent, and then the core fails. There is no swapping the status.
 
-    Vale a mesma mecânica do flow de eventos, porque é literalmente o mesmo
+    The same mechanics as the event stream hold, because it is literally the
+    same
     código (`routers/stream._eventos_sse`): o err vira `event: error` em vez de
-    um stream que morre em silêncio.
+    a stream that dies in silence.
     """
 
     def test_a_slow_consumer_becomes_a_retryable_error_event(self, core, monkeypatch):
         com_stream(
             monkeypatch,
-            [aberto(FILA[0])],
+            [aberto(QUEUE[0])],
             err=grpc_error(grpc.StatusCode.UNAVAILABLE, "assinante lento demais"),
         )
         with TestClient(_app_com_rotas()) as c:
@@ -599,10 +615,10 @@ class TestAnErrorAfterTheFirstByte:
         assert body["retryable"] is True
 
     def test_a_5xx_detail_from_the_core_does_not_leak(self, core, monkeypatch):
-        """Mesmo redator do resto da borda (`_detail_for`), não um segundo."""
+        """The same writer as the rest of the edge (`_detail_for`), not a second one."""
         com_stream(
             monkeypatch,
-            [aberto(FILA[0])],
+            [aberto(QUEUE[0])],
             err=grpc_error(grpc.StatusCode.INTERNAL, "pq://user:senha@10.0.0.7 caiu"),
         )
         with TestClient(_app_com_rotas()) as c:
@@ -613,7 +629,7 @@ class TestAnErrorAfterTheFirstByte:
 
 
 class TestAuthorization:
-    """Nem a box nem o stream podem ser a porta que nasce aberta."""
+    """Neither the box nor the stream may be the door that is born open."""
 
     def test_listing_with_no_token_is_a_401(self, client):
         assert client.get("/api/v1/attention").status_code == 401
@@ -623,28 +639,29 @@ class TestAuthorization:
         assert r.status_code == 400
 
     def test_a_stream_with_no_active_account_is_a_400_and_not_an_empty_200(self, core, monkeypatch):
-        """A recusa acontece ANTES do primeiro byte: o caso de uso é chamado
-        dentro do handler, não dentro do gerador."""
-        fake = com_stream(monkeypatch, [aberto(FILA[0])])
+        """The refusal happens BEFORE the first byte: the use case is called
+        inside the handler, not inside the generator."""
+        fake = com_stream(monkeypatch, [aberto(QUEUE[0])])
         with TestClient(_app_com_rotas()) as c:
             r = c.get(
                 "/api/v1/stream/attention", headers={"authorization": token_for()}
             )
         assert r.status_code == 400
         assert r.headers["content-type"].startswith("application/json")
-        # E nenhuma assinatura foi aberta no núcleo.
+        # And no subscription was opened in the core.
         assert fake.streams == []
 
 
 class TestDisconnection:
-    """Cliente que some tem que matar a assinatura no núcleo.
+    """A client that goes away has to kill the subscription in the core.
 
-    Stream que continua depois do client ir embora é vazamento de goroutine do
-    outro lado da rede: o watcher fica no fan-out do núcleo para sempre.
+    A stream that carries on after the client has left is a goroutine leak on
+    the other side of the network: the watcher stays in the core's fan-out
+    forever.
     """
 
     async def test_abandoning_the_generator_cancels_the_call(self, core, monkeypatch):
-        fake = com_stream(monkeypatch, [aberto(FILA[0])], segura=True)
+        fake = com_stream(monkeypatch, [aberto(QUEUE[0])], segura=True)
 
         from app.platform.context import AuthContext, Principal, auth_ctx
 
@@ -655,7 +672,8 @@ class TestDisconnection:
             gerador = uc.watch_attention()
             assert (await anext(gerador)).item.id == "at-1"
             assert fake.ultimo_stream.cancelada is False
-            # É isto que o EventSourceResponse faz ao ver `http.disconnect`.
+            # It is what the EventSourceResponse does when it sees
+            # `http.disconnect`.
             await gerador.aclose()
             assert fake.ultimo_stream.cancelada is True
         finally:
@@ -674,7 +692,7 @@ class TestGRPC:
 
     async def test_an_open_item_has_no_resolution_field(self, stub):
         """Ausente ≠ zerado também na volta: um Timestamp zerado diria
-        "resolvido em 1970", e o HasField do outro lado confirmaria."""
+        "resolved_update em 1970", e o HasField do outro lado confirmaria."""
         resp = await stub.ListAttention(bff.ListAttentionRequest(), metadata=ACCOUNT)
         assert resp.items[0].HasField("opened_at")
         assert not resp.items[0].HasField("resolved_at")
@@ -682,27 +700,27 @@ class TestGRPC:
     async def test_watch_brings_the_opening_and_the_close(self, core, monkeypatch, stub):
         com_stream(
             monkeypatch,
-            [aberto(FILA[0]), resolvido(Item.KIND_MERGE_CONFLICT, ("pull_request", "pr-9"))],
+            [aberto(QUEUE[0]), resolved_update(Item.KIND_MERGE_CONFLICT, ("pull_request", "pr-9"))],
         )
-        recebidos = [
+        received = [
             u
             async for u in stub.WatchAttention(
                 bff.WatchAttentionRequest(), metadata=ACCOUNT
             )
         ]
-        assert [u.change for u in recebidos] == [
+        assert [u.change for u in received] == [
             bff.ATTENTION_CHANGE_OPENED,
             bff.ATTENTION_CHANGE_RESOLVED,
         ]
-        assert recebidos[0].item.kind == bff.ATTENTION_KIND_MERGE_CONFLICT
-        # O fechamento identifica pelo alvo, e a borda não inventa o id.
-        assert recebidos[1].item.id == ""
-        assert recebidos[1].item.target_id == "pr-9"
+        assert received[0].item.kind == bff.ATTENTION_KIND_MERGE_CONFLICT
+        # The close identifies by the target, and the edge invents no id.
+        assert received[1].item.id == ""
+        assert received[1].item.target_id == "pr-9"
 
     async def test_the_cursor_is_a_field_because_grpc_has_no_header(
         self, core, monkeypatch, stub
     ):
-        fake = com_stream(monkeypatch, [aberto(FILA[0])])
+        fake = com_stream(monkeypatch, [aberto(QUEUE[0])])
         async for _ in stub.WatchAttention(
             bff.WatchAttentionRequest(since_event_id="ev-40"), metadata=ACCOUNT
         ):
@@ -721,7 +739,7 @@ class TestGRPC:
         self, core, monkeypatch, stub
     ):
         """Mesma regra do REST (SP-0), no status equivalente ao 400."""
-        fake = com_stream(monkeypatch, [aberto(FILA[0])])
+        fake = com_stream(monkeypatch, [aberto(QUEUE[0])])
         with pytest.raises(AioRpcError) as e:
             async for _ in stub.WatchAttention(
                 bff.WatchAttentionRequest(),
@@ -745,9 +763,10 @@ class TestGRPC:
 
 
 class TestParityBetweenTransports:
-    """Uma função, dois adaptadores — e a prova de que continua assim.
+    """One function, two adapters — and the proof that it stays that way.
 
-    O alarme que dispara se alguém reimplementar o agrupamento (ou os names de
+    The alarm that fires if anybody reimplements the grouping (or the kind
+    names
     tipo) num adaptador em vez de no caso de uso.
     """
 
@@ -765,15 +784,16 @@ class TestParityBetweenTransports:
         ]
         for g_grpc, g_rest in zip(grpc_resp.groups, rest["groups"], strict=True):
             assert [i.id for i in g_grpc.items] == [i["id"] for i in g_rest["items"]]
-        # E o opcional, que é onde ausente ≠ zerado pode divergir entre pontas.
+        # And the optional part, which is where absent ≠ zeroed may diverge
+        # between the ends.
         for i_grpc, i_rest in zip(grpc_resp.items, rest["items"], strict=True):
             assert i_grpc.HasField("resolved_at") == (i_rest["resolved_at"] is not None)
             assert i_grpc.HasField("opened_at") == (i_rest["opened_at"] is not None)
 
     async def test_the_same_change_goes_out_through_both_ports(self, core, monkeypatch, stub):
         atualizacoes = [
-            aberto(FILA[0]),
-            resolvido(Item.KIND_THREAD_BLOCKED, ("thread", "th-1")),
+            aberto(QUEUE[0]),
+            resolved_update(Item.KIND_THREAD_BLOCKED, ("thread", "th-1")),
         ]
         com_stream(monkeypatch, atualizacoes)
         with TestClient(_app_com_rotas()) as c:
@@ -798,7 +818,8 @@ class TestParityBetweenTransports:
             assert sse["item"]["target_kind"] == rpc.item.target_kind
             assert sse["item"]["target_id"] == rpc.item.target_id
             assert sse["item"]["priority"] == rpc.item.priority
-            # O name do tipo na borda REST e o enum no gRPC são o mesmo fato.
+            # The kind's name at the REST edge and the enum over gRPC are the
+            # same fact.
             assert rpc.item.kind == Item.Kind.Value(
                 "KIND_" + sse["item"]["kind"].upper()
             )
