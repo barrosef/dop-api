@@ -248,6 +248,18 @@ class RevokeInviteRequest(_message.Message):
     id: str
     def __init__(self, id: _Optional[str] = ...) -> None: ...
 
+class RemoveMembershipRequest(_message.Message):
+    __slots__ = ("membership_id",)
+    MEMBERSHIP_ID_FIELD_NUMBER: _ClassVar[int]
+    membership_id: str
+    def __init__(self, membership_id: _Optional[str] = ...) -> None: ...
+
+class RemoveMembershipResponse(_message.Message):
+    __slots__ = ("removed",)
+    REMOVED_FIELD_NUMBER: _ClassVar[int]
+    removed: bool
+    def __init__(self, removed: _Optional[bool] = ...) -> None: ...
+
 class UpdateMembershipRequest(_message.Message):
     __slots__ = ("membership_id", "role", "grants")
     MEMBERSHIP_ID_FIELD_NUMBER: _ClassVar[int]

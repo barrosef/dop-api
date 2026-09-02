@@ -179,6 +179,18 @@ class RevokeGrantResponse(_message.Message):
     revoked: bool
     def __init__(self, revoked: _Optional[bool] = ...) -> None: ...
 
+class ListMemberGrantsRequest(_message.Message):
+    __slots__ = ("user_id",)
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    user_id: str
+    def __init__(self, user_id: _Optional[str] = ...) -> None: ...
+
+class ListMemberGrantsResponse(_message.Message):
+    __slots__ = ("grants",)
+    GRANTS_FIELD_NUMBER: _ClassVar[int]
+    grants: _containers.RepeatedCompositeFieldContainer[ResourceGrant]
+    def __init__(self, grants: _Optional[_Iterable[_Union[ResourceGrant, _Mapping]]] = ...) -> None: ...
+
 class SetCredentialRequest(_message.Message):
     __slots__ = ("resource_id", "secret")
     RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]

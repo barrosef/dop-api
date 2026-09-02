@@ -85,6 +85,11 @@ class IdentityServiceStub:
                 request_serializer=dop_dot_v1_dot_identity__pb2.UpdateMembershipRequest.SerializeToString,
                 response_deserializer=dop_dot_v1_dot_identity__pb2.Membership.FromString,
                 _registered_method=True)
+        self.RemoveMembership = channel.unary_unary(
+                '/dop.v1.IdentityService/RemoveMembership',
+                request_serializer=dop_dot_v1_dot_identity__pb2.RemoveMembershipRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_identity__pb2.RemoveMembershipResponse.FromString,
+                _registered_method=True)
         self.ListInvites = channel.unary_unary(
                 '/dop.v1.IdentityService/ListInvites',
                 request_serializer=dop_dot_v1_dot_identity__pb2.ListInvitesRequest.SerializeToString,
@@ -162,6 +167,14 @@ class IdentityServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RemoveMembership(self, request, context):
+        """Taking somebody out of the account. It sweeps the grants they held HERE;
+        their user, their personal account and what they created stay (US-5.3).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ListInvites(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -229,6 +242,11 @@ def add_IdentityServiceServicer_to_server(servicer, server):
                     servicer.UpdateMembership,
                     request_deserializer=dop_dot_v1_dot_identity__pb2.UpdateMembershipRequest.FromString,
                     response_serializer=dop_dot_v1_dot_identity__pb2.Membership.SerializeToString,
+            ),
+            'RemoveMembership': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveMembership,
+                    request_deserializer=dop_dot_v1_dot_identity__pb2.RemoveMembershipRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_identity__pb2.RemoveMembershipResponse.SerializeToString,
             ),
             'ListInvites': grpc.unary_unary_rpc_method_handler(
                     servicer.ListInvites,
@@ -512,6 +530,33 @@ class IdentityService:
             '/dop.v1.IdentityService/UpdateMembership',
             dop_dot_v1_dot_identity__pb2.UpdateMembershipRequest.SerializeToString,
             dop_dot_v1_dot_identity__pb2.Membership.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveMembership(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.IdentityService/RemoveMembership',
+            dop_dot_v1_dot_identity__pb2.RemoveMembershipRequest.SerializeToString,
+            dop_dot_v1_dot_identity__pb2.RemoveMembershipResponse.FromString,
             options,
             channel_credentials,
             insecure,

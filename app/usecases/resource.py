@@ -218,6 +218,23 @@ async def grant_resource(body: NewGrant) -> GrantSummary:
 @log
 @account_scoped
 @require_role("owner", "admin")
+async def list_member_grants(user_id: str) -> list[GrantSummary]:
+    """The grants one person holds in the active account.
+
+    It is the read the members screen needs in order to SHOW access before
+    editing it; without it the screen can only write blind.
+    """
+    resp = await stubs.resource_stub().ListMemberGrants(
+        resource_pb2.ListMemberGrantsRequest(user_id=user_id),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return [
+        GrantSummary(id=g.id, resource_id=g.resource.id, user_id=g.user.id, level=g.level)
+        for g in resp.grants
+    ]
+
+
 async def revoke_grant(grant_id: str) -> bool:
     resp = await stubs.resource_stub().RevokeGrant(
         resource_pb2.RevokeGrantRequest(grant_id=grant_id),

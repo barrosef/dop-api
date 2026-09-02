@@ -357,3 +357,19 @@ async def update_member(membership_id: str, body: MemberRole) -> MemberSummary:
         timeout=_deadline(),
     )
     return MemberSummary(id=m.id, user_id=m.user.id, role=role_name(m.role))
+
+
+async def remove_member(membership_id: str) -> bool:
+    """Takes somebody out of the active account.
+
+    The core sweeps the grants that person held HERE before removing the
+    membership — a grant outliving the membership would be access with nothing
+    to justify it. Their user, their personal account and what they created in
+    this account are untouched (US-5.3).
+    """
+    await stubs.identity_stub().RemoveMembership(
+        identity_pb2.RemoveMembershipRequest(membership_id=membership_id),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return True

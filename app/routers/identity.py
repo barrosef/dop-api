@@ -113,3 +113,9 @@ async def revoke_invite(invite_id: str) -> InviteSummary:
 async def update_member(membership_id: str, body: MemberRole) -> MemberSummary:
     """Changes a member's role in the active account."""
     return await uc.update_member(membership_id, body)
+
+
+@router.delete("/members/{membership_id}", status_code=204)
+async def remove_member(membership_id: str) -> None:
+    """Removes a member from the active account, along with their grants here."""
+    await uc.remove_member(membership_id)

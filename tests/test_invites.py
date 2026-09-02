@@ -83,6 +83,7 @@ def invites(core):
             role=identity_pb2.ROLE_ADMIN,
         )
     )
+    core.RemoveMembership = FakeCall(identity_pb2.RemoveMembershipResponse(removed=True))
     return core
 
 
@@ -177,3 +178,30 @@ class TestTheList:
         body = client_inv.get("/api/v1/invites", headers=ACCOUNT).json()
         assert body[0]["expires_at"] is not None
         assert body[1]["expires_at"] is None
+
+
+class TestRemovingAMember:
+    def test_it_removes_and_answers_with_no_body(self, client_inv, invites):
+        r = client_inv.delete("/api/v1/members/mem-2", headers=ACCOUNT)
+        assert r.status_code == 204
+        assert invites.RemoveMembership.last["request"].membership_id == "mem-2"
+
+    def test_the_core_refusal_reaches_the_screen(self, client_inv, invites):
+        """The last owner, a personal account, a developer trying: all of them are
+        the CORE's rules. The edge repeats none of them — it carries the refusal."""
+        invites.RemoveMembership.fails_with(
+            grpc.StatusCode.FAILED_PRECONDITION, "the account needs at least one owner"
+        )
+        r = client_inv.delete("/api/v1/members/mem-2", headers=ACCOUNT)
+        assert r.status_code == 412
+        assert "owner" in r.json()["detail"]
+
+
+class TestAMembersGrants:
+    def test_it_lists_the_grants_of_one_member(self, client, resources):
+        r = client.get("/api/v1/members/u-2/grants", headers=ACCOUNT)
+        assert r.status_code == 200
+        assert r.json() == [
+            {"id": "g-1", "resource_id": "res-1", "user_id": "u-2", "level": "use"}
+        ]
+        assert resources.ListMemberGrants.last["request"].user_id == "u-2"

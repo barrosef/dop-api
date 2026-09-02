@@ -341,6 +341,18 @@ class FakeResources:
             )
         )
         self.RevokeGrant = FakeCall(resource_pb2.RevokeGrantResponse(revoked=True))
+        self.ListMemberGrants = FakeCall(
+            resource_pb2.ListMemberGrantsResponse(
+                grants=[
+                    resource_pb2.ResourceGrant(
+                        id="g-1",
+                        resource=common_pb2.ResourceRef(id="res-1"),
+                        user=common_pb2.UserRef(id="u-2"),
+                        level="use",
+                    )
+                ]
+            )
+        )
 
 
 @pytest.fixture

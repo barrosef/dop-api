@@ -55,7 +55,7 @@ async def start_demand(
     body: NewDemand,
     idempotency_key: str = Header(default="", alias="Idempotency-Key"),
 ) -> Demand:
-    """Inicia a demanda a partir do card do provedor — resolve e congela o fluxo."""
+    """Starts the demand from the provider's card — it resolves and freezes the flow."""
     return await uc.start_demand(body, idempotency_key)
 
 

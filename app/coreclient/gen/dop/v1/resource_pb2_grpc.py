@@ -69,6 +69,11 @@ class ResourceServiceStub:
                 request_serializer=dop_dot_v1_dot_resource__pb2.RevokeGrantRequest.SerializeToString,
                 response_deserializer=dop_dot_v1_dot_resource__pb2.RevokeGrantResponse.FromString,
                 _registered_method=True)
+        self.ListMemberGrants = channel.unary_unary(
+                '/dop.v1.ResourceService/ListMemberGrants',
+                request_serializer=dop_dot_v1_dot_resource__pb2.ListMemberGrantsRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_resource__pb2.ListMemberGrantsResponse.FromString,
+                _registered_method=True)
         self.SetCredential = channel.unary_unary(
                 '/dop.v1.ResourceService/SetCredential',
                 request_serializer=dop_dot_v1_dot_resource__pb2.SetCredentialRequest.SerializeToString,
@@ -121,6 +126,14 @@ class ResourceServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListMemberGrants(self, request, context):
+        """The grants of ONE person in the active account — what the members screen
+        needs in order to show state before editing it.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SetCredential(self, request, context):
         """The credential is written to the SecretStore; the value never comes back on a read.
         """
@@ -165,6 +178,11 @@ def add_ResourceServiceServicer_to_server(servicer, server):
                     servicer.RevokeGrant,
                     request_deserializer=dop_dot_v1_dot_resource__pb2.RevokeGrantRequest.FromString,
                     response_serializer=dop_dot_v1_dot_resource__pb2.RevokeGrantResponse.SerializeToString,
+            ),
+            'ListMemberGrants': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListMemberGrants,
+                    request_deserializer=dop_dot_v1_dot_resource__pb2.ListMemberGrantsRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_resource__pb2.ListMemberGrantsResponse.SerializeToString,
             ),
             'SetCredential': grpc.unary_unary_rpc_method_handler(
                     servicer.SetCredential,
@@ -361,6 +379,33 @@ class ResourceService:
             '/dop.v1.ResourceService/RevokeGrant',
             dop_dot_v1_dot_resource__pb2.RevokeGrantRequest.SerializeToString,
             dop_dot_v1_dot_resource__pb2.RevokeGrantResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListMemberGrants(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.ResourceService/ListMemberGrants',
+            dop_dot_v1_dot_resource__pb2.ListMemberGrantsRequest.SerializeToString,
+            dop_dot_v1_dot_resource__pb2.ListMemberGrantsResponse.FromString,
             options,
             channel_credentials,
             insecure,

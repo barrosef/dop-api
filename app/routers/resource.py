@@ -47,6 +47,12 @@ async def set_credential(resource_id: str, body: NewCredential) -> ResourceSumma
     return await uc.set_credential(resource_id, body)
 
 
+@router.get("/members/{user_id}/grants", response_model=list[GrantSummary])
+async def list_member_grants(user_id: str) -> list[GrantSummary]:
+    """The resource grants of one member of the active account."""
+    return await uc.list_member_grants(user_id)
+
+
 @router.post("/grants", response_model=GrantSummary, status_code=201)
 async def grant_resource(body: NewGrant) -> GrantSummary:
     return await uc.grant_resource(body)
