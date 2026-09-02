@@ -1,17 +1,17 @@
-"""Substrato de execução nos dois transportes, contra um núcleo fake.
+"""The execution substrate on both transports, against a fake core.
 
-O teste que carrega o arquivo é o do ISOLAMENTO DECLARADO: request sem
-`min_tier` tem de ser recusado NA BORDA, e — o que realmente prova a regra — o
-núcleo não pode nem chegar a ser chamado. Um BFF que "ajuda" preenchendo o
-vazio escolhe o isolamento de um código que não é dele, e escolhe para baixo;
-quem pediu microVM e recebeu container descobre pelo incidente.
+The test that carries this file is the one about DECLARED ISOLATION: a request
+with no `min_tier` has to be refused AT THE EDGE, and — what really proves the
+rule — the core must not even be called. A BFF that "helps" by filling the gap
+chooses the isolation of code that is not its own, and chooses downwards;
+whoever asked for a microVM and got a container finds out from the incident.
 
-O segundo é o de DESTRUIÇÃO: ela é irreversível e leva o workspace junto, e o
-contrato tem de dizer isso — inclusive devolvendo confirmação em vez de um 204
-mudo.
+The second is the one about DESTRUCTION: it is irreversible and takes the
+workspace with it, and the contract has to say so — including by returning a
+confirmation rather than a mute 204.
 
-Fakes e fixtures ficam AQUI, e não no `conftest.py`: há outros agentes
-escrevendo neste repositório agora.
+The fakes and the fixtures live HERE, and not in `conftest.py`: there are other
+agents working in that shared file.
 """
 
 import grpc
@@ -42,10 +42,10 @@ REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 def viewer_role(core) -> None:
     """Rebaixa o ator a viewer.
 
-    Como `core.demote_to_developer()`, mas para o role que NÃO pode mexer no
-    ciclo de vida do sandbox. O role é resolvido uma vez, no login, a partir de
-    ListMemberships — então rebaixar é trocar o que esse RPC responde, e não um
-    atalho no context, que provaria menos do que parece.
+    Like `core.demote_to_developer()`, but for the role that may NOT touch the
+    sandbox's life cycle. The role is resolved once, at login, from
+    ListMemberships — so demoting means changing what that RPC answers, and not
+    a shortcut in the context, which would prove less than it seems.
     """
     core.ListMemberships = FakeCall(
         identity_pb2.ListMembershipsResponse(
@@ -67,8 +67,9 @@ def viewer_role(core) -> None:
 class ExecucaoFalsa:
     """Núcleo fake do substrato.
 
-    O sandbox ATIVO tem `last_active_at`; o recém-provisionado NÃO tem — é o
-    caso que distingue ausente de zerado, e sem ele o campo pareceria sempre
+    The ACTIVE sandbox has `last_active_at`; the freshly provisioned one does
+    NOT — it is the case that tells absent from zeroed, and without it the field
+    would always seem
     preenchido.
     """
 
@@ -118,9 +119,10 @@ def execucao(core, monkeypatch):
 def _app_com_rotas():
     """O app real do BFF, com as rotas deste domínio registradas.
 
-    `app/main.py` é do dono do repositório e ainda não inclui este router (ver o
+    `app/main.py` belongs to the repository's owner and does not include this
+    router yet (see the
     relatório). A checagem antes de incluir faz o teste continuar correto
-    depois que o registro entrar no `main`.
+    once the registration lands in `main`.
     """
     app = create_app()
     caminhos = {getattr(r, "path", "") for r in app.routes}
@@ -139,9 +141,10 @@ def client_exec(execucao):
 async def stub_exec(execucao):
     """Servidor gRPC real, em porta efêmera, com o servicer deste domínio.
 
-    Não reusa `grpc_server` do conftest porque `GrpcServer` ainda não
-    registra este servicer (o registro é do dono do repositório). A pilha de
-    interceptores é a mesma — é ela que faz token, context e decorators
+    It does not reuse conftest's `grpc_server` because `GrpcServer` does not
+    register this servicer yet (the registration is the repository owner's). The
+    interceptor stack is the same — it is what makes the token, the context and
+    the decorators
     valerem dentro do servicer.
     """
     server = grpc.aio.server(
@@ -166,11 +169,11 @@ async def stub_exec(execucao):
 
 class TestIsolationIsDeclaredNeverPresumed:
     def test_rest_with_no_tier_is_a_422_and_the_core_is_not_called(self, client_exec, execucao):
-        """A recusa é o comportamento; NÃO chamar o núcleo é a prova.
+        """The refusal is the behaviour; NOT calling the core is the proof.
 
         Se a borda tivesse um default, o núcleo seria chamado com ele e este
-        teste passaria a mostrar uma call — que é exatamente o sintoma que
-        ninguém repararia numa revisão.
+        test would start showing a call — which is exactly the symptom nobody
+        would notice in a review.
         """
         r = client_exec.post(
             "/api/v1/sandboxes", headers=REST_HEADERS, json={"demand_id": "dem-1"}
@@ -188,7 +191,7 @@ class TestIsolationIsDeclaredNeverPresumed:
         assert execucao.ProvisionSandbox.calls == []
 
     async def test_grpc_unspecified_is_invalid_argument(self, stub_exec, execucao):
-        """UNSPECIFIED no protobuf é a ausência, e a ausência não vira default."""
+        """UNSPECIFIED in protobuf is the absence, and the absence does not become a default."""
         with pytest.raises(grpc.aio.AioRpcError) as e:
             await stub_exec.ProvisionSandbox(
                 bff.ProvisionSandboxRequest(demand_id="dem-1"), metadata=ACCOUNT
@@ -197,7 +200,7 @@ class TestIsolationIsDeclaredNeverPresumed:
         assert execucao.ProvisionSandbox.calls == []
 
     def test_the_declared_tier_goes_down_as_it_came(self, client_exec, execucao):
-        """Nem rebaixado "porque o cluster pode não ter", nem promovido."""
+        """Neither downgraded "because the cluster may not have it", nor promoted."""
         client_exec.post(
             "/api/v1/sandboxes",
             headers=REST_HEADERS,
@@ -221,7 +224,7 @@ class TestIsolationIsDeclaredNeverPresumed:
         assert request.idempotency_key == "key-do-client"
 
     def test_the_response_brings_the_delivered_tier(self, client_exec):
-        """O client vê o que RECEBEU, não o que pediu (spec do substrato §2)."""
+        """The client sees what it GOT, not what it asked for (the substrate spec §2)."""
         s = client_exec.post(
             "/api/v1/sandboxes",
             headers=REST_HEADERS,
@@ -230,10 +233,10 @@ class TestIsolationIsDeclaredNeverPresumed:
         assert s["tier"] == "hardware"
 
     def test_the_cores_refusal_crosses_as_a_412(self, client_exec, execucao):
-        """Substrato sem o nível request = recusa com mensagem, não degradação."""
+        """A substrate without the requested level = a refusal with a message, not degradation."""
         execucao.ProvisionSandbox.fails_with(
             grpc.StatusCode.FAILED_PRECONDITION,
-            "este substrato não oferece isolamento \"hardware\"",
+            "this substrate does not offer \"hardware\" isolation",
         )
         r = client_exec.post(
             "/api/v1/sandboxes",
@@ -241,12 +244,12 @@ class TestIsolationIsDeclaredNeverPresumed:
             json={"demand_id": "dem-1", "min_tier": "hardware"},
         )
         assert r.status_code == 412
-        assert "não oferece isolamento" in r.json()["detail"]
+        assert "does not offer" in r.json()["detail"]
 
 
 class TestDestruction:
     def test_it_returns_a_confirmation_instead_of_a_204(self, client_exec):
-        """Ato irreversível merece response que o client possa mostrar."""
+        """An irreversible act deserves a response the client can show."""
         r = client_exec.delete("/api/v1/sandboxes/sbx-1", headers=REST_HEADERS)
         assert r.status_code == 200
         assert r.json() == {"destroyed": True}
@@ -260,9 +263,9 @@ class TestDestruction:
     def test_suspending_and_destroying_are_different_rpcs(self, client_exec, execucao):
         """Suspender preserva o workspace; destruir o leva junto.
 
-        O teste existe para travar a confusão mais cara possível neste domínio:
-        um `DELETE` que na verdade suspendesse (ou um `/suspend` que destruísse)
-        passaria em qualquer teste que só olhasse o código de status.
+        The test exists to lock down the most expensive confusion possible in
+        this domain: a `DELETE` that actually suspended (or a `/suspend` that
+        destroyed) would pass any test that only looked at the status code.
         """
         client_exec.post("/api/v1/sandboxes/sbx-1/suspend", headers=REST_HEADERS)
         assert len(execucao.SuspendSandbox.calls) == 1
@@ -275,13 +278,13 @@ class TestDestruction:
     def test_resuming_a_destroyed_sandbox_crosses_with_the_reason(self, client_exec, execucao):
         execucao.ResumeSandbox.fails_with(
             grpc.StatusCode.FAILED_PRECONDITION,
-            "sandbox destruído não retoma — a destruição leva o workspace junto",
+            "a destroyed sandbox does not resume — the destruction takes the workspace with it",
         )
         r = client_exec.post(
             "/api/v1/sandboxes/sbx-1/resume", headers=REST_HEADERS
         )
         assert r.status_code == 412
-        assert "leva o workspace junto" in r.json()["detail"]
+        assert "takes the workspace with it" in r.json()["detail"]
 
 
 class TestRole:
@@ -302,7 +305,7 @@ class TestRole:
         assert execucao.DestroySandbox.calls == []
 
     def test_a_viewer_sees_the_sandbox(self, client_exec, core):
-        """Ver em que isolamento a demand roda é o que a spec quer visível."""
+        """Seeing which isolation the demand runs at is what the spec wants visible."""
         viewer_role(core)
         r = client_exec.get("/api/v1/sandboxes/sbx-1", headers=REST_HEADERS)
         assert r.status_code == 200
@@ -337,7 +340,7 @@ class TestREST:
         assert s["endpoints"][0]["state"] == "running"
 
     def test_with_no_activity_it_comes_back_null_not_zeroed(self, client_exec, execucao):
-        """Época zero faria a suspensão automática ler "ocioso desde 1970"."""
+        """Epoch zero would make the automatic suspension read "idle since 1970"."""
         execucao.DescribeSandbox.returns(execucao.recem_criado)
         s = client_exec.get(
             "/api/v1/sandboxes/sbx-2", headers=REST_HEADERS
@@ -346,7 +349,7 @@ class TestREST:
         assert s["state"] == "provisioning"
 
     def test_with_no_active_account_it_is_refused(self, client_exec):
-        """Regra do SP-0, aplicada pelo decorator no CASO DE USO."""
+        """SP-0's rule, applied by the decorator in the USE CASE."""
         r = client_exec.get(
             "/api/v1/sandboxes/sbx-1", headers={"authorization": token_for()}
         )
@@ -381,7 +384,7 @@ class TestGRPC:
 
 
 class TestParityBetweenTransports:
-    """O alarme que dispara se alguém reimplementar o caso de uso num adaptador."""
+    """The alarm that fires if anybody reimplements the use case in an adapter."""
 
     async def test_describing_is_the_same_on_both_ports(self, client_exec, stub_exec):
         rest = client_exec.get(
@@ -394,7 +397,7 @@ class TestParityBetweenTransports:
         assert resp.demand_id == rest["demand_id"]
         assert resp.namespace == rest["namespace"]
         # O enum da borda e o name da borda dizem a MESMA coisa sobre o tier —
-        # é aqui que uma tabela de conversão divergente apareceria.
+        # this is where a divergent conversion table would show up.
         assert bff.IsolationTier.Name(resp.tier) == f"ISOLATION_TIER_{rest['tier'].upper()}"
         assert bff.Sandbox.State.Name(resp.state) == f"STATE_{rest['state'].upper()}"
         for g, j in zip(resp.endpoints, rest["endpoints"], strict=True):
