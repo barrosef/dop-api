@@ -390,7 +390,7 @@ class TestErroDepoisDoPrimeiroByte:
         # O texto é NOSSO, não o do núcleo: UNAVAILABLE é 503, e o `_detail_for`
         # não deixa detalhe de 5xx do núcleo sair. Quem carrega a instrução é o
         # campo estruturado, que é de máquina.
-        assert corpo["detail"] == rotas._RECONECTE
+        assert corpo["detail"] == rotas._RECONNECT
         assert "assinante lento" not in r.text
 
     @pytest.mark.parametrize(

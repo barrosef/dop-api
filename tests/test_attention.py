@@ -298,7 +298,7 @@ def dados(quadro: dict) -> dict:
 
 
 def atencoes(texto: str) -> list[dict]:
-    return [dados(q) for q in quadros(texto) if q.get("event") == rotas.ATENCAO]
+    return [dados(q) for q in quadros(texto) if q.get("event") == rotas.ATTENTION]
 
 
 # ── a fila ──────────────────────────────────────────────────────────────────
@@ -567,7 +567,7 @@ class TestSSE:
         com_stream(monkeypatch, [aberto(FILA[0]), aberto(FILA[2])])
         with TestClient(_app_com_rotas()) as c:
             r = c.get("/api/v1/stream/attention", headers=CABECALHOS)
-        eventos = [q for q in quadros(r.text) if q.get("event") == rotas.ATENCAO]
+        eventos = [q for q in quadros(r.text) if q.get("event") == rotas.ATTENTION]
         assert eventos and all("id" not in q for q in eventos)
 
     def test_conta_ativa_atravessa_nos_metadados(self, nucleo, monkeypatch):

@@ -1,40 +1,43 @@
-"""Rotas SSE — o streaming gRPC do núcleo convertido para o browser.
+"""SSE routes — the core's gRPC streaming converted for the browser.
 
-A ADR-0017 (convenção 1) manda: *streaming server-side para tudo ao vivo; o BFF
-converte em SSE para o browser*. Este módulo é essa conversão. Zero decisão de
-negócio aqui — a regra está em `app/usecases/stream.py`.
+ADR-0017 (convention 1) commands: *server-side streaming for everything live;
+the BFF converts it into SSE for the browser*. This module is that conversion.
+Zero business decisions here — the rule is in `app/usecases/stream.py`.
 
-Cinco pontos decidem se um endpoint SSE é bom ou é uma fonte de bug
-intermitente. Cada um está resolvido abaixo, com o porquê:
+Five points decide whether an SSE endpoint is good or is a source of
+intermittent bugs. Each is settled below, with the why:
 
-**Retomada.** O protocolo SSE já tem o mecanismo (`Last-Event-ID`) e o núcleo já
-tem a contraparte (`since_event_id`). Ligar os dois é só isso: emitir `id:` com
-o id do evento DO NÚCLEO — não um contador nosso, que não significaria nada do
-outro lado — e devolver o `Last-Event-ID` recebido como cursor. O EventSource
-reenvia esse cabeçalho sozinho a cada reconexão, então o browser que caiu e
-voltou não perde evento nem recebe duplicado: quem garante isso é o replay do
-núcleo, e a única coisa que a borda precisa fazer é não quebrar a corrente.
+**Resuming.** The SSE protocol already has the mechanism (`Last-Event-ID`) and
+the core already has the counterpart (`since_event_id`). Connecting the two is
+just that: emitting `id:` with the CORE's event id — not a counter of ours,
+which would mean nothing on the other side — and returning the `Last-Event-ID`
+received as the cursor. The EventSource resends that header on its own at every
+reconnection, so the browser that dropped and came back loses no event and gets
+no duplicate: what guarantees that is the core's replay, and the only thing the
+edge has to do is not break the chain.
 
-**Cliente que some.** Tratado no caso de uso (`_bombear`): quando o
-EventSourceResponse detecta `http.disconnect`, cancela a tarefa que consome o
-gerador, o `finally` do gerador roda e a chamada gRPC é cancelada. A assinatura
-morre junto com a aba.
+**A client that goes away.** Handled in the use case (`_pump`): when the
+EventSourceResponse detects `http.disconnect`, it cancels the task consuming the
+generator, the generator's `finally` runs and the gRPC call is cancelled. The
+subscription dies along with the tab.
 
-**Consumidor lento.** O núcleo derruba o assinante lento com `UNAVAILABLE` e uma
-mensagem pedindo para reconectar com `since_event_id`. Isso vira um evento SSE
-`error` com `retryable: true` e o último id emitido — em vez de um stream que
-morre em silêncio e deixa o cockpit mostrando dados velhos como se fossem novos.
+**A slow consumer.** The core drops a slow subscriber with `UNAVAILABLE` and a
+message asking it to reconnect with `since_event_id`. That becomes an SSE
+`error` event with `retryable: true` and the last id emitted — rather than a
+stream that dies in silence and leaves the cockpit showing old data as if it
+were new.
 
-**Erro depois do primeiro byte.** Uma vez enviado o `200 OK`, não existe trocar
-por 500: o status já foi para o fio. Por isso o gerador NUNCA deixa exceção
-escapar depois de aberto — ela vira `event: error`, com o detalhe passado pelo
-MESMO redator do resto da borda (`_detail_for`), que não deixa mensagem de 5xx
-do núcleo vazar. Erro ANTES do primeiro byte (sem token, sem conta ativa) segue
-sendo status HTTP normal: `@account_scoped` roda quando o caso de uso é
-chamado, dentro do handler, antes de a resposta começar.
+**An error after the first byte.** Once the `200 OK` has been sent, there is no
+swapping it for a 500: the status has already gone down the wire. That is why
+the generator NEVER lets an exception escape once open — it becomes
+`event: error`, with the detail passed through the SAME writer as the rest of
+the edge (`_detail_for`), which does not let a 5xx message from the core leak.
+An error BEFORE the first byte (no token, no active account) is still a normal
+HTTP status: `@account_scoped` runs when the use case is called, inside the
+handler, before the response starts.
 
-**Heartbeat.** `: ping` periódico, intervalo em `settings.sse_ping_s` (o porquê
-do número está lá).
+**Heartbeat.** A periodic `: ping`, with the interval in `settings.sse_ping_s`
+(the why of the number is there).
 """
 
 import json
@@ -55,21 +58,22 @@ router = APIRouter(prefix="/api/v1/stream", tags=["streaming"])
 
 __all__ = ["router"]
 
-# Nomes de evento SSE: um conjunto PEQUENO e estável, não o vocabulário de
-# `type` do núcleo.
+# SSE event names: a SMALL, stable set, not the core's `type` vocabulary.
 #
-# Tentador seria emitir `event: dop.hierarchy.project.created`. Mas aí o cockpit
-# precisaria de um addEventListener por tipo de evento existente, e passaria a
-# quebrar (silenciosamente: o evento simplesmente não chega) toda vez que o
-# núcleo criasse um tipo novo. Com três nomes fixos, o cliente escuta três
-# coisas e filtra por `type` dentro do JSON — que é dado, não protocolo.
-EVENTO = "event"
+# The tempting thing would be to emit `event: dop.hierarchy.project.created`.
+# But then the cockpit would need one addEventListener per existing event type,
+# and would start breaking (silently: the event simply does not arrive) every
+# time the core created a new type. With three fixed names, the client listens
+# for three things and filters by `type` inside the JSON — which is data, not
+# protocol.
+EVENT = "event"
 LOG = "log"
-ERRO = "error"
+ERROR = "error"
 
-# Códigos que valem tentar de novo. O caso que importa é o UNAVAILABLE do
-# assinante lento: o núcleo derruba de propósito e espera reconexão com cursor.
-_RETENTAVEIS = frozenset(
+# The codes worth retrying. The case that matters is the slow subscriber's
+# UNAVAILABLE: the core drops it on purpose and expects a reconnection with a
+# cursor.
+_RETRYABLE = frozenset(
     {
         StatusCode.UNAVAILABLE,
         StatusCode.DEADLINE_EXCEEDED,
@@ -78,133 +82,139 @@ _RETENTAVEIS = frozenset(
     }
 )
 
-# Texto NOSSO, para quando o redator manda calar a boca do núcleo.
+# OUR text, for when the writer tells the core to be quiet.
 #
-# Tensão real, e vale explicar: a mensagem do assinante lento ("reconecte com
-# since_event_id do último evento recebido") é justamente a que o cockpit
-# gostaria de mostrar — e ela vem num UNAVAILABLE, que é 503, que o `_detail_for`
-# reduz a "erro interno". A regra dele está certa e não se afrouxa por
-# conveniência: detalhe de 5xx do núcleo pode carregar host, query ou credencial,
-# e ninguém quer descobrir isso pela tela do usuário. A saída é não repetir a
-# frase do núcleo, e sim escrever a nossa — que não carrega dado nenhum de lá.
-# O que o cliente precisa para agir continua nos campos estruturados (`code`,
-# `retryable`, `since_event_id`), que são de máquina e não são redigidos.
-_RECONECTE = "conexão encerrada pelo núcleo; reconecte com since_event_id"
+# A real tension, and worth explaining: the slow subscriber's message
+# ("reconnect with the since_event_id of the last event received") is precisely
+# the one the cockpit would like to show — and it comes in an UNAVAILABLE, which
+# is a 503, which `_detail_for` reduces to "internal error". Its rule is right
+# and is not loosened for convenience: a 5xx detail from the core may carry a
+# host, a query or a credential, and nobody wants to find that out from the
+# user's screen. The way out is not to repeat the core's sentence, but to write
+# our own — which carries no data from there. What the client needs in order to
+# act is still in the structured fields (`code`, `retryable`, `since_event_id`),
+# which are for machines and are not written prose.
+_RECONNECT = "the connection was closed by the core; reconnect with since_event_id"
 
 
-def _json(dados: dict) -> str:
-    # `default=str` cobre o datetime dos modelos sem uma tabela de serialização
-    # nossa. ensure_ascii desligado porque o payload carrega texto em português.
-    return json.dumps(dados, ensure_ascii=False, default=str)
+def _json(data: dict) -> str:
+    # `default=str` covers the models' datetime with no serialization table of
+    # ours. ensure_ascii is off because the payload carries free text in any
+    # language.
+    return json.dumps(data, ensure_ascii=False, default=str)
 
 
-def _abertura() -> ServerSentEvent:
-    """Primeiro quadro do stream: só o `retry:`.
+def _opening() -> ServerSentEvent:
+    """The stream's first frame: only the `retry:`.
 
-    Evento sem `data:` não é despachado pelo EventSource — ele apenas absorve o
-    campo `retry`. É o jeito de configurar o intervalo de reconexão do cliente
-    sem inventar um evento falso que o cockpit teria de aprender a ignorar.
+    An event with no `data:` is not dispatched by the EventSource — it only
+    absorbs the `retry` field. It is the way to configure the client's
+    reconnection interval without inventing a fake event the cockpit would have
+    to learn to ignore.
     """
     return ServerSentEvent(retry=settings.sse_retry_ms)
 
 
-def _erro(exc: AioRpcError, ultimo_id: str) -> ServerSentEvent:
-    """Erro do núcleo, no meio do stream, como evento SSE.
+def _error(exc: AioRpcError, last_id: str) -> ServerSentEvent:
+    """A core error, in the middle of the stream, as an SSE event.
 
-    O detalhe passa pelo `_detail_for` que o REST e o gRPC já usam — 5xx do
-    núcleo não vaza por porta nenhuma, e não há um segundo redator para
-    envelhecer em separado. Quando ele cala e o erro é retentável, entra o
-    `_RECONECTE`, que é texto nosso (ver o comentário da constante).
+    The detail goes through the same `_detail_for` REST and gRPC already use — a
+    5xx from the core leaks through no port, and there is no second writer to age
+    separately. When it goes quiet and the error is retryable, `_RECONNECT` steps
+    in, which is text of ours (see the constant's comment).
 
-    `since_event_id` vai no corpo mesmo já tendo sido emitido como `id:`: o
-    cliente que reconecta com `EventSource` usa o cabeçalho automático, mas quem
-    fala com este endpoint por `fetch` (ou quem recarregou a página) precisa do
-    cursor em algum lugar que consiga ler.
+    `since_event_id` goes in the body even though it has already been emitted as
+    `id:`: the client reconnecting with `EventSource` uses the automatic header,
+    but whoever talks to this endpoint through `fetch` (or whoever reloaded the
+    page) needs the cursor somewhere they can read.
     """
     status = http_status_for(exc.code())
-    retentavel = exc.code() in _RETENTAVEIS
-    detalhe = _detail_for(exc, status)
-    if retentavel and status >= 500:
-        detalhe = _RECONECTE
+    retryable = exc.code() in _RETRYABLE
+    detail = _detail_for(exc, status)
+    if retryable and status >= 500:
+        detail = _RECONNECT
     return ServerSentEvent(
-        event=ERRO,
+        event=ERROR,
         data=_json(
             {
                 "status": status,
                 "code": exc.code().name,
-                "detail": detalhe,
-                # Falso NÃO significa "pare de tentar" para o EventSource, que
-                # reconecta sozinho de qualquer jeito — significa que o cliente
-                # deve fechar a conexão em vez de insistir. É por isso que o
-                # cockpit precisa deste campo e não só do fim do stream.
-                "retryable": retentavel,
-                "since_event_id": ultimo_id,
+                "detail": detail,
+                # False does NOT mean "stop trying" for the EventSource, which
+                # reconnects on its own anyway — it means the client should close
+                # the connection instead of insisting. That is why the cockpit
+                # needs this field and not only the end of the stream.
+                "retryable": retryable,
+                "since_event_id": last_id,
             }
         ),
     )
 
 
-async def _eventos_sse(fonte, *, nome: str):
-    """Traduz o gerador do caso de uso em quadros SSE, sem deixar erro escapar.
+async def _sse_events(source, *, name: str):
+    """Translates the use case's generator into SSE frames, letting no error escape.
 
-    Depois do `yield _abertura()` o status 200 já foi para o fio. A partir daí,
-    exceção nenhuma pode subir: subir viraria um stream cortado no meio, que do
-    lado do browser é indistinguível de rede ruim. Vira `event: error`.
+    After the `yield _opening()` the 200 status has already gone down the wire.
+    From then on, no exception may propagate: propagating would become a stream
+    cut in the middle, which on the browser's side is indistinguishable from a
+    bad network. It becomes `event: error`.
     """
-    ultimo_id = ""
-    yield _abertura()
+    last_id = ""
+    yield _opening()
     try:
-        async for item in fonte:
-            dados = item.model_dump()
-            # `id:` só quando existe. Emitir vazio faria o browser mandar um
-            # Last-Event-ID vazio na reconexão — indistinguível de "nunca vi
-            # nada" — e o stream de demanda, que não tem cursor, passaria a
-            # mentir que tem.
-            evento_id = dados.get("id") or None
-            if evento_id:
-                ultimo_id = evento_id
-            yield ServerSentEvent(event=nome, id=evento_id, data=_json(dados))
+        async for item in source:
+            data = item.model_dump()
+            # `id:` only when there is one. Emitting an empty one would make the
+            # browser send an empty Last-Event-ID on reconnection —
+            # indistinguishable from "I have never seen anything" — and the
+            # demand stream, which has no cursor, would start pretending it has
+            # one.
+            event_id = data.get("id") or None
+            if event_id:
+                last_id = event_id
+            yield ServerSentEvent(event=name, id=event_id, data=_json(data))
     except AioRpcError as exc:
         get_logger().warning(
-            "stream interrompido pelo núcleo", code=str(exc.code()), stream=nome
+            "stream interrupted by the core", code=str(exc.code()), stream=name
         )
-        yield _erro(exc, ultimo_id)
-    except Exception as exc:  # noqa: BLE001 - ver comentário
-        # Falha nossa. Mesmo tratamento do ErrorInterceptor: inteira no log,
-        # genérica na rede. Deixar propagar cortaria a resposta pela metade.
-        get_logger().error("erro não tratado no stream", error=str(exc), stream=nome)
+        yield _error(exc, last_id)
+    except Exception as exc:  # noqa: BLE001 - see the comment
+        # A failure of ours. The same treatment as the ErrorInterceptor: whole in
+        # the log, generic on the wire. Letting it propagate would cut the
+        # response in half.
+        get_logger().error("unhandled error in the stream", error=str(exc), stream=name)
         yield ServerSentEvent(
-            event=ERRO,
+            event=ERROR,
             data=_json(
                 {
                     "status": 500,
                     "code": "INTERNAL",
-                    "detail": "erro interno",
+                    "detail": "internal error",
                     "retryable": False,
-                    "since_event_id": ultimo_id,
+                    "since_event_id": last_id,
                 }
             ),
         )
 
 
-def _resposta(fonte, *, nome: str) -> EventSourceResponse:
+def _response(source, *, name: str) -> EventSourceResponse:
     return EventSourceResponse(
-        _eventos_sse(fonte, nome=nome), ping=settings.sse_ping_s
+        _sse_events(source, name=name), ping=settings.sse_ping_s
     )
 
 
 def _cursor(last_event_id: str, since_event_id: str) -> str:
-    """Cabeçalho vence parâmetro de consulta, e a ordem não é arbitrária.
+    """The header beats the query parameter, and the order is not arbitrary.
 
-    O `Last-Event-ID` é REENVIADO pelo browser a cada reconexão automática, com
-    o id mais recente que ele processou. A URL, essa fica congelada no momento
-    em que o EventSource foi criado — o `?since_event_id=` dela envelhece na
-    primeira reconexão. Preferir a query traria eventos já vistos de volta a
-    cada queda de rede.
+    `Last-Event-ID` is RESENT by the browser on every automatic reconnection,
+    with the most recent id it processed. The URL, that one is frozen at the
+    moment the EventSource was created — its `?since_event_id=` ages on the first
+    reconnection. Preferring the query would bring already seen events back on
+    every network drop.
 
-    O parâmetro continua existindo porque o EventSource não deixa o cliente
-    definir cabeçalho: na PRIMEIRA conexão depois de um F5, o cursor guardado
-    pelo cockpit só tem esse caminho para chegar aqui.
+    The parameter still exists because the EventSource does not let the client
+    set a header: on the FIRST connection after an F5, the cursor the cockpit
+    kept has only this path to reach here.
     """
     return last_event_id or since_event_id
 
@@ -216,30 +226,31 @@ async def stream_account_events(
     since_event_id: str = "",
     last_event_id: str = Header(default="", alias="Last-Event-ID"),
 ) -> EventSourceResponse:
-    """Eventos da conta ativa — timeline e caixa de atenção do cockpit.
+    """The active account's events — the cockpit's timeline and attention box.
 
-    O caso de uso é chamado AQUI, fora do gerador, de propósito: é essa chamada
-    que dispara `@account_scoped`. Recusa sem conta ativa sai como 400 de
-    verdade, com corpo JSON, e não como um 200 que morre no primeiro quadro.
+    The use case is called HERE, outside the generator, on purpose: it is that
+    call that fires `@account_scoped`. A refusal with no active account comes out
+    as a real 400, with a JSON body, and not as a 200 that dies at the first
+    frame.
     """
-    fonte = uc.watch_account_events(
+    source = uc.watch_account_events(
         since_event_id=_cursor(last_event_id, since_event_id),
         aggregate=aggregate or [],
         types=types or [],
     )
-    return _resposta(fonte, nome=EVENTO)
+    return _response(source, name=EVENT)
 
 
 @router.get("/demands/{demand_id}")
 async def stream_demand(demand_id: str) -> EventSourceResponse:
-    """Eventos de uma demanda — o que faz o chat e a timeline dela viverem.
+    """One demand's events — what makes its chat and its timeline live.
 
-    Sem cursor: `dop.v1.WatchDemandRequest` não tem `since_event_id`, então este
-    stream não aceita `Last-Event-ID` — e, coerentemente, não emite `id:`.
-    Fingir retomada aqui daria ao cockpit a impressão de que nada se perdeu numa
-    reconexão. Quem reconecta relê o dossiê da demanda.
+    No cursor: `dop.v1.WatchDemandRequest` has no `since_event_id`, so this
+    stream does not accept `Last-Event-ID` — and, consistently, emits no `id:`.
+    Pretending to resume here would give the cockpit the impression that nothing
+    was lost in a reconnection. Whoever reconnects rereads the demand's dossier.
     """
-    return _resposta(uc.watch_demand(demand_id), nome=EVENTO)
+    return _response(uc.watch_demand(demand_id), name=EVENT)
 
 
 @router.get("/sandboxes/{sandbox_id}/logs")
@@ -249,8 +260,8 @@ async def stream_sandbox_logs(
     service: str = "",
     test_type: str = "",
 ) -> EventSourceResponse:
-    """Cauda de log de um sandbox. Também sem cursor, pela mesma razão."""
-    fonte = uc.tail_sandbox_logs(
+    """A sandbox's log tail. Also with no cursor, for the same reason."""
+    source = uc.tail_sandbox_logs(
         sandbox_id, source=source, service=service, test_type=test_type
     )
-    return _resposta(fonte, nome=LOG)
+    return _response(source, name=LOG)
