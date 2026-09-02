@@ -43,9 +43,7 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import common_pb2, delivery_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
@@ -164,9 +162,7 @@ class DirectiveDecision(BaseModel):
 
 
 def _pull_request(pr: delivery_pb2.PullRequest) -> PullRequest:
-    reviewers = [
-        Reviewer(name=r.name, initials=r.initials, status=r.status) for r in pr.reviewers
-    ]
+    reviewers = [Reviewer(name=r.name, initials=r.initials, status=r.status) for r in pr.reviewers]
     return PullRequest(
         id=pr.id,
         demand_id=pr.demand.id,
@@ -229,10 +225,7 @@ def _refusal(detail: str) -> MergeRefusal:
 @account_scoped
 async def list_pull_requests(demand_id: str = "", project_id: str = "") -> list[PullRequest]:
     """One demand's PRs (the demand's screen) or one project's (the delivery screen)."""
-    ctx = auth_ctx.get()
-    request = delivery_pb2.ListPullRequestsRequest(
-        ctx=call_context_from(ctx), demand_id=demand_id
-    )
+    request = delivery_pb2.ListPullRequestsRequest(demand_id=demand_id)
     if project_id:
         request.project.id = project_id
     resp = await stubs.delivery_stub().ListPullRequests(
@@ -244,11 +237,8 @@ async def list_pull_requests(demand_id: str = "", project_id: str = "") -> list[
 @log
 @account_scoped
 async def list_directives(project_id: str) -> list[Directive]:
-    ctx = auth_ctx.get()
     resp = await stubs.delivery_stub().ListDirectives(
-        delivery_pb2.ListDirectivesRequest(
-            ctx=call_context_from(ctx), project=common_pb2.ProjectRef(id=project_id)
-        ),
+        delivery_pb2.ListDirectivesRequest(project=common_pb2.ProjectRef(id=project_id)),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -279,9 +269,8 @@ async def get_merge_queue(repo_id: str) -> list[MergeQueueEntry]:
     not invalidate each other, and a global queue would be an invented
     serialization.
     """
-    ctx = auth_ctx.get()
     resp = await stubs.delivery_stub().GetMergeQueue(
-        delivery_pb2.GetMergeQueueRequest(ctx=call_context_from(ctx), repo_id=repo_id),
+        delivery_pb2.GetMergeQueueRequest(repo_id=repo_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -304,11 +293,9 @@ async def enqueue_merge(
     5xx without leaking the core's detail. A broad `except` here would swallow
     NOT_FOUND as if it were a refusal.
     """
-    ctx = auth_ctx.get()
     try:
         e = await stubs.delivery_stub().EnqueueMerge(
             delivery_pb2.EnqueueMergeRequest(
-                ctx=call_context_from(ctx),
                 repo_id=repo_id,
                 demand_id=body.demand_id,
                 idempotency_key=_idempotency(idempotency_key),
@@ -330,12 +317,10 @@ async def decide_directive(
     directive_id: str, body: DirectiveDecision, idempotency_key: str = ""
 ) -> Directive:
     """The coordination decision is the DEV's (ADR-0015) — the techlead recommends."""
-    ctx = auth_ctx.get()
     decision = struct_pb2.Struct()
     decision.update(body.decision)
     d = await stubs.delivery_stub().DecideDirective(
         delivery_pb2.DecideDirectiveRequest(
-            ctx=call_context_from(ctx),
             directive_id=directive_id,
             decision=decision,
             idempotency_key=_idempotency(idempotency_key),

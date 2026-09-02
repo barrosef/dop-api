@@ -61,14 +61,12 @@ class RoutingDecision(_message.Message):
     def __init__(self, task_kind: _Optional[str] = ..., model: _Optional[str] = ..., effort: _Optional[str] = ..., reason: _Optional[str] = ...) -> None: ...
 
 class RecordUsageRequest(_message.Message):
-    __slots__ = ("ctx", "usage", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("usage", "idempotency_key")
     USAGE_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     usage: UsageEvent
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., usage: _Optional[_Union[UsageEvent, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, usage: _Optional[_Union[UsageEvent, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class RecordUsageResponse(_message.Message):
     __slots__ = ("recorded", "budget_exceeded")
@@ -79,42 +77,34 @@ class RecordUsageResponse(_message.Message):
     def __init__(self, recorded: _Optional[bool] = ..., budget_exceeded: _Optional[bool] = ...) -> None: ...
 
 class GetBudgetRequest(_message.Message):
-    __slots__ = ("ctx", "scope", "scope_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("scope", "scope_id")
     SCOPE_FIELD_NUMBER: _ClassVar[int]
     SCOPE_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     scope: str
     scope_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., scope: _Optional[str] = ..., scope_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, scope: _Optional[str] = ..., scope_id: _Optional[str] = ...) -> None: ...
 
 class SetBudgetRequest(_message.Message):
-    __slots__ = ("ctx", "budget")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("budget",)
     BUDGET_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     budget: Budget
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., budget: _Optional[_Union[Budget, _Mapping]] = ...) -> None: ...
+    def __init__(self, budget: _Optional[_Union[Budget, _Mapping]] = ...) -> None: ...
 
 class RouteModelRequest(_message.Message):
-    __slots__ = ("ctx", "task_kind", "demand_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("task_kind", "demand_id")
     TASK_KIND_FIELD_NUMBER: _ClassVar[int]
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     task_kind: str
     demand_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., task_kind: _Optional[str] = ..., demand_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, task_kind: _Optional[str] = ..., demand_id: _Optional[str] = ...) -> None: ...
 
 class SummarizeCostRequest(_message.Message):
-    __slots__ = ("ctx", "scope", "scope_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("scope", "scope_id")
     SCOPE_FIELD_NUMBER: _ClassVar[int]
     SCOPE_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     scope: str
     scope_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., scope: _Optional[str] = ..., scope_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, scope: _Optional[str] = ..., scope_id: _Optional[str] = ...) -> None: ...
 
 class SummarizeCostResponse(_message.Message):
     __slots__ = ("total", "cache_hit_ratio", "recent")

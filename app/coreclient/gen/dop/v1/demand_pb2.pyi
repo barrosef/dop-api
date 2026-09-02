@@ -162,14 +162,12 @@ class Finding(_message.Message):
     def __init__(self, id: _Optional[str] = ..., demand: _Optional[_Union[_common_pb2.DemandRef, _Mapping]] = ..., thread_id: _Optional[str] = ..., title: _Optional[str] = ..., payload: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., audit: _Optional[_Union[_common_pb2.AuditStamp, _Mapping]] = ...) -> None: ...
 
 class ListDemandsRequest(_message.Message):
-    __slots__ = ("ctx", "project", "page")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("project", "page")
     PROJECT_FIELD_NUMBER: _ClassVar[int]
     PAGE_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     project: _common_pb2.ProjectRef
     page: _common_pb2.PageRequest
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ..., page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
+    def __init__(self, project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ..., page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
 
 class ListDemandsResponse(_message.Message):
     __slots__ = ("demands", "page")
@@ -180,62 +178,52 @@ class ListDemandsResponse(_message.Message):
     def __init__(self, demands: _Optional[_Iterable[_Union[Demand, _Mapping]]] = ..., page: _Optional[_Union[_common_pb2.PageResponse, _Mapping]] = ...) -> None: ...
 
 class GetDemandRequest(_message.Message):
-    __slots__ = ("ctx", "id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class StartDemandRequest(_message.Message):
-    __slots__ = ("ctx", "project", "external_key", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("project", "external_key", "idempotency_key")
     PROJECT_FIELD_NUMBER: _ClassVar[int]
     EXTERNAL_KEY_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     project: _common_pb2.ProjectRef
     external_key: str
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ..., external_key: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ..., external_key: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class AdvanceStageRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id", "stage_key", "status", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id", "stage_key", "status", "idempotency_key")
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     STAGE_KEY_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
     stage_key: str
     status: StageStatus
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ..., stage_key: _Optional[str] = ..., status: _Optional[_Union[StageStatus, str]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ..., stage_key: _Optional[str] = ..., status: _Optional[_Union[StageStatus, str]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class DecideGateRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id", "stage_key", "approved", "comment", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id", "stage_key", "approved", "comment", "idempotency_key")
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     STAGE_KEY_FIELD_NUMBER: _ClassVar[int]
     APPROVED_FIELD_NUMBER: _ClassVar[int]
     COMMENT_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
     stage_key: str
     approved: bool
     comment: str
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ..., stage_key: _Optional[str] = ..., approved: _Optional[bool] = ..., comment: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ..., stage_key: _Optional[str] = ..., approved: _Optional[bool] = ..., comment: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class ListThreadsRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id",)
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ...) -> None: ...
 
 class ListThreadsResponse(_message.Message):
     __slots__ = ("threads",)
@@ -244,42 +232,36 @@ class ListThreadsResponse(_message.Message):
     def __init__(self, threads: _Optional[_Iterable[_Union[Thread, _Mapping]]] = ...) -> None: ...
 
 class CreateThreadRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id", "key", "card", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id", "key", "card", "idempotency_key")
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     KEY_FIELD_NUMBER: _ClassVar[int]
     CARD_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
     key: str
     card: AgentCard
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ..., key: _Optional[str] = ..., card: _Optional[_Union[AgentCard, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ..., key: _Optional[str] = ..., card: _Optional[_Union[AgentCard, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class PostMessageRequest(_message.Message):
-    __slots__ = ("ctx", "thread_id", "text", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("thread_id", "text", "idempotency_key")
     THREAD_ID_FIELD_NUMBER: _ClassVar[int]
     TEXT_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     thread_id: str
     text: str
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., thread_id: _Optional[str] = ..., text: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, thread_id: _Optional[str] = ..., text: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class ListFindingsRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id", "thread_id", "page")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id", "thread_id", "page")
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     THREAD_ID_FIELD_NUMBER: _ClassVar[int]
     PAGE_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
     thread_id: str
     page: _common_pb2.PageRequest
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
 
 class ListFindingsResponse(_message.Message):
     __slots__ = ("findings", "page")
@@ -290,28 +272,24 @@ class ListFindingsResponse(_message.Message):
     def __init__(self, findings: _Optional[_Iterable[_Union[Finding, _Mapping]]] = ..., page: _Optional[_Union[_common_pb2.PageResponse, _Mapping]] = ...) -> None: ...
 
 class PublishFindingRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id", "thread_id", "title", "payload", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id", "thread_id", "title", "payload", "idempotency_key")
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     THREAD_ID_FIELD_NUMBER: _ClassVar[int]
     TITLE_FIELD_NUMBER: _ClassVar[int]
     PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
     thread_id: str
     title: str
     payload: _struct_pb2.Struct
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., title: _Optional[str] = ..., payload: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., title: _Optional[str] = ..., payload: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class WatchDemandRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id",)
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ...) -> None: ...
 
 class DemandEvent(_message.Message):
     __slots__ = ("type", "aggregate", "payload", "at")

@@ -67,14 +67,6 @@ class ActorRef(_message.Message):
     name: str
     def __init__(self, kind: _Optional[_Union[ActorRef.Kind, str]] = ..., id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
-class CallContext(_message.Message):
-    __slots__ = ("account", "actor")
-    ACCOUNT_FIELD_NUMBER: _ClassVar[int]
-    ACTOR_FIELD_NUMBER: _ClassVar[int]
-    account: AccountRef
-    actor: ActorRef
-    def __init__(self, account: _Optional[_Union[AccountRef, _Mapping]] = ..., actor: _Optional[_Union[ActorRef, _Mapping]] = ...) -> None: ...
-
 class PageRequest(_message.Message):
     __slots__ = ("size", "token")
     SIZE_FIELD_NUMBER: _ClassVar[int]

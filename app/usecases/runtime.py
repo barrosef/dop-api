@@ -21,9 +21,7 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import agent_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
@@ -128,9 +126,7 @@ def _outcome(o: agent_pb2.TurnOutcome) -> TurnOutcome:
             output_tokens=u.output_tokens,
             cache_read_tokens=u.cache_read_tokens,
             cache_creation_tokens=u.cache_creation_tokens,
-            cost=cost_uc.Money(
-                currency=u.cost.currency, amount_micros=u.cost.amount_micros
-            ),
+            cost=cost_uc.Money(currency=u.cost.currency, amount_micros=u.cost.amount_micros),
             cache_creation_known=u.cache_creation_known,
             cost_known=u.cost_known,
         ),
@@ -152,10 +148,8 @@ async def run_turn(
     one: an agent turn spends money, and a key generated here would turn a
     network retry into double consumption with nobody asking.
     """
-    ctx = auth_ctx.get()
     o = await stubs.agent_stub().RunTurn(
         agent_pb2.RunTurnRequest(
-            ctx=call_context_from(ctx),
             demand_id=demand_id,
             thread_id=thread_id,
             text=body.text,

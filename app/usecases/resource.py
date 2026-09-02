@@ -19,9 +19,7 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import resource_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
@@ -130,8 +128,7 @@ async def list_resources(kind: str = "") -> list[ResourceSummary]:
     visibility rule here would create a second truth that eventually disagrees
     with the first.
     """
-    ctx = auth_ctx.get()
-    request = resource_pb2.ListResourcesRequest(ctx=call_context_from(ctx))
+    request = resource_pb2.ListResourcesRequest()
     if kind:
         request.kind = _KIND_BY_NAME.get(kind, resource_pb2.Resource.KIND_UNSPECIFIED)
     resp = await stubs.resource_stub().ListResources(
@@ -143,9 +140,8 @@ async def list_resources(kind: str = "") -> list[ResourceSummary]:
 @log
 @account_scoped
 async def get_resource(resource_id: str) -> ResourceSummary:
-    ctx = auth_ctx.get()
     r = await stubs.resource_stub().GetResource(
-        resource_pb2.GetResourceRequest(ctx=call_context_from(ctx), id=resource_id),
+        resource_pb2.GetResourceRequest(id=resource_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -160,12 +156,10 @@ async def create_resource(body: NewResource, idempotency_key: str = "") -> Resou
     Separating the two steps is not ceremony: it keeps the value out of the
     request that creates, which is the most logged and most retried of all.
     """
-    ctx = auth_ctx.get()
     config = struct_pb2.Struct()
     config.update(body.config)
     r = await stubs.resource_stub().CreateResource(
         resource_pb2.CreateResourceRequest(
-            ctx=call_context_from(ctx),
             kind=_KIND_BY_NAME.get(body.kind, resource_pb2.Resource.KIND_UNSPECIFIED),
             name=body.name,
             config=config,
@@ -186,11 +180,9 @@ async def set_credential(resource_id: str, body: NewCredential) -> ResourceSumma
     round trip, since it needs to show "credential configured". The value does
     not come along because there is no path that reads it.
     """
-    ctx = auth_ctx.get()
     stub = stubs.resource_stub()
     await stub.SetCredential(
         resource_pb2.SetCredentialRequest(
-            ctx=call_context_from(ctx),
             resource_id=resource_id,
             secret=base64.b64decode(body.secret_base64),
         ),
@@ -198,7 +190,7 @@ async def set_credential(resource_id: str, body: NewCredential) -> ResourceSumma
         timeout=_deadline(),
     )
     r = await stub.GetResource(
-        resource_pb2.GetResourceRequest(ctx=call_context_from(ctx), id=resource_id),
+        resource_pb2.GetResourceRequest(id=resource_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -211,10 +203,8 @@ async def set_credential(resource_id: str, body: NewCredential) -> ResourceSumma
 async def grant_resource(body: NewGrant) -> GrantSummary:
     """A grant is always explicit — a credentialed resource is closed by
     default, and there is no default that opens it (ADR-0013)."""
-    ctx = auth_ctx.get()
     g = await stubs.resource_stub().GrantResource(
         resource_pb2.GrantResourceRequest(
-            ctx=call_context_from(ctx),
             resource_id=body.resource_id,
             user_id=body.user_id,
             level=body.level,
@@ -222,18 +212,15 @@ async def grant_resource(body: NewGrant) -> GrantSummary:
         metadata=core.metadata(),
         timeout=_deadline(),
     )
-    return GrantSummary(
-        id=g.id, resource_id=g.resource.id, user_id=g.user.id, level=g.level
-    )
+    return GrantSummary(id=g.id, resource_id=g.resource.id, user_id=g.user.id, level=g.level)
 
 
 @log
 @account_scoped
 @require_role("owner", "admin")
 async def revoke_grant(grant_id: str) -> bool:
-    ctx = auth_ctx.get()
     resp = await stubs.resource_stub().RevokeGrant(
-        resource_pb2.RevokeGrantRequest(ctx=call_context_from(ctx), grant_id=grant_id),
+        resource_pb2.RevokeGrantRequest(grant_id=grant_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )

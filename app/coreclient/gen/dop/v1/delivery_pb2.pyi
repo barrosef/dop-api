@@ -102,14 +102,12 @@ class Directive(_message.Message):
     def __init__(self, id: _Optional[str] = ..., project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ..., kind: _Optional[_Union[Directive.Kind, str]] = ..., payload: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., decided_by: _Optional[_Union[_common_pb2.ActorRef, _Mapping]] = ..., audit: _Optional[_Union[_common_pb2.AuditStamp, _Mapping]] = ...) -> None: ...
 
 class ListPullRequestsRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id", "project")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id", "project")
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     PROJECT_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
     project: _common_pb2.ProjectRef
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ..., project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ..., project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ...) -> None: ...
 
 class ListPullRequestsResponse(_message.Message):
     __slots__ = ("pull_requests",)
@@ -118,12 +116,10 @@ class ListPullRequestsResponse(_message.Message):
     def __init__(self, pull_requests: _Optional[_Iterable[_Union[PullRequest, _Mapping]]] = ...) -> None: ...
 
 class GetMergeQueueRequest(_message.Message):
-    __slots__ = ("ctx", "repo_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("repo_id",)
     REPO_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     repo_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., repo_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, repo_id: _Optional[str] = ...) -> None: ...
 
 class GetMergeQueueResponse(_message.Message):
     __slots__ = ("entries",)
@@ -132,24 +128,20 @@ class GetMergeQueueResponse(_message.Message):
     def __init__(self, entries: _Optional[_Iterable[_Union[MergeQueueEntry, _Mapping]]] = ...) -> None: ...
 
 class EnqueueMergeRequest(_message.Message):
-    __slots__ = ("ctx", "repo_id", "demand_id", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("repo_id", "demand_id", "idempotency_key")
     REPO_ID_FIELD_NUMBER: _ClassVar[int]
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     repo_id: str
     demand_id: str
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., repo_id: _Optional[str] = ..., demand_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, repo_id: _Optional[str] = ..., demand_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class ListDirectivesRequest(_message.Message):
-    __slots__ = ("ctx", "project")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("project",)
     PROJECT_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     project: _common_pb2.ProjectRef
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ...) -> None: ...
+    def __init__(self, project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ...) -> None: ...
 
 class ListDirectivesResponse(_message.Message):
     __slots__ = ("directives",)
@@ -158,13 +150,11 @@ class ListDirectivesResponse(_message.Message):
     def __init__(self, directives: _Optional[_Iterable[_Union[Directive, _Mapping]]] = ...) -> None: ...
 
 class DecideDirectiveRequest(_message.Message):
-    __slots__ = ("ctx", "directive_id", "decision", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("directive_id", "decision", "idempotency_key")
     DIRECTIVE_ID_FIELD_NUMBER: _ClassVar[int]
     DECISION_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     directive_id: str
     decision: _struct_pb2.Struct
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., directive_id: _Optional[str] = ..., decision: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, directive_id: _Optional[str] = ..., decision: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...

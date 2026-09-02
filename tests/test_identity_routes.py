@@ -84,11 +84,18 @@ class TestContextPropagation:
         assert md["x-actor-kind"] == "user"
         assert md["x-request-id"] == "trace-1"  # the same trail from the BFF to the core
 
-    def test_the_call_context_goes_in_the_requests_body(self, client, core):
+    def test_the_body_does_not_carry_the_call_context(self, client, core):
+        """The reverse of what this test used to assert — and that is the point.
+
+        Every request used to carry a `CallContext ctx = 1` that the core
+        ignored: it authorizes by the metadata (ADR-0017, convention 5). A field
+        with no effect teaches the wrong thing to whoever reads the contract, and
+        it was already being copied into each new proto. Number 1 is reserved;
+        this test is what stops it coming back.
+        """
         client.get("/api/v1/accounts/current/members", headers=ACCOUNT)
         req = core.ListMemberships.last["request"]
-        assert req.ctx.account.id == "acct-1"
-        assert req.ctx.actor.id == "u-1"
+        assert not req.DESCRIPTOR.fields_by_name.get("ctx")
         assert req.account.id == "acct-1"
 
     def test_the_call_carries_a_deadline(self, client, core):
@@ -217,7 +224,7 @@ class TestWrites:
         assert req.role == identity_pb2.ROLE_DEVELOPER
         assert req.grants[0].resource.id == "res-1"
         assert req.grants[0].level == "use"
-        assert req.ctx.account.id == "acct-1"
+        assert core.CreateInvite.metadata()["x-account-id"] == "acct-1"
 
     def test_an_invite_requires_a_management_role(self, monkeypatch, core):
         core.ListMemberships.returns(

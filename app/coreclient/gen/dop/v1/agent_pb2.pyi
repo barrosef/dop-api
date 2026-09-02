@@ -85,8 +85,7 @@ class TurnOutcome(_message.Message):
     def __init__(self, demand: _Optional[_Union[_common_pb2.DemandRef, _Mapping]] = ..., thread_id: _Optional[str] = ..., provider: _Optional[str] = ..., routing: _Optional[_Union[TurnRouting, _Mapping]] = ..., reply: _Optional[str] = ..., message_ids: _Optional[_Iterable[str]] = ..., concluded: _Optional[bool] = ..., finding: _Optional[_Union[TurnFinding, _Mapping]] = ..., usage: _Optional[_Union[TurnUsage, _Mapping]] = ..., context_truncated: _Optional[bool] = ..., paused: _Optional[bool] = ..., notice: _Optional[str] = ..., budgets: _Optional[_Iterable[_Union[_cost_pb2.Budget, _Mapping]]] = ..., warnings: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class RunTurnRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id", "thread_id", "text", "task_kind", "resource_id", "operator_note", "max_output_tokens", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id", "thread_id", "text", "task_kind", "resource_id", "operator_note", "max_output_tokens", "idempotency_key")
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     THREAD_ID_FIELD_NUMBER: _ClassVar[int]
     TEXT_FIELD_NUMBER: _ClassVar[int]
@@ -95,7 +94,6 @@ class RunTurnRequest(_message.Message):
     OPERATOR_NOTE_FIELD_NUMBER: _ClassVar[int]
     MAX_OUTPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
     thread_id: str
     text: str
@@ -104,4 +102,4 @@ class RunTurnRequest(_message.Message):
     operator_note: str
     max_output_tokens: int
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., text: _Optional[str] = ..., task_kind: _Optional[str] = ..., resource_id: _Optional[str] = ..., operator_note: _Optional[str] = ..., max_output_tokens: _Optional[int] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., text: _Optional[str] = ..., task_kind: _Optional[str] = ..., resource_id: _Optional[str] = ..., operator_note: _Optional[str] = ..., max_output_tokens: _Optional[int] = ..., idempotency_key: _Optional[str] = ...) -> None: ...

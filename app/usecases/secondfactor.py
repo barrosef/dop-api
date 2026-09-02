@@ -18,9 +18,7 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import secondfactor_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.settings import settings
 
@@ -165,9 +163,7 @@ def _kind_value(kind: str) -> int:
     if kind not in _KIND_TO_PROTO:
         from fastapi import HTTPException
 
-        raise HTTPException(
-            status_code=422, detail=f"unknown second factor kind: {kind!r}"
-        )
+        raise HTTPException(status_code=422, detail=f"unknown second factor kind: {kind!r}")
     return _KIND_TO_PROTO[kind]
 
 
@@ -183,9 +179,8 @@ async def state() -> SecondFactorState:
     that only make sense together — asking for them separately is how a screen
     ends up showing "set up your second factor" to somebody who already has one.
     """
-    ctx = auth_ctx.get()
     resp = await stubs.second_factor_stub().GetSecondFactorState(
-        secondfactor_pb2.GetSecondFactorStateRequest(ctx=call_context_from(ctx)),
+        secondfactor_pb2.GetSecondFactorStateRequest(),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -203,9 +198,8 @@ async def state() -> SecondFactorState:
 
 @log
 async def list_factors() -> list[FactorSummary]:
-    ctx = auth_ctx.get()
     resp = await stubs.second_factor_stub().ListSecondFactors(
-        secondfactor_pb2.ListSecondFactorsRequest(ctx=call_context_from(ctx)),
+        secondfactor_pb2.ListSecondFactorsRequest(),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -219,10 +213,8 @@ async def enroll(body: NewFactor) -> EnrollResponse:
     The `secret` and the `uri` are masked in the log: they are the seed, and a
     seed in a log is a factor anybody who reads the log can clone.
     """
-    ctx = auth_ctx.get()
     resp = await stubs.second_factor_stub().EnrollSecondFactor(
         secondfactor_pb2.EnrollSecondFactorRequest(
-            ctx=call_context_from(ctx),
             kind=_kind_value(body.kind),
             label=body.label,
             destination=body.destination,
@@ -240,10 +232,8 @@ async def enroll(body: NewFactor) -> EnrollResponse:
 
 @log(mask=["code", "recovery_codes"])
 async def confirm(factor_id: str, body: ConfirmFactor) -> ConfirmResponse:
-    ctx = auth_ctx.get()
     resp = await stubs.second_factor_stub().ConfirmSecondFactor(
         secondfactor_pb2.ConfirmSecondFactorRequest(
-            ctx=call_context_from(ctx),
             factor_id=factor_id,
             challenge_id=body.challenge_id,
             code=body.code,
@@ -259,11 +249,8 @@ async def confirm(factor_id: str, body: ConfirmFactor) -> ConfirmResponse:
 
 @log
 async def revoke(factor_id: str) -> None:
-    ctx = auth_ctx.get()
     await stubs.second_factor_stub().RevokeSecondFactor(
-        secondfactor_pb2.RevokeSecondFactorRequest(
-            ctx=call_context_from(ctx), id=factor_id
-        ),
+        secondfactor_pb2.RevokeSecondFactorRequest(id=factor_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -271,11 +258,8 @@ async def revoke(factor_id: str) -> None:
 
 @log
 async def challenge(body: ChallengeRequest) -> ChallengeResponse:
-    ctx = auth_ctx.get()
     resp = await stubs.second_factor_stub().ChallengeSecondFactor(
-        secondfactor_pb2.ChallengeSecondFactorRequest(
-            ctx=call_context_from(ctx), factor_id=body.factor_id
-        ),
+        secondfactor_pb2.ChallengeSecondFactorRequest(factor_id=body.factor_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -289,10 +273,8 @@ async def challenge(body: ChallengeRequest) -> ChallengeResponse:
 
 @log(mask=["code"])
 async def verify(body: VerifyRequest) -> StepUpResponse:
-    ctx = auth_ctx.get()
     resp = await stubs.second_factor_stub().VerifySecondFactor(
         secondfactor_pb2.VerifySecondFactorRequest(
-            ctx=call_context_from(ctx),
             challenge_id=body.challenge_id,
             code=body.code,
         ),
@@ -304,11 +286,8 @@ async def verify(body: VerifyRequest) -> StepUpResponse:
 
 @log(mask=["code"])
 async def verify_recovery(body: RecoveryRequest) -> StepUpResponse:
-    ctx = auth_ctx.get()
     resp = await stubs.second_factor_stub().VerifyRecoveryCode(
-        secondfactor_pb2.VerifyRecoveryCodeRequest(
-            ctx=call_context_from(ctx), code=body.code
-        ),
+        secondfactor_pb2.VerifyRecoveryCodeRequest(code=body.code),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -317,9 +296,8 @@ async def verify_recovery(body: RecoveryRequest) -> StepUpResponse:
 
 @log(mask=["codes"])
 async def regenerate_recovery_codes() -> RecoveryCodes:
-    ctx = auth_ctx.get()
     resp = await stubs.second_factor_stub().RegenerateRecoveryCodes(
-        secondfactor_pb2.RegenerateRecoveryCodesRequest(ctx=call_context_from(ctx)),
+        secondfactor_pb2.RegenerateRecoveryCodesRequest(),
         metadata=core.metadata(),
         timeout=_deadline(),
     )

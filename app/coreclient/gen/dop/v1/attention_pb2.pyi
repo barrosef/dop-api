@@ -56,16 +56,14 @@ class AttentionItem(_message.Message):
     def __init__(self, id: _Optional[str] = ..., account: _Optional[_Union[_common_pb2.AccountRef, _Mapping]] = ..., kind: _Optional[_Union[AttentionItem.Kind, str]] = ..., target_kind: _Optional[str] = ..., target_id: _Optional[str] = ..., demand: _Optional[_Union[_common_pb2.DemandRef, _Mapping]] = ..., title: _Optional[str] = ..., summary: _Optional[str] = ..., priority: _Optional[int] = ..., opened_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., resolved_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class ListAttentionRequest(_message.Message):
-    __slots__ = ("ctx", "include_resolved", "demand", "page")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("include_resolved", "demand", "page")
     INCLUDE_RESOLVED_FIELD_NUMBER: _ClassVar[int]
     DEMAND_FIELD_NUMBER: _ClassVar[int]
     PAGE_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     include_resolved: bool
     demand: _common_pb2.DemandRef
     page: _common_pb2.PageRequest
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., include_resolved: _Optional[bool] = ..., demand: _Optional[_Union[_common_pb2.DemandRef, _Mapping]] = ..., page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
+    def __init__(self, include_resolved: _Optional[bool] = ..., demand: _Optional[_Union[_common_pb2.DemandRef, _Mapping]] = ..., page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
 
 class ListAttentionResponse(_message.Message):
     __slots__ = ("items", "page", "open_total")
@@ -78,12 +76,10 @@ class ListAttentionResponse(_message.Message):
     def __init__(self, items: _Optional[_Iterable[_Union[AttentionItem, _Mapping]]] = ..., page: _Optional[_Union[_common_pb2.PageResponse, _Mapping]] = ..., open_total: _Optional[int] = ...) -> None: ...
 
 class WatchAttentionRequest(_message.Message):
-    __slots__ = ("ctx", "since_event_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("since_event_id",)
     SINCE_EVENT_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     since_event_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., since_event_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, since_event_id: _Optional[str] = ...) -> None: ...
 
 class AttentionUpdate(_message.Message):
     __slots__ = ("change", "item", "event_id")

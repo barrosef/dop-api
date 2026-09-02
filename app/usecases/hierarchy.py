@@ -13,9 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import common_pb2, hierarchy_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
@@ -126,9 +124,8 @@ async def get_tree() -> list[TreeNode]:
     The cockpit draws its navigation from it; fetching the workspaces and then a
     ListProjects per workspace would make the sidebar flicker across N requests.
     """
-    ctx = auth_ctx.get()
     resp = await stubs.hierarchy_stub().GetTree(
-        hierarchy_pb2.GetTreeRequest(ctx=call_context_from(ctx)),
+        hierarchy_pb2.GetTreeRequest(),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -144,9 +141,8 @@ async def get_tree() -> list[TreeNode]:
 @log
 @account_scoped
 async def list_workspaces() -> list[WorkspaceSummary]:
-    ctx = auth_ctx.get()
     resp = await stubs.hierarchy_stub().ListWorkspaces(
-        hierarchy_pb2.ListWorkspacesRequest(ctx=call_context_from(ctx)),
+        hierarchy_pb2.ListWorkspacesRequest(),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -158,10 +154,8 @@ async def list_workspaces() -> list[WorkspaceSummary]:
 @require_role("owner", "admin")
 async def create_workspace(body: NewWorkspace, idempotency_key: str = "") -> WorkspaceSummary:
     """Creating a workspace reorganizes the whole account — hence requiring owner or admin."""
-    ctx = auth_ctx.get()
     w = await stubs.hierarchy_stub().CreateWorkspace(
         hierarchy_pb2.CreateWorkspaceRequest(
-            ctx=call_context_from(ctx),
             name=body.name,
             key=body.key,
             description=body.description,
@@ -178,8 +172,7 @@ async def create_workspace(body: NewWorkspace, idempotency_key: str = "") -> Wor
 @account_scoped
 async def list_projects(workspace_id: str = "") -> list[ProjectSummary]:
     """The account's projects; with `workspace_id`, only that workspace's."""
-    ctx = auth_ctx.get()
-    request = hierarchy_pb2.ListProjectsRequest(ctx=call_context_from(ctx))
+    request = hierarchy_pb2.ListProjectsRequest()
     if workspace_id:
         request.workspace.id = workspace_id
     resp = await stubs.hierarchy_stub().ListProjects(
@@ -191,9 +184,8 @@ async def list_projects(workspace_id: str = "") -> list[ProjectSummary]:
 @log
 @account_scoped
 async def get_project(project_id: str) -> ProjectSummary:
-    ctx = auth_ctx.get()
     p = await stubs.hierarchy_stub().GetProject(
-        hierarchy_pb2.GetProjectRequest(ctx=call_context_from(ctx), id=project_id),
+        hierarchy_pb2.GetProjectRequest(id=project_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -209,10 +201,8 @@ async def create_project(body: NewProject, idempotency_key: str = "") -> Project
     Letting the caller supply it would open the way for a project to be born in
     an account that is not its own workspace's.
     """
-    ctx = auth_ctx.get()
     p = await stubs.hierarchy_stub().CreateProject(
         hierarchy_pb2.CreateProjectRequest(
-            ctx=call_context_from(ctx),
             workspace=common_pb2.WorkspaceRef(id=body.workspace_id),
             name=body.name,
             description=body.description,
@@ -235,10 +225,9 @@ async def bind_task_manager(project_id: str, body: TaskManagerBinding) -> Projec
     project first and resend what was already there — the edge is not going to
     make the cockpit guess that trap.
     """
-    ctx = auth_ctx.get()
     stub = stubs.hierarchy_stub()
     current = await stub.GetProject(
-        hierarchy_pb2.GetProjectRequest(ctx=call_context_from(ctx), id=project_id),
+        hierarchy_pb2.GetProjectRequest(id=project_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -251,7 +240,7 @@ async def bind_task_manager(project_id: str, body: TaskManagerBinding) -> Projec
         )
     )
     p = await stub.UpdateProject(
-        hierarchy_pb2.UpdateProjectRequest(ctx=call_context_from(ctx), project=current),
+        hierarchy_pb2.UpdateProjectRequest(project=current),
         metadata=core.metadata(),
         timeout=_deadline(),
     )

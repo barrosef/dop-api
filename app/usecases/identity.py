@@ -19,7 +19,6 @@ from app.coreclient import stubs
 from app.coreclient.client import core
 from app.coreclient.convert import (
     account_kind_name,
-    call_context_from,
     invite_status_name,
     role_name,
     role_value,
@@ -158,9 +157,7 @@ async def list_accounts() -> list[AccountSummary]:
     """
     ctx = auth_ctx.get()
     resp = await stubs.identity_stub().ListAccounts(
-        identity_pb2.ListAccountsRequest(
-            ctx=call_context_from(ctx), user=common_pb2.UserRef(id=ctx.user_id)
-        ),
+        identity_pb2.ListAccountsRequest(user=common_pb2.UserRef(id=ctx.user_id)),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -187,10 +184,8 @@ async def create_account(body: NewAccount, idempotency_key: str = "") -> Account
     Any user may create their own — hence no @require_role. What is required is
     an active account (SP-0): the creation happens from within a context.
     """
-    ctx = auth_ctx.get()
     account = await stubs.identity_stub().CreateAccount(
         identity_pb2.CreateAccountRequest(
-            ctx=call_context_from(ctx),
             kind=identity_pb2.Account.KIND_ORGANIZATION,
             handle=body.handle,
             display_name=body.display_name,
@@ -221,15 +216,12 @@ async def list_members() -> list[MemberSummary]:
     """
     ctx = auth_ctx.get()
     resp = await stubs.identity_stub().ListMemberships(
-        identity_pb2.ListMembershipsRequest(
-            ctx=call_context_from(ctx), account=common_pb2.AccountRef(id=ctx.account_id)
-        ),
+        identity_pb2.ListMembershipsRequest(account=common_pb2.AccountRef(id=ctx.account_id)),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
     return [
-        MemberSummary(id=m.id, user_id=m.user.id, role=role_name(m.role))
-        for m in resp.memberships
+        MemberSummary(id=m.id, user_id=m.user.id, role=role_name(m.role)) for m in resp.memberships
     ]
 
 
@@ -242,10 +234,8 @@ async def create_invite(body: NewInvite, idempotency_key: str = "") -> InviteSum
     The invite's token does NOT come back in the response: it goes out through
     the communication channel (P-11). Whoever loses the link needs a new invite.
     """
-    ctx = auth_ctx.get()
     invite = await stubs.identity_stub().CreateInvite(
         identity_pb2.CreateInviteRequest(
-            ctx=call_context_from(ctx),
             email=body.email,
             role=role_value(body.role),
             grants=[
@@ -282,9 +272,8 @@ def _ts(value) -> str | None:
 @require_role("owner", "admin")
 async def list_invites() -> list[InviteSummary]:
     """The active account's invites — the history, not only the pending ones."""
-    ctx = auth_ctx.get()
     resp = await stubs.identity_stub().ListInvites(
-        identity_pb2.ListInvitesRequest(ctx=call_context_from(ctx)),
+        identity_pb2.ListInvitesRequest(),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -345,9 +334,8 @@ async def accept_invite(invite_id: str, idempotency_key: str = "") -> AcceptedIn
 @require_role("owner", "admin")
 async def revoke_invite(invite_id: str) -> InviteSummary:
     """Revokes a pending invite."""
-    ctx = auth_ctx.get()
     invite = await stubs.identity_stub().RevokeInvite(
-        identity_pb2.RevokeInviteRequest(ctx=call_context_from(ctx), id=invite_id),
+        identity_pb2.RevokeInviteRequest(id=invite_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -360,10 +348,8 @@ async def revoke_invite(invite_id: str) -> InviteSummary:
 async def update_member(membership_id: str, body: MemberRole) -> MemberSummary:
     """Changes a member's role. The core keeps the invariant that the account is
     never left with no active owner."""
-    ctx = auth_ctx.get()
     m = await stubs.identity_stub().UpdateMembership(
         identity_pb2.UpdateMembershipRequest(
-            ctx=call_context_from(ctx),
             membership_id=membership_id,
             role=role_value(body.role),
         ),

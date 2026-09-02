@@ -55,9 +55,7 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import attention_pb2, common_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped
 from app.settings import settings
@@ -242,9 +240,7 @@ async def list_attention(
     deliver. Whoever wants to know whether they are seeing the whole box compares
     `open_total` with the size of `items`.
     """
-    ctx = auth_ctx.get()
     request = attention_pb2.ListAttentionRequest(
-        ctx=call_context_from(ctx),
         include_resolved=include_resolved,
         page=common_pb2.PageRequest(size=page_size),
     )
@@ -257,9 +253,7 @@ async def list_attention(
         request, metadata=core.metadata(), timeout=_deadline()
     )
     items = [_item(i) for i in resp.items]
-    return AttentionBox(
-        items=items, groups=_group_by_demand(items), open_total=resp.open_total
-    )
+    return AttentionBox(items=items, groups=_group_by_demand(items), open_total=resp.open_total)
 
 
 @account_scoped
@@ -279,16 +273,11 @@ def watch_attention(since_event_id: str = "") -> AsyncIterator[AttentionUpdate]:
     position — if it did, it would have state, and the BFF has no state
     (ADR-0016).
     """
-    ctx = auth_ctx.get()
     call = stubs.attention_stub().WatchAttention(
-        attention_pb2.WatchAttentionRequest(
-            ctx=call_context_from(ctx), since_event_id=since_event_id
-        ),
+        attention_pb2.WatchAttentionRequest(since_event_id=since_event_id),
         metadata=core.metadata(),
     )
-    return _pump(
-        call, _update, label="attention", since_event_id=since_event_id
-    )
+    return _pump(call, _update, label="attention", since_event_id=since_event_id)
 
 
 def _update(u: attention_pb2.AttentionUpdate) -> AttentionUpdate:
@@ -296,6 +285,4 @@ def _update(u: attention_pb2.AttentionUpdate) -> AttentionUpdate:
     # item. It should not happen, and if it does the client sees an empty item
     # instead of getting a KeyError from inside the stream.
     item = _item(u.item) if u.HasField("item") else AttentionItem()
-    return AttentionUpdate(
-        change=_CHANGE_BY_ENUM.get(u.change, ""), item=item, id=u.event_id
-    )
+    return AttentionUpdate(change=_CHANGE_BY_ENUM.get(u.change, ""), item=item, id=u.event_id)

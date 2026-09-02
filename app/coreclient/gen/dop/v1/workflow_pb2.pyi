@@ -122,14 +122,12 @@ class ScopeRef(_message.Message):
     def __init__(self, scope: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
 
 class ListFlowsRequest(_message.Message):
-    __slots__ = ("ctx", "owner_scope", "owner_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("owner_scope", "owner_id")
     OWNER_SCOPE_FIELD_NUMBER: _ClassVar[int]
     OWNER_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     owner_scope: str
     owner_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., owner_scope: _Optional[str] = ..., owner_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, owner_scope: _Optional[str] = ..., owner_id: _Optional[str] = ...) -> None: ...
 
 class ListFlowsResponse(_message.Message):
     __slots__ = ("flows",)
@@ -138,38 +136,30 @@ class ListFlowsResponse(_message.Message):
     def __init__(self, flows: _Optional[_Iterable[_Union[Flow, _Mapping]]] = ...) -> None: ...
 
 class GetFlowRequest(_message.Message):
-    __slots__ = ("ctx", "id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class CreateFlowRequest(_message.Message):
-    __slots__ = ("ctx", "flow", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("flow", "idempotency_key")
     FLOW_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     flow: Flow
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., flow: _Optional[_Union[Flow, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, flow: _Optional[_Union[Flow, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class UpdateFlowRequest(_message.Message):
-    __slots__ = ("ctx", "flow")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("flow",)
     FLOW_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     flow: Flow
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., flow: _Optional[_Union[Flow, _Mapping]] = ...) -> None: ...
+    def __init__(self, flow: _Optional[_Union[Flow, _Mapping]] = ...) -> None: ...
 
 class ValidateFlowRequest(_message.Message):
-    __slots__ = ("ctx", "flow")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("flow",)
     FLOW_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     flow: Flow
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., flow: _Optional[_Union[Flow, _Mapping]] = ...) -> None: ...
+    def __init__(self, flow: _Optional[_Union[Flow, _Mapping]] = ...) -> None: ...
 
 class ValidateFlowResponse(_message.Message):
     __slots__ = ("valid", "errors", "warnings")
@@ -182,23 +172,19 @@ class ValidateFlowResponse(_message.Message):
     def __init__(self, valid: _Optional[bool] = ..., errors: _Optional[_Iterable[str]] = ..., warnings: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ResolveFlowRequest(_message.Message):
-    __slots__ = ("ctx", "scope", "scope_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("scope", "scope_id")
     SCOPE_FIELD_NUMBER: _ClassVar[int]
     SCOPE_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     scope: str
     scope_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., scope: _Optional[str] = ..., scope_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, scope: _Optional[str] = ..., scope_id: _Optional[str] = ...) -> None: ...
 
 class PromoteFlowRequest(_message.Message):
-    __slots__ = ("ctx", "flow_id", "target_scope", "target_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("flow_id", "target_scope", "target_id")
     FLOW_ID_FIELD_NUMBER: _ClassVar[int]
     TARGET_SCOPE_FIELD_NUMBER: _ClassVar[int]
     TARGET_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     flow_id: str
     target_scope: str
     target_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., flow_id: _Optional[str] = ..., target_scope: _Optional[str] = ..., target_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, flow_id: _Optional[str] = ..., target_scope: _Optional[str] = ..., target_id: _Optional[str] = ...) -> None: ...

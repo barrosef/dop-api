@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from app.coreclient.gen.dop.v1 import common_pb2 as dop_dot_v1_dot_common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x64op/v1/hierarchy.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\"\x9d\x01\n\tWorkspace\x12\n\n\x02id\x18\x01 \x01(\t\x12#\n\x07\x61\x63\x63ount\x18\x02 \x01(\x0b\x32\x12.dop.v1.AccountRef\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x0b\n\x03key\x18\x04 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12\x0c\n\x04tags\x18\x06 \x03(\t\x12!\n\x05\x61udit\x18\x07 \x01(\x0b\x32\x12.dop.v1.AuditStamp\"\x91\x02\n\x07Project\x12\n\n\x02id\x18\x01 \x01(\t\x12\'\n\tworkspace\x18\x02 \x01(\x0b\x32\x14.dop.v1.WorkspaceRef\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\"\n\x05repos\x18\x05 \x03(\x0b\x32\x13.dop.v1.ProjectRepo\x12\x30\n\x0ctask_manager\x18\x06 \x01(\x0b\x32\x1a.dop.v1.ProjectTaskManager\x12&\n\tresources\x18\x07 \x03(\x0b\x32\x13.dop.v1.ResourceRef\x12\r\n\x05rules\x18\x08 \x03(\t\x12!\n\x05\x61udit\x18\t \x01(\x0b\x32\x12.dop.v1.AuditStamp\"\x92\x01\n\x0bProjectRepo\x12\n\n\x02id\x18\x01 \x01(\t\x12(\n\x0bintegration\x18\x02 \x01(\x0b\x32\x13.dop.v1.ResourceRef\x12\x13\n\x0b\x65xternal_id\x18\x03 \x01(\t\x12\x0c\n\x04name\x18\x04 \x01(\t\x12\x16\n\x0e\x64\x65\x66\x61ult_branch\x18\x05 \x01(\t\x12\x12\n\npr_targets\x18\x06 \x03(\t\"\x8a\x01\n\x12ProjectTaskManager\x12(\n\x0bintegration\x18\x01 \x01(\x0b\x32\x13.dop.v1.ResourceRef\x12\x19\n\x11\x65xternal_space_id\x18\x02 \x01(\t\x12\x1b\n\x13\x65xternal_project_id\x18\x03 \x01(\t\x12\x12\n\ncard_types\x18\x04 \x03(\t\"\\\n\x15ListWorkspacesRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12!\n\x04page\x18\x02 \x01(\x0b\x32\x13.dop.v1.PageRequest\"c\n\x16ListWorkspacesResponse\x12%\n\nworkspaces\x18\x01 \x03(\x0b\x32\x11.dop.v1.Workspace\x12\"\n\x04page\x18\x02 \x01(\x0b\x32\x14.dop.v1.PageResponse\"C\n\x13GetWorkspaceRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\n\n\x02id\x18\x02 \x01(\t\"\x91\x01\n\x16\x43reateWorkspaceRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x03(\t\x12\x17\n\x0fidempotency_key\x18\x06 \x01(\t\"`\n\x16UpdateWorkspaceRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12$\n\tworkspace\x18\x02 \x01(\x0b\x32\x11.dop.v1.Workspace\"`\n\x13ListProjectsRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\'\n\tworkspace\x18\x02 \x01(\x0b\x32\x14.dop.v1.WorkspaceRef\"9\n\x14ListProjectsResponse\x12!\n\x08projects\x18\x01 \x03(\x0b\x32\x0f.dop.v1.Project\"A\n\x11GetProjectRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\n\n\x02id\x18\x02 \x01(\t\"\x9d\x01\n\x14\x43reateProjectRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\'\n\tworkspace\x18\x02 \x01(\x0b\x32\x14.dop.v1.WorkspaceRef\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x05 \x01(\t\"Z\n\x14UpdateProjectRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12 \n\x07project\x18\x02 \x01(\x0b\x32\x0f.dop.v1.Project\"2\n\x0eGetTreeRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\"\x8f\x01\n\x0fGetTreeResponse\x12+\n\x05nodes\x18\x01 \x03(\x0b\x32\x1c.dop.v1.GetTreeResponse.Node\x1aO\n\x04Node\x12$\n\tworkspace\x18\x01 \x01(\x0b\x32\x11.dop.v1.Workspace\x12!\n\x08projects\x18\x02 \x03(\x0b\x32\x0f.dop.v1.Project2\xf0\x04\n\x10HierarchyService\x12O\n\x0eListWorkspaces\x12\x1d.dop.v1.ListWorkspacesRequest\x1a\x1e.dop.v1.ListWorkspacesResponse\x12>\n\x0cGetWorkspace\x12\x1b.dop.v1.GetWorkspaceRequest\x1a\x11.dop.v1.Workspace\x12\x44\n\x0f\x43reateWorkspace\x12\x1e.dop.v1.CreateWorkspaceRequest\x1a\x11.dop.v1.Workspace\x12\x44\n\x0fUpdateWorkspace\x12\x1e.dop.v1.UpdateWorkspaceRequest\x1a\x11.dop.v1.Workspace\x12I\n\x0cListProjects\x12\x1b.dop.v1.ListProjectsRequest\x1a\x1c.dop.v1.ListProjectsResponse\x12\x38\n\nGetProject\x12\x19.dop.v1.GetProjectRequest\x1a\x0f.dop.v1.Project\x12>\n\rCreateProject\x12\x1c.dop.v1.CreateProjectRequest\x1a\x0f.dop.v1.Project\x12>\n\rUpdateProject\x12\x1c.dop.v1.UpdateProjectRequest\x1a\x0f.dop.v1.Project\x12:\n\x07GetTree\x12\x16.dop.v1.GetTreeRequest\x1a\x17.dop.v1.GetTreeResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x64op/v1/hierarchy.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\"\x9d\x01\n\tWorkspace\x12\n\n\x02id\x18\x01 \x01(\t\x12#\n\x07\x61\x63\x63ount\x18\x02 \x01(\x0b\x32\x12.dop.v1.AccountRef\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x0b\n\x03key\x18\x04 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12\x0c\n\x04tags\x18\x06 \x03(\t\x12!\n\x05\x61udit\x18\x07 \x01(\x0b\x32\x12.dop.v1.AuditStamp\"\x91\x02\n\x07Project\x12\n\n\x02id\x18\x01 \x01(\t\x12\'\n\tworkspace\x18\x02 \x01(\x0b\x32\x14.dop.v1.WorkspaceRef\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\"\n\x05repos\x18\x05 \x03(\x0b\x32\x13.dop.v1.ProjectRepo\x12\x30\n\x0ctask_manager\x18\x06 \x01(\x0b\x32\x1a.dop.v1.ProjectTaskManager\x12&\n\tresources\x18\x07 \x03(\x0b\x32\x13.dop.v1.ResourceRef\x12\r\n\x05rules\x18\x08 \x03(\t\x12!\n\x05\x61udit\x18\t \x01(\x0b\x32\x12.dop.v1.AuditStamp\"\x92\x01\n\x0bProjectRepo\x12\n\n\x02id\x18\x01 \x01(\t\x12(\n\x0bintegration\x18\x02 \x01(\x0b\x32\x13.dop.v1.ResourceRef\x12\x13\n\x0b\x65xternal_id\x18\x03 \x01(\t\x12\x0c\n\x04name\x18\x04 \x01(\t\x12\x16\n\x0e\x64\x65\x66\x61ult_branch\x18\x05 \x01(\t\x12\x12\n\npr_targets\x18\x06 \x03(\t\"\x8a\x01\n\x12ProjectTaskManager\x12(\n\x0bintegration\x18\x01 \x01(\x0b\x32\x13.dop.v1.ResourceRef\x12\x19\n\x11\x65xternal_space_id\x18\x02 \x01(\t\x12\x1b\n\x13\x65xternal_project_id\x18\x03 \x01(\t\x12\x12\n\ncard_types\x18\x04 \x03(\t\"@\n\x15ListWorkspacesRequest\x12!\n\x04page\x18\x02 \x01(\x0b\x32\x13.dop.v1.PageRequestJ\x04\x08\x01\x10\x02\"c\n\x16ListWorkspacesResponse\x12%\n\nworkspaces\x18\x01 \x03(\x0b\x32\x11.dop.v1.Workspace\x12\"\n\x04page\x18\x02 \x01(\x0b\x32\x14.dop.v1.PageResponse\"\'\n\x13GetWorkspaceRequest\x12\n\n\x02id\x18\x02 \x01(\tJ\x04\x08\x01\x10\x02\"u\n\x16\x43reateWorkspaceRequest\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x03(\t\x12\x17\n\x0fidempotency_key\x18\x06 \x01(\tJ\x04\x08\x01\x10\x02\"D\n\x16UpdateWorkspaceRequest\x12$\n\tworkspace\x18\x02 \x01(\x0b\x32\x11.dop.v1.WorkspaceJ\x04\x08\x01\x10\x02\"D\n\x13ListProjectsRequest\x12\'\n\tworkspace\x18\x02 \x01(\x0b\x32\x14.dop.v1.WorkspaceRefJ\x04\x08\x01\x10\x02\"9\n\x14ListProjectsResponse\x12!\n\x08projects\x18\x01 \x03(\x0b\x32\x0f.dop.v1.Project\"%\n\x11GetProjectRequest\x12\n\n\x02id\x18\x02 \x01(\tJ\x04\x08\x01\x10\x02\"\x81\x01\n\x14\x43reateProjectRequest\x12\'\n\tworkspace\x18\x02 \x01(\x0b\x32\x14.dop.v1.WorkspaceRef\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x05 \x01(\tJ\x04\x08\x01\x10\x02\">\n\x14UpdateProjectRequest\x12 \n\x07project\x18\x02 \x01(\x0b\x32\x0f.dop.v1.ProjectJ\x04\x08\x01\x10\x02\"\x16\n\x0eGetTreeRequestJ\x04\x08\x01\x10\x02\"\x8f\x01\n\x0fGetTreeResponse\x12+\n\x05nodes\x18\x01 \x03(\x0b\x32\x1c.dop.v1.GetTreeResponse.Node\x1aO\n\x04Node\x12$\n\tworkspace\x18\x01 \x01(\x0b\x32\x11.dop.v1.Workspace\x12!\n\x08projects\x18\x02 \x03(\x0b\x32\x0f.dop.v1.Project2\xf0\x04\n\x10HierarchyService\x12O\n\x0eListWorkspaces\x12\x1d.dop.v1.ListWorkspacesRequest\x1a\x1e.dop.v1.ListWorkspacesResponse\x12>\n\x0cGetWorkspace\x12\x1b.dop.v1.GetWorkspaceRequest\x1a\x11.dop.v1.Workspace\x12\x44\n\x0f\x43reateWorkspace\x12\x1e.dop.v1.CreateWorkspaceRequest\x1a\x11.dop.v1.Workspace\x12\x44\n\x0fUpdateWorkspace\x12\x1e.dop.v1.UpdateWorkspaceRequest\x1a\x11.dop.v1.Workspace\x12I\n\x0cListProjects\x12\x1b.dop.v1.ListProjectsRequest\x1a\x1c.dop.v1.ListProjectsResponse\x12\x38\n\nGetProject\x12\x19.dop.v1.GetProjectRequest\x1a\x0f.dop.v1.Project\x12>\n\rCreateProject\x12\x1c.dop.v1.CreateProjectRequest\x1a\x0f.dop.v1.Project\x12>\n\rUpdateProject\x12\x1c.dop.v1.UpdateProjectRequest\x1a\x0f.dop.v1.Project\x12:\n\x07GetTree\x12\x16.dop.v1.GetTreeRequest\x1a\x17.dop.v1.GetTreeResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -41,31 +41,31 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_PROJECTTASKMANAGER']._serialized_start=641
   _globals['_PROJECTTASKMANAGER']._serialized_end=779
   _globals['_LISTWORKSPACESREQUEST']._serialized_start=781
-  _globals['_LISTWORKSPACESREQUEST']._serialized_end=873
-  _globals['_LISTWORKSPACESRESPONSE']._serialized_start=875
-  _globals['_LISTWORKSPACESRESPONSE']._serialized_end=974
-  _globals['_GETWORKSPACEREQUEST']._serialized_start=976
-  _globals['_GETWORKSPACEREQUEST']._serialized_end=1043
-  _globals['_CREATEWORKSPACEREQUEST']._serialized_start=1046
-  _globals['_CREATEWORKSPACEREQUEST']._serialized_end=1191
-  _globals['_UPDATEWORKSPACEREQUEST']._serialized_start=1193
-  _globals['_UPDATEWORKSPACEREQUEST']._serialized_end=1289
-  _globals['_LISTPROJECTSREQUEST']._serialized_start=1291
-  _globals['_LISTPROJECTSREQUEST']._serialized_end=1387
-  _globals['_LISTPROJECTSRESPONSE']._serialized_start=1389
-  _globals['_LISTPROJECTSRESPONSE']._serialized_end=1446
-  _globals['_GETPROJECTREQUEST']._serialized_start=1448
-  _globals['_GETPROJECTREQUEST']._serialized_end=1513
-  _globals['_CREATEPROJECTREQUEST']._serialized_start=1516
-  _globals['_CREATEPROJECTREQUEST']._serialized_end=1673
-  _globals['_UPDATEPROJECTREQUEST']._serialized_start=1675
-  _globals['_UPDATEPROJECTREQUEST']._serialized_end=1765
-  _globals['_GETTREEREQUEST']._serialized_start=1767
-  _globals['_GETTREEREQUEST']._serialized_end=1817
-  _globals['_GETTREERESPONSE']._serialized_start=1820
-  _globals['_GETTREERESPONSE']._serialized_end=1963
-  _globals['_GETTREERESPONSE_NODE']._serialized_start=1884
-  _globals['_GETTREERESPONSE_NODE']._serialized_end=1963
-  _globals['_HIERARCHYSERVICE']._serialized_start=1966
-  _globals['_HIERARCHYSERVICE']._serialized_end=2590
+  _globals['_LISTWORKSPACESREQUEST']._serialized_end=845
+  _globals['_LISTWORKSPACESRESPONSE']._serialized_start=847
+  _globals['_LISTWORKSPACESRESPONSE']._serialized_end=946
+  _globals['_GETWORKSPACEREQUEST']._serialized_start=948
+  _globals['_GETWORKSPACEREQUEST']._serialized_end=987
+  _globals['_CREATEWORKSPACEREQUEST']._serialized_start=989
+  _globals['_CREATEWORKSPACEREQUEST']._serialized_end=1106
+  _globals['_UPDATEWORKSPACEREQUEST']._serialized_start=1108
+  _globals['_UPDATEWORKSPACEREQUEST']._serialized_end=1176
+  _globals['_LISTPROJECTSREQUEST']._serialized_start=1178
+  _globals['_LISTPROJECTSREQUEST']._serialized_end=1246
+  _globals['_LISTPROJECTSRESPONSE']._serialized_start=1248
+  _globals['_LISTPROJECTSRESPONSE']._serialized_end=1305
+  _globals['_GETPROJECTREQUEST']._serialized_start=1307
+  _globals['_GETPROJECTREQUEST']._serialized_end=1344
+  _globals['_CREATEPROJECTREQUEST']._serialized_start=1347
+  _globals['_CREATEPROJECTREQUEST']._serialized_end=1476
+  _globals['_UPDATEPROJECTREQUEST']._serialized_start=1478
+  _globals['_UPDATEPROJECTREQUEST']._serialized_end=1540
+  _globals['_GETTREEREQUEST']._serialized_start=1542
+  _globals['_GETTREEREQUEST']._serialized_end=1564
+  _globals['_GETTREERESPONSE']._serialized_start=1567
+  _globals['_GETTREERESPONSE']._serialized_end=1710
+  _globals['_GETTREERESPONSE_NODE']._serialized_start=1631
+  _globals['_GETTREERESPONSE_NODE']._serialized_end=1710
+  _globals['_HIERARCHYSERVICE']._serialized_start=1713
+  _globals['_HIERARCHYSERVICE']._serialized_end=2337
 # @@protoc_insertion_point(module_scope)

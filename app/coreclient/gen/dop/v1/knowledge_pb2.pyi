@@ -66,24 +66,20 @@ class ContextPackage(_message.Message):
     def __init__(self, demand: _Optional[_Union[_common_pb2.DemandRef, _Mapping]] = ..., rules: _Optional[_Iterable[str]] = ..., index: _Optional[_Iterable[_Union[KnowledgeArtifact, _Mapping]]] = ..., memories: _Optional[_Iterable[_Union[KnowledgeArtifact, _Mapping]]] = ..., findings: _Optional[_Iterable[_Union[_demand_pb2.Finding, _Mapping]]] = ..., estimated_tokens: _Optional[int] = ..., dropped: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
 class BuildContextPackageRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id",)
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ...) -> None: ...
 
 class SearchMemoryRequest(_message.Message):
-    __slots__ = ("ctx", "project", "query", "limit")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("project", "query", "limit")
     PROJECT_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     project: _common_pb2.ProjectRef
     query: str
     limit: int
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ..., query: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
+    def __init__(self, project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ..., query: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
 
 class SearchMemoryResponse(_message.Message):
     __slots__ = ("artifacts", "scores")
@@ -94,34 +90,28 @@ class SearchMemoryResponse(_message.Message):
     def __init__(self, artifacts: _Optional[_Iterable[_Union[KnowledgeArtifact, _Mapping]]] = ..., scores: _Optional[_Iterable[float]] = ...) -> None: ...
 
 class ReadIndexRequest(_message.Message):
-    __slots__ = ("ctx", "project", "repo")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("project", "repo")
     PROJECT_FIELD_NUMBER: _ClassVar[int]
     REPO_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     project: _common_pb2.ProjectRef
     repo: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ..., repo: _Optional[str] = ...) -> None: ...
+    def __init__(self, project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ..., repo: _Optional[str] = ...) -> None: ...
 
 class PutArtifactRequest(_message.Message):
-    __slots__ = ("ctx", "artifact", "content", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("artifact", "content", "idempotency_key")
     ARTIFACT_FIELD_NUMBER: _ClassVar[int]
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     artifact: KnowledgeArtifact
     content: bytes
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., artifact: _Optional[_Union[KnowledgeArtifact, _Mapping]] = ..., content: _Optional[bytes] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, artifact: _Optional[_Union[KnowledgeArtifact, _Mapping]] = ..., content: _Optional[bytes] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class ListRulesRequest(_message.Message):
-    __slots__ = ("ctx", "project")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("project",)
     PROJECT_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     project: _common_pb2.ProjectRef
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ...) -> None: ...
+    def __init__(self, project: _Optional[_Union[_common_pb2.ProjectRef, _Mapping]] = ...) -> None: ...
 
 class ListRulesResponse(_message.Message):
     __slots__ = ("rules",)

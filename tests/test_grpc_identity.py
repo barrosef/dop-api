@@ -108,7 +108,7 @@ class TestHappyPath:
         assert req.role == identity_pb2.ROLE_DEVELOPER
         assert req.grants[0].resource.id == "res-1"
         assert req.grants[0].level == "use"
-        assert req.ctx.account.id == "acct-1"
+        assert core.CreateInvite.metadata()["x-account-id"] == "acct-1"
 
     async def test_an_omitted_role_falls_to_the_same_default_as_rest(self, stub_grpc, core):
         """ROLE_UNSPECIFIED does not become an empty role: it becomes the use case's default."""
@@ -132,11 +132,11 @@ class TestContextPropagation:
         assert md["x-actor-kind"] == "user"
         assert md["x-request-id"] == "trace-grpc"  # the same trail at both ends
 
-    async def test_the_call_context_goes_in_the_body_of_the_call_to_the_core(self, stub_grpc, core):
+    async def test_the_body_does_not_carry_the_call_context(self, stub_grpc, core):
+        """It used to assert the opposite — see the note in test_identity_routes."""
         await stub_grpc.ListMembers(bff.ListMembersRequest(), metadata=ACCOUNT)
         req = core.ListMemberships.last["request"]
-        assert req.ctx.account.id == "acct-1"
-        assert req.ctx.actor.id == "u-1"
+        assert not req.DESCRIPTOR.fields_by_name.get("ctx")
 
 
 class TestAuthentication:

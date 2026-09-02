@@ -67,40 +67,32 @@ class SandboxEndpoint(_message.Message):
     def __init__(self, name: _Optional[str] = ..., url: _Optional[str] = ..., port: _Optional[int] = ..., state: _Optional[str] = ...) -> None: ...
 
 class ProvisionSandboxRequest(_message.Message):
-    __slots__ = ("ctx", "demand_id", "min_tier", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("demand_id", "min_tier", "idempotency_key")
     DEMAND_ID_FIELD_NUMBER: _ClassVar[int]
     MIN_TIER_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     demand_id: str
     min_tier: IsolationTier
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., demand_id: _Optional[str] = ..., min_tier: _Optional[_Union[IsolationTier, str]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, demand_id: _Optional[str] = ..., min_tier: _Optional[_Union[IsolationTier, str]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class SuspendSandboxRequest(_message.Message):
-    __slots__ = ("ctx", "id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class ResumeSandboxRequest(_message.Message):
-    __slots__ = ("ctx", "id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class DestroySandboxRequest(_message.Message):
-    __slots__ = ("ctx", "id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class DestroySandboxResponse(_message.Message):
     __slots__ = ("destroyed",)
@@ -109,26 +101,22 @@ class DestroySandboxResponse(_message.Message):
     def __init__(self, destroyed: _Optional[bool] = ...) -> None: ...
 
 class DescribeSandboxRequest(_message.Message):
-    __slots__ = ("ctx", "id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class StreamLogsRequest(_message.Message):
-    __slots__ = ("ctx", "sandbox_id", "source", "service", "test_type")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("sandbox_id", "source", "service", "test_type")
     SANDBOX_ID_FIELD_NUMBER: _ClassVar[int]
     SOURCE_FIELD_NUMBER: _ClassVar[int]
     SERVICE_FIELD_NUMBER: _ClassVar[int]
     TEST_TYPE_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     sandbox_id: str
     source: str
     service: str
     test_type: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., sandbox_id: _Optional[str] = ..., source: _Optional[str] = ..., service: _Optional[str] = ..., test_type: _Optional[str] = ...) -> None: ...
+    def __init__(self, sandbox_id: _Optional[str] = ..., source: _Optional[str] = ..., service: _Optional[str] = ..., test_type: _Optional[str] = ...) -> None: ...
 
 class LogLine(_message.Message):
     __slots__ = ("source", "service", "line", "at")

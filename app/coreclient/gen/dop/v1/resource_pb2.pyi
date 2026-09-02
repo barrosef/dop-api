@@ -104,14 +104,12 @@ class ResourceGrant(_message.Message):
     def __init__(self, id: _Optional[str] = ..., resource: _Optional[_Union[_common_pb2.ResourceRef, _Mapping]] = ..., user: _Optional[_Union[_common_pb2.UserRef, _Mapping]] = ..., level: _Optional[str] = ...) -> None: ...
 
 class ListResourcesRequest(_message.Message):
-    __slots__ = ("ctx", "kind", "page")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("kind", "page")
     KIND_FIELD_NUMBER: _ClassVar[int]
     PAGE_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     kind: Resource.Kind
     page: _common_pb2.PageRequest
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., kind: _Optional[_Union[Resource.Kind, str]] = ..., page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
+    def __init__(self, kind: _Optional[_Union[Resource.Kind, str]] = ..., page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
 
 class ListResourcesResponse(_message.Message):
     __slots__ = ("resources", "page")
@@ -122,44 +120,36 @@ class ListResourcesResponse(_message.Message):
     def __init__(self, resources: _Optional[_Iterable[_Union[Resource, _Mapping]]] = ..., page: _Optional[_Union[_common_pb2.PageResponse, _Mapping]] = ...) -> None: ...
 
 class GetResourceRequest(_message.Message):
-    __slots__ = ("ctx", "id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class CreateResourceRequest(_message.Message):
-    __slots__ = ("ctx", "kind", "name", "config", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("kind", "name", "config", "idempotency_key")
     KIND_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     kind: Resource.Kind
     name: str
     config: _struct_pb2.Struct
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., kind: _Optional[_Union[Resource.Kind, str]] = ..., name: _Optional[str] = ..., config: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, kind: _Optional[_Union[Resource.Kind, str]] = ..., name: _Optional[str] = ..., config: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class UpdateResourceRequest(_message.Message):
-    __slots__ = ("ctx", "id", "config")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id", "config")
     ID_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
     config: _struct_pb2.Struct
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ..., config: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ..., config: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...) -> None: ...
 
 class DeleteResourceRequest(_message.Message):
-    __slots__ = ("ctx", "id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class DeleteResourceResponse(_message.Message):
     __slots__ = ("deleted",)
@@ -168,24 +158,20 @@ class DeleteResourceResponse(_message.Message):
     def __init__(self, deleted: _Optional[bool] = ...) -> None: ...
 
 class GrantResourceRequest(_message.Message):
-    __slots__ = ("ctx", "resource_id", "user_id", "level")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("resource_id", "user_id", "level")
     RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     LEVEL_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     resource_id: str
     user_id: str
     level: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., resource_id: _Optional[str] = ..., user_id: _Optional[str] = ..., level: _Optional[str] = ...) -> None: ...
+    def __init__(self, resource_id: _Optional[str] = ..., user_id: _Optional[str] = ..., level: _Optional[str] = ...) -> None: ...
 
 class RevokeGrantRequest(_message.Message):
-    __slots__ = ("ctx", "grant_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("grant_id",)
     GRANT_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     grant_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., grant_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, grant_id: _Optional[str] = ...) -> None: ...
 
 class RevokeGrantResponse(_message.Message):
     __slots__ = ("revoked",)
@@ -194,14 +180,12 @@ class RevokeGrantResponse(_message.Message):
     def __init__(self, revoked: _Optional[bool] = ...) -> None: ...
 
 class SetCredentialRequest(_message.Message):
-    __slots__ = ("ctx", "resource_id", "secret")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("resource_id", "secret")
     RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
     SECRET_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     resource_id: str
     secret: bytes
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., resource_id: _Optional[str] = ..., secret: _Optional[bytes] = ...) -> None: ...
+    def __init__(self, resource_id: _Optional[str] = ..., secret: _Optional[bytes] = ...) -> None: ...
 
 class SetCredentialResponse(_message.Message):
     __slots__ = ("credential_ref",)

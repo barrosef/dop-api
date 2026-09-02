@@ -76,12 +76,10 @@ class ProjectTaskManager(_message.Message):
     def __init__(self, integration: _Optional[_Union[_common_pb2.ResourceRef, _Mapping]] = ..., external_space_id: _Optional[str] = ..., external_project_id: _Optional[str] = ..., card_types: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ListWorkspacesRequest(_message.Message):
-    __slots__ = ("ctx", "page")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("page",)
     PAGE_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     page: _common_pb2.PageRequest
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
+    def __init__(self, page: _Optional[_Union[_common_pb2.PageRequest, _Mapping]] = ...) -> None: ...
 
 class ListWorkspacesResponse(_message.Message):
     __slots__ = ("workspaces", "page")
@@ -92,44 +90,36 @@ class ListWorkspacesResponse(_message.Message):
     def __init__(self, workspaces: _Optional[_Iterable[_Union[Workspace, _Mapping]]] = ..., page: _Optional[_Union[_common_pb2.PageResponse, _Mapping]] = ...) -> None: ...
 
 class GetWorkspaceRequest(_message.Message):
-    __slots__ = ("ctx", "id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class CreateWorkspaceRequest(_message.Message):
-    __slots__ = ("ctx", "name", "key", "description", "tags", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("name", "key", "description", "tags", "idempotency_key")
     NAME_FIELD_NUMBER: _ClassVar[int]
     KEY_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     name: str
     key: str
     description: str
     tags: _containers.RepeatedScalarFieldContainer[str]
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., name: _Optional[str] = ..., key: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., key: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class UpdateWorkspaceRequest(_message.Message):
-    __slots__ = ("ctx", "workspace")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("workspace",)
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     workspace: Workspace
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+    def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
 
 class ListProjectsRequest(_message.Message):
-    __slots__ = ("ctx", "workspace")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("workspace",)
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     workspace: _common_pb2.WorkspaceRef
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., workspace: _Optional[_Union[_common_pb2.WorkspaceRef, _Mapping]] = ...) -> None: ...
+    def __init__(self, workspace: _Optional[_Union[_common_pb2.WorkspaceRef, _Mapping]] = ...) -> None: ...
 
 class ListProjectsResponse(_message.Message):
     __slots__ = ("projects",)
@@ -138,40 +128,32 @@ class ListProjectsResponse(_message.Message):
     def __init__(self, projects: _Optional[_Iterable[_Union[Project, _Mapping]]] = ...) -> None: ...
 
 class GetProjectRequest(_message.Message):
-    __slots__ = ("ctx", "id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class CreateProjectRequest(_message.Message):
-    __slots__ = ("ctx", "workspace", "name", "description", "idempotency_key")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("workspace", "name", "description", "idempotency_key")
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     workspace: _common_pb2.WorkspaceRef
     name: str
     description: str
     idempotency_key: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., workspace: _Optional[_Union[_common_pb2.WorkspaceRef, _Mapping]] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
+    def __init__(self, workspace: _Optional[_Union[_common_pb2.WorkspaceRef, _Mapping]] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class UpdateProjectRequest(_message.Message):
-    __slots__ = ("ctx", "project")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("project",)
     PROJECT_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     project: Project
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., project: _Optional[_Union[Project, _Mapping]] = ...) -> None: ...
+    def __init__(self, project: _Optional[_Union[Project, _Mapping]] = ...) -> None: ...
 
 class GetTreeRequest(_message.Message):
-    __slots__ = ("ctx",)
-    CTX_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ...) -> None: ...
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class GetTreeResponse(_message.Message):
     __slots__ = ("nodes",)

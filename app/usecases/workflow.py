@@ -34,9 +34,7 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import workflow_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
@@ -247,9 +245,7 @@ def _provenance(eff: workflow_pb2.EffectiveFlow) -> Provenance:
     what keeps this field correct if the core one day starts cutting (or stops).
     """
     stage_count = len(eff.flow.stages) if eff.HasField("flow") else 0
-    origins = [
-        StageOrigin(stage_key=o.key, scope=o.scope) for o in eff.origins
-    ]
+    origins = [StageOrigin(stage_key=o.key, scope=o.scope) for o in eff.origins]
     return Provenance(
         contributors=[c.scope for c in eff.contributors],
         origins=origins,
@@ -265,11 +261,8 @@ def _provenance(eff: workflow_pb2.EffectiveFlow) -> Provenance:
 @account_scoped
 async def list_flows(owner_scope: str = "", owner_id: str = "") -> list[Flow]:
     """The flows visible in the active account; with a scope, only that level's."""
-    ctx = auth_ctx.get()
     resp = await stubs.workflow_stub().ListFlows(
-        workflow_pb2.ListFlowsRequest(
-            ctx=call_context_from(ctx), owner_scope=owner_scope, owner_id=owner_id
-        ),
+        workflow_pb2.ListFlowsRequest(owner_scope=owner_scope, owner_id=owner_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -279,9 +272,8 @@ async def list_flows(owner_scope: str = "", owner_id: str = "") -> list[Flow]:
 @log
 @account_scoped
 async def get_flow(flow_id: str) -> Flow:
-    ctx = auth_ctx.get()
     f = await stubs.workflow_stub().GetFlow(
-        workflow_pb2.GetFlowRequest(ctx=call_context_from(ctx), id=flow_id),
+        workflow_pb2.GetFlowRequest(id=flow_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -297,11 +289,8 @@ async def resolve_flow(scope: str, scope_id: str = "") -> EffectiveFlow:
     order. What the edge does is dress the provenance in the edge contract's
     vocabulary: see `_provenance` and the module's docstring.
     """
-    ctx = auth_ctx.get()
     eff = await stubs.workflow_stub().ResolveFlow(
-        workflow_pb2.ResolveFlowRequest(
-            ctx=call_context_from(ctx), scope=scope, scope_id=scope_id
-        ),
+        workflow_pb2.ResolveFlowRequest(scope=scope, scope_id=scope_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -319,10 +308,8 @@ async def create_flow(body: NewFlow, idempotency_key: str = "") -> Flow:
     (ADR-0014 §6). That is why a developer composes their own project's flow —
     what requires management is PROMOTING, which changes the way of working of
     people who did not ask."""
-    ctx = auth_ctx.get()
     f = await stubs.workflow_stub().CreateFlow(
         workflow_pb2.CreateFlowRequest(
-            ctx=call_context_from(ctx),
             flow=_flow_for_the_core(body),
             idempotency_key=_idempotency(idempotency_key),
         ),
@@ -343,11 +330,8 @@ async def update_flow(flow_id: str, body: NewFlow) -> Flow:
     version of the same one, which is the requested effect. Demands under way
     carry on with the version they froze (ADR-0014 §4).
     """
-    ctx = auth_ctx.get()
     f = await stubs.workflow_stub().UpdateFlow(
-        workflow_pb2.UpdateFlowRequest(
-            ctx=call_context_from(ctx), flow=_flow_for_the_core(body, flow_id)
-        ),
+        workflow_pb2.UpdateFlowRequest(flow=_flow_for_the_core(body, flow_id)),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -358,11 +342,8 @@ async def update_flow(flow_id: str, body: NewFlow) -> Flow:
 @account_scoped
 async def validate_flow(body: NewFlow) -> ValidationReport:
     """A dry run before writing — it changes nothing, so it requires no write role."""
-    ctx = auth_ctx.get()
     resp = await stubs.workflow_stub().ValidateFlow(
-        workflow_pb2.ValidateFlowRequest(
-            ctx=call_context_from(ctx), flow=_flow_for_the_core(body)
-        ),
+        workflow_pb2.ValidateFlowRequest(flow=_flow_for_the_core(body)),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -382,10 +363,8 @@ async def promote_flow(flow_id: str, body: PromotionTarget) -> Flow:
     every resource) are the conservative approximation: one refusal too many,
     never one too few.
     """
-    ctx = auth_ctx.get()
     f = await stubs.workflow_stub().PromoteFlow(
         workflow_pb2.PromoteFlowRequest(
-            ctx=call_context_from(ctx),
             flow_id=flow_id,
             target_scope=body.target_scope,
             target_id=body.target_id,

@@ -35,7 +35,6 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import common_pb2, demand_pb2, workflow_pb2
 from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
@@ -321,9 +320,7 @@ def _finding(f: demand_pb2.Finding) -> Finding:
 async def list_demands(
     project_id: str = "", page_size: int = 0, page_token: str = ""
 ) -> DemandPage:
-    ctx = auth_ctx.get()
     request = demand_pb2.ListDemandsRequest(
-        ctx=call_context_from(ctx),
         page=common_pb2.PageRequest(size=page_size, token=page_token),
     )
     if project_id:
@@ -339,9 +336,8 @@ async def list_demands(
 @log
 @account_scoped
 async def get_demand(demand_id: str) -> Demand:
-    ctx = auth_ctx.get()
     d = await stubs.demand_stub().GetDemand(
-        demand_pb2.GetDemandRequest(ctx=call_context_from(ctx), id=demand_id),
+        demand_pb2.GetDemandRequest(id=demand_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -351,9 +347,8 @@ async def get_demand(demand_id: str) -> Demand:
 @log
 @account_scoped
 async def list_threads(demand_id: str) -> list[Thread]:
-    ctx = auth_ctx.get()
     resp = await stubs.demand_stub().ListThreads(
-        demand_pb2.ListThreadsRequest(ctx=call_context_from(ctx), demand_id=demand_id),
+        demand_pb2.ListThreadsRequest(demand_id=demand_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -379,11 +374,8 @@ async def list_findings(demand_id: str, thread_id: str = "") -> list[Finding]:
     READING, not for navigating; if a demand has more findings than the core's
     page holds, the problem to solve is not the screen's pagination.
     """
-    ctx = auth_ctx.get()
     resp = await stubs.demand_stub().ListFindings(
-        demand_pb2.ListFindingsRequest(
-            ctx=call_context_from(ctx), demand_id=demand_id, thread_id=thread_id
-        ),
+        demand_pb2.ListFindingsRequest(demand_id=demand_id, thread_id=thread_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -426,10 +418,8 @@ async def start_demand(body: NewDemand, idempotency_key: str = "") -> Demand:
     That is why it is a write with an idempotency key and not a GET-or-create:
     the channel's retry with no key would open two demands for the same card.
     """
-    ctx = auth_ctx.get()
     d = await stubs.demand_stub().StartDemand(
         demand_pb2.StartDemandRequest(
-            ctx=call_context_from(ctx),
             project=common_pb2.ProjectRef(id=body.project_id),
             external_key=body.external_key,
             idempotency_key=_idempotency(idempotency_key),
@@ -449,10 +439,8 @@ async def advance_stage(
     """Moves the stage. The one that validates the transition is the core — the
     state machine is its own, and duplicating it here would create two rules for
     the same question."""
-    ctx = auth_ctx.get()
     s = await stubs.demand_stub().AdvanceStage(
         demand_pb2.AdvanceStageRequest(
-            ctx=call_context_from(ctx),
             demand_id=demand_id,
             stage_key=stage_key,
             status=stage_status_value(body.status),
@@ -475,10 +463,8 @@ async def decide_gate(
     A viewer does not decide — and the core also refuses any actor that is an
     agent, because a human gate decided by an agent is the gate not existing.
     """
-    ctx = auth_ctx.get()
     s = await stubs.demand_stub().DecideGate(
         demand_pb2.DecideGateRequest(
-            ctx=call_context_from(ctx),
             demand_id=demand_id,
             stage_key=stage_key,
             approved=body.approved,
@@ -496,9 +482,7 @@ async def decide_gate(
 @require_role("owner", "admin", "developer")
 async def create_thread(demand_id: str, body: NewThread, idempotency_key: str = "") -> Thread:
     """Launches a thread (a subagent) on the demand — ADR-0010."""
-    ctx = auth_ctx.get()
     request = demand_pb2.CreateThreadRequest(
-        ctx=call_context_from(ctx),
         demand_id=demand_id,
         key=body.key,
         idempotency_key=_idempotency(idempotency_key),
@@ -541,7 +525,6 @@ async def post_message(
     ctx = auth_ctx.get()
     m = await stubs.demand_stub().PostMessage(
         demand_pb2.PostMessageRequest(
-            ctx=call_context_from(ctx, actor_kind),
             thread_id=thread_id,
             text=body.text,
             idempotency_key=_idempotency(idempotency_key),
@@ -560,21 +543,17 @@ async def post_message(
 @log
 @account_scoped
 @require_role("owner", "admin", "developer")
-async def publish_finding(
-    demand_id: str, body: NewFinding, idempotency_key: str = ""
-) -> Finding:
+async def publish_finding(demand_id: str, body: NewFinding, idempotency_key: str = "") -> Finding:
     """Publishes a finding — the durable record of an investigation.
 
     Concluding a thread requires publishing the finding: the thread does not die
     in silence (the conversation spec §1), and it is the finding that goes into
     the siblings' context.
     """
-    ctx = auth_ctx.get()
     payload = struct_pb2.Struct()
     payload.update(body.payload)
     f = await stubs.demand_stub().PublishFinding(
         demand_pb2.PublishFindingRequest(
-            ctx=call_context_from(ctx),
             demand_id=demand_id,
             thread_id=body.thread_id,
             title=body.title,

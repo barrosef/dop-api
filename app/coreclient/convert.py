@@ -6,7 +6,6 @@ one place only, so the router and the resolver never disagree about what
 """
 
 from app.coreclient.gen.dop.v1 import common_pb2, identity_pb2
-from app.platform.context import AuthContext
 
 # The four predefined roles (dop-core: identity.Role).
 ROLE_TO_NAME: dict[int, str] = {
@@ -57,30 +56,14 @@ ACTOR_KIND_BY_NAME = {
 }
 
 
-def call_context(
-    *, user_id: str, account_id: str = "", actor_name: str = "", actor_kind: str = "user"
-) -> common_pb2.CallContext:
-    """The context every call requires: who, in which account (ADR-0016).
-
-    `actor_kind` exists because not every actor is a person: the agent's answer
-    recorded as the human's speech turns the event log — which is the demand's
-    truth (ADR-0006) — into a lie about who did what. On a platform whose premise
-    is "the dev is a manager of agents", it is the worst place to get it wrong.
-    """
-    return common_pb2.CallContext(
-        account=common_pb2.AccountRef(id=account_id),
-        actor=common_pb2.ActorRef(
-            kind=ACTOR_KIND_BY_NAME.get(actor_kind, common_pb2.ActorRef.KIND_USER),
-            id=user_id,
-            name=actor_name,
-        ),
-    )
-
-
-def call_context_from(ctx: AuthContext, actor_kind: str = "user") -> common_pb2.CallContext:
-    return call_context(
-        user_id=ctx.user_id,
-        account_id=ctx.account_id,
-        actor_name=ctx.principal.name or ctx.principal.email,
-        actor_kind=actor_kind,
-    )
+# call_context / call_context_from USED TO LIVE HERE.
+#
+# They built the `CallContext ctx = 1` that every request carried and the core
+# ignored: authorization reads the metadata (ADR-0017, convention 5). The field
+# left the contract, and with it the only reason to build one.
+#
+# What they carried that mattered — WHO, in WHICH account, and above all the
+# actor's KIND — already travels in `metadata_for`: `x-actor-id`,
+# `x-account-id`, `x-actor-kind` and `x-session-id`. The kind is the one worth
+# naming here: recording an agent's answer as the human's speech corrupts the
+# event log, which is the demand's truth (ADR-0006).

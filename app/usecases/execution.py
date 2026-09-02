@@ -28,9 +28,7 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import execution_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
@@ -134,14 +132,11 @@ def _sandbox(s: execution_pb2.Sandbox) -> SandboxSummary:
         tier=_NAME_BY_TIER.get(s.tier, ""),
         namespace=s.namespace,
         endpoints=[
-            EndpointSummary(name=e.name, url=e.url, port=e.port, state=e.state)
-            for e in s.endpoints
+            EndpointSummary(name=e.name, url=e.url, port=e.port, state=e.state) for e in s.endpoints
         ],
         # HasField because a timestamp is a MESSAGE field: absent ≠ zeroed.
         last_active_at=(
-            s.last_active_at.ToDatetime(tzinfo=UTC)
-            if s.HasField("last_active_at")
-            else None
+            s.last_active_at.ToDatetime(tzinfo=UTC) if s.HasField("last_active_at") else None
         ),
     )
 
@@ -162,10 +157,8 @@ async def provision_sandbox(body: NewSandbox, idempotency_key: str = "") -> Sand
     be safe": promoting is also choosing for the client, and it is the client
     who answers for the cost.
     """
-    ctx = auth_ctx.get()
     s = await stubs.execution_stub().ProvisionSandbox(
         execution_pb2.ProvisionSandboxRequest(
-            ctx=call_context_from(ctx),
             demand_id=body.demand_id,
             min_tier=_TIER_BY_NAME[body.min_tier],
             idempotency_key=_idempotency(idempotency_key),
@@ -185,9 +178,8 @@ async def describe_sandbox(sandbox_id: str) -> SandboxSummary:
     level the demand is running at is precisely what the spec wants to be
     visible.
     """
-    ctx = auth_ctx.get()
     s = await stubs.execution_stub().DescribeSandbox(
-        execution_pb2.DescribeSandboxRequest(ctx=call_context_from(ctx), id=sandbox_id),
+        execution_pb2.DescribeSandboxRequest(id=sandbox_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -204,9 +196,8 @@ async def suspend_sandbox(sandbox_id: str) -> SandboxSummary:
     sandbox as it stands, without touching the substrate and without emitting an
     event.
     """
-    ctx = auth_ctx.get()
     s = await stubs.execution_stub().SuspendSandbox(
-        execution_pb2.SuspendSandboxRequest(ctx=call_context_from(ctx), id=sandbox_id),
+        execution_pb2.SuspendSandboxRequest(id=sandbox_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -224,9 +215,8 @@ async def resume_sandbox(sandbox_id: str) -> SandboxSummary:
     edge passes it on: turning that into an "automatically provision another"
     would hide from the dev that they lost the workspace.
     """
-    ctx = auth_ctx.get()
     s = await stubs.execution_stub().ResumeSandbox(
-        execution_pb2.ResumeSandboxRequest(ctx=call_context_from(ctx), id=sandbox_id),
+        execution_pb2.ResumeSandboxRequest(id=sandbox_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -249,9 +239,8 @@ async def destroy_sandbox(sandbox_id: str) -> DestroyResult:
     returns `destroyed=true` without touching anything — whoever repeats the call
     wants the same result, and the result is already there.
     """
-    ctx = auth_ctx.get()
     resp = await stubs.execution_stub().DestroySandbox(
-        execution_pb2.DestroySandboxRequest(ctx=call_context_from(ctx), id=sandbox_id),
+        execution_pb2.DestroySandboxRequest(id=sandbox_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )

@@ -27,7 +27,7 @@ from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12\x64op/v1/event.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd2\x01\n\rEventEnvelope\x12\n\n\x02id\x18\x01 \x01(\t\x12#\n\x07\x61\x63\x63ount\x18\x02 \x01(\x0b\x32\x12.dop.v1.AccountRef\x12\x11\n\taggregate\x18\x03 \x01(\t\x12\x14\n\x0c\x61ggregate_id\x18\x04 \x01(\t\x12\x0c\n\x04type\x18\x05 \x01(\t\x12(\n\x07payload\x18\x06 \x01(\x0b\x32\x17.google.protobuf.Struct\x12/\n\x0boccurred_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"p\n\x12WatchEventsRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x11\n\taggregate\x18\x02 \x03(\t\x12\r\n\x05types\x18\x03 \x03(\t\x12\x16\n\x0esince_event_id\x18\x04 \x01(\t2R\n\x0c\x45ventService\x12\x42\n\x0bWatchEvents\x12\x1a.dop.v1.WatchEventsRequest\x1a\x15.dop.v1.EventEnvelope0\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12\x64op/v1/event.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd2\x01\n\rEventEnvelope\x12\n\n\x02id\x18\x01 \x01(\t\x12#\n\x07\x61\x63\x63ount\x18\x02 \x01(\x0b\x32\x12.dop.v1.AccountRef\x12\x11\n\taggregate\x18\x03 \x01(\t\x12\x14\n\x0c\x61ggregate_id\x18\x04 \x01(\t\x12\x0c\n\x04type\x18\x05 \x01(\t\x12(\n\x07payload\x18\x06 \x01(\x0b\x32\x17.google.protobuf.Struct\x12/\n\x0boccurred_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"T\n\x12WatchEventsRequest\x12\x11\n\taggregate\x18\x02 \x03(\t\x12\r\n\x05types\x18\x03 \x03(\t\x12\x16\n\x0esince_event_id\x18\x04 \x01(\tJ\x04\x08\x01\x10\x02\x32R\n\x0c\x45ventService\x12\x42\n\x0bWatchEvents\x12\x1a.dop.v1.WatchEventsRequest\x1a\x15.dop.v1.EventEnvelope0\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,7 +37,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_EVENTENVELOPE']._serialized_start=115
   _globals['_EVENTENVELOPE']._serialized_end=325
   _globals['_WATCHEVENTSREQUEST']._serialized_start=327
-  _globals['_WATCHEVENTSREQUEST']._serialized_end=439
-  _globals['_EVENTSERVICE']._serialized_start=441
-  _globals['_EVENTSERVICE']._serialized_end=523
+  _globals['_WATCHEVENTSREQUEST']._serialized_end=411
+  _globals['_EVENTSERVICE']._serialized_start=413
+  _globals['_EVENTSERVICE']._serialized_end=495
 # @@protoc_insertion_point(module_scope)

@@ -29,9 +29,7 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import common_pb2, cost_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
@@ -171,9 +169,7 @@ def _budget_view(b: cost_pb2.Budget) -> BudgetView:
         # (cost.Budget.Remaining): whoever reads this number wants to know how
         # much can still be spent, and "minus twenty" does not answer that
         # question. The overrun stays visible by comparing `spent` with `limit`.
-        remaining = Money(
-            currency=currency, amount_micros=max(b.limit_micros - b.spent_micros, 0)
-        )
+        remaining = Money(currency=currency, amount_micros=max(b.limit_micros - b.spent_micros, 0))
     return BudgetView(
         scope=b.scope, scope_id=b.scope_id, limit=limit, spent=spent, remaining=remaining
     )
@@ -241,17 +237,12 @@ async def route_model(task_kind: str, demand_id: str = "") -> RoutingDecision:
     would be a second dictionary — which ages separately and one day disagrees
     with the first.
     """
-    ctx = auth_ctx.get()
     d = await stubs.cost_stub().RouteModel(
-        cost_pb2.RouteModelRequest(
-            ctx=call_context_from(ctx), task_kind=task_kind, demand_id=demand_id
-        ),
+        cost_pb2.RouteModelRequest(task_kind=task_kind, demand_id=demand_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
-    return RoutingDecision(
-        task_kind=d.task_kind, model=d.model, effort=d.effort, reason=d.reason
-    )
+    return RoutingDecision(task_kind=d.task_kind, model=d.model, effort=d.effort, reason=d.reason)
 
 
 @log
@@ -262,11 +253,8 @@ async def get_budget(scope: str = "", scope_id: str = "") -> BudgetView:
     A scope with no ceiling set returns a zero limit with the real spend: the
     absence of a budget is an answer, not an error.
     """
-    ctx = auth_ctx.get()
     b = await stubs.cost_stub().GetBudget(
-        cost_pb2.GetBudgetRequest(
-            ctx=call_context_from(ctx), scope=scope, scope_id=scope_id
-        ),
+        cost_pb2.GetBudgetRequest(scope=scope, scope_id=scope_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -290,10 +278,8 @@ async def set_budget(body: NewBudget) -> BudgetView:
     does not receive one either — announcing a field here only to discard it
     would be promising a guarantee the edge does not deliver.
     """
-    ctx = auth_ctx.get()
     b = await stubs.cost_stub().SetBudget(
         cost_pb2.SetBudgetRequest(
-            ctx=call_context_from(ctx),
             budget=cost_pb2.Budget(
                 scope=body.scope,
                 scope_id=body.scope_id,
@@ -324,7 +310,6 @@ async def record_usage(body: NewUsage, idempotency_key: str = "") -> RecordUsage
     The extra round trip to the core to fetch the budgets only happens on an
     overrun: the normal case is still a single call.
     """
-    ctx = auth_ctx.get()
     stub = stubs.cost_stub()
     usage = cost_pb2.UsageEvent(
         thread_id=body.thread_id,
@@ -333,15 +318,12 @@ async def record_usage(body: NewUsage, idempotency_key: str = "") -> RecordUsage
         output_tokens=body.output_tokens,
         cache_read_tokens=body.cache_read_tokens,
         cache_creation_tokens=body.cache_creation_tokens,
-        cost=common_pb2.Money(
-            currency=body.currency, amount_micros=body.cost_micros
-        ),
+        cost=common_pb2.Money(currency=body.currency, amount_micros=body.cost_micros),
     )
     if body.demand_id:
         usage.demand.CopyFrom(common_pb2.DemandRef(id=body.demand_id))
     resp = await stub.RecordUsage(
         cost_pb2.RecordUsageRequest(
-            ctx=call_context_from(ctx),
             usage=usage,
             # Mandatory in the core, and for a different reason than usual: a
             # duplicate here collides with nothing, it would come in as
@@ -363,9 +345,7 @@ async def record_usage(body: NewUsage, idempotency_key: str = "") -> RecordUsage
     scopes = [
         _budget_view(
             await stub.GetBudget(
-                cost_pb2.GetBudgetRequest(
-                    ctx=call_context_from(ctx), scope=scope, scope_id=target
-                ),
+                cost_pb2.GetBudgetRequest(scope=scope, scope_id=target),
                 metadata=core.metadata(),
                 timeout=_deadline(),
             )
@@ -390,11 +370,8 @@ async def summarize_cost(scope: str = "", scope_id: str = "") -> CostSummary:
     edge does not invent a window of its own — two windows for the same total is
     how two screens start showing different numbers.
     """
-    ctx = auth_ctx.get()
     resp = await stubs.cost_stub().SummarizeCost(
-        cost_pb2.SummarizeCostRequest(
-            ctx=call_context_from(ctx), scope=scope, scope_id=scope_id
-        ),
+        cost_pb2.SummarizeCostRequest(scope=scope, scope_id=scope_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )

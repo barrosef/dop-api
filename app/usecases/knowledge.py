@@ -25,9 +25,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import common_pb2, knowledge_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped
 from app.settings import settings
@@ -231,11 +229,8 @@ async def get_context_package(demand_id: str) -> ContextPackageSummary:
     adjustment. What the edge adds is what the screen needs and protobuf does not
     give for free: the drops as an explicit fact, and not as silence.
     """
-    ctx = auth_ctx.get()
     package = await stubs.knowledge_stub().BuildContextPackage(
-        knowledge_pb2.BuildContextPackageRequest(
-            ctx=call_context_from(ctx), demand_id=demand_id
-        ),
+        knowledge_pb2.BuildContextPackageRequest(demand_id=demand_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -261,10 +256,7 @@ async def search_memory(project_id: str, query: str, limit: int = 0) -> list[Mem
     the wrong memory with its neighbour's score still looks like a plausible
     answer.
     """
-    ctx = auth_ctx.get()
-    request = knowledge_pb2.SearchMemoryRequest(
-        ctx=call_context_from(ctx), query=query, limit=limit
-    )
+    request = knowledge_pb2.SearchMemoryRequest(query=query, limit=limit)
     if project_id:
         request.project.CopyFrom(common_pb2.ProjectRef(id=project_id))
     resp = await stubs.knowledge_stub().SearchMemory(
@@ -293,10 +285,8 @@ async def read_index(project_id: str, repo: str) -> ArtifactSummary:
     as if it were an index would lie with the same confidence as an out-of-date
     one.
     """
-    ctx = auth_ctx.get()
     a = await stubs.knowledge_stub().ReadIndex(
         knowledge_pb2.ReadIndexRequest(
-            ctx=call_context_from(ctx),
             project=common_pb2.ProjectRef(id=project_id),
             repo=repo,
         ),
@@ -310,11 +300,8 @@ async def read_index(project_id: str, repo: str) -> ArtifactSummary:
 @account_scoped
 async def list_rules(project_id: str) -> list[str]:
     """The rules that HOLD for the project, with the inheritance already resolved in the core."""
-    ctx = auth_ctx.get()
     resp = await stubs.knowledge_stub().ListRules(
-        knowledge_pb2.ListRulesRequest(
-            ctx=call_context_from(ctx), project=common_pb2.ProjectRef(id=project_id)
-        ),
+        knowledge_pb2.ListRulesRequest(project=common_pb2.ProjectRef(id=project_id)),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
@@ -331,7 +318,6 @@ async def put_artifact(body: NewArtifact, idempotency_key: str = "") -> Artifact
     version), so without the key a channel retry would silently become a new
     version.
     """
-    ctx = auth_ctx.get()
     artifact = knowledge_pb2.KnowledgeArtifact(
         kind=_KIND_BY_NAME[body.kind],
         name=body.name,
@@ -344,7 +330,6 @@ async def put_artifact(body: NewArtifact, idempotency_key: str = "") -> Artifact
         artifact.meta.CopyFrom(meta)
     a = await stubs.knowledge_stub().PutArtifact(
         knowledge_pb2.PutArtifactRequest(
-            ctx=call_context_from(ctx),
             artifact=artifact,
             content=body.content(),
             idempotency_key=_idempotency(idempotency_key),

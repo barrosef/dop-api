@@ -30,13 +30,11 @@ class EventEnvelope(_message.Message):
     def __init__(self, id: _Optional[str] = ..., account: _Optional[_Union[_common_pb2.AccountRef, _Mapping]] = ..., aggregate: _Optional[str] = ..., aggregate_id: _Optional[str] = ..., type: _Optional[str] = ..., payload: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., occurred_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class WatchEventsRequest(_message.Message):
-    __slots__ = ("ctx", "aggregate", "types", "since_event_id")
-    CTX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("aggregate", "types", "since_event_id")
     AGGREGATE_FIELD_NUMBER: _ClassVar[int]
     TYPES_FIELD_NUMBER: _ClassVar[int]
     SINCE_EVENT_ID_FIELD_NUMBER: _ClassVar[int]
-    ctx: _common_pb2.CallContext
     aggregate: _containers.RepeatedScalarFieldContainer[str]
     types: _containers.RepeatedScalarFieldContainer[str]
     since_event_id: str
-    def __init__(self, ctx: _Optional[_Union[_common_pb2.CallContext, _Mapping]] = ..., aggregate: _Optional[_Iterable[str]] = ..., types: _Optional[_Iterable[str]] = ..., since_event_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, aggregate: _Optional[_Iterable[str]] = ..., types: _Optional[_Iterable[str]] = ..., since_event_id: _Optional[str] = ...) -> None: ...

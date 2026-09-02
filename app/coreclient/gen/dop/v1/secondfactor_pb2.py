@@ -26,51 +26,51 @@ from app.coreclient.gen.dop.v1 import common_pb2 as dop_dot_v1_dot_common__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x64op/v1/secondfactor.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfe\x02\n\x0cSecondFactor\x12\n\n\x02id\x18\x01 \x01(\t\x12&\n\x04kind\x18\x02 \x01(\x0e\x32\x18.dop.v1.SecondFactorKind\x12+\n\x06status\x18\x03 \x01(\x0e\x32\x1b.dop.v1.SecondFactor.Status\x12\r\n\x05label\x18\x04 \x01(\t\x12\x1a\n\x12masked_destination\x18\x05 \x01(\t\x12\x30\n\x0c\x63onfirmed_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x0clast_used_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12!\n\x05\x61udit\x18\x08 \x01(\x0b\x32\x12.dop.v1.AuditStamp\"[\n\x06Status\x12\x16\n\x12STATUS_UNSPECIFIED\x10\x00\x12\x12\n\x0eSTATUS_PENDING\x10\x01\x12\x11\n\rSTATUS_ACTIVE\x10\x02\x12\x12\n\x0eSTATUS_REVOKED\x10\x03\"\xa2\x01\n\x19\x45nrollSecondFactorRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12&\n\x04kind\x18\x02 \x01(\x0e\x32\x18.dop.v1.SecondFactorKind\x12\r\n\x05label\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65stination\x18\x04 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x05 \x01(\t\"u\n\x1a\x45nrollSecondFactorResponse\x12$\n\x06\x66\x61\x63tor\x18\x01 \x01(\x0b\x32\x14.dop.v1.SecondFactor\x12\x14\n\x0c\x63hallenge_id\x18\x02 \x01(\t\x12\x0e\n\x06secret\x18\x03 \x01(\t\x12\x0b\n\x03uri\x18\x04 \x01(\t\"u\n\x1a\x43onfirmSecondFactorRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x11\n\tfactor_id\x18\x02 \x01(\t\x12\x14\n\x0c\x63hallenge_id\x18\x03 \x01(\t\x12\x0c\n\x04\x63ode\x18\x04 \x01(\t\"[\n\x1b\x43onfirmSecondFactorResponse\x12$\n\x06\x66\x61\x63tor\x18\x01 \x01(\x0b\x32\x14.dop.v1.SecondFactor\x12\x16\n\x0erecovery_codes\x18\x02 \x03(\t\"I\n\x19RevokeSecondFactorRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\n\n\x02id\x18\x02 \x01(\t\"<\n\x18ListSecondFactorsRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\"B\n\x19ListSecondFactorsResponse\x12%\n\x07\x66\x61\x63tors\x18\x01 \x03(\x0b\x32\x14.dop.v1.SecondFactor\"S\n\x1c\x43hallengeSecondFactorRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x11\n\tfactor_id\x18\x02 \x01(\t\"\xa9\x01\n\x1d\x43hallengeSecondFactorResponse\x12\x14\n\x0c\x63hallenge_id\x18\x01 \x01(\t\x12&\n\x04kind\x18\x02 \x01(\x0e\x32\x18.dop.v1.SecondFactorKind\x12\x1a\n\x12masked_destination\x18\x03 \x01(\t\x12.\n\nexpires_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"a\n\x19VerifySecondFactorRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x14\n\x0c\x63hallenge_id\x18\x02 \x01(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\t\"K\n\x19VerifyRecoveryCodeRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\x12\x0c\n\x04\x63ode\x18\x02 \x01(\t\"\xa5\x01\n\x06StepUp\x12(\n\x06method\x18\x01 \x01(\x0e\x32\x18.dop.v1.SecondFactorKind\x12\x10\n\x08recovery\x18\x02 \x01(\x08\x12/\n\x0bverified_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nexpires_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"?\n\x1bGetSecondFactorStateRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\"\x92\x02\n\x1cGetSecondFactorStateResponse\x12\x10\n\x08required\x18\x01 \x01(\x08\x12\x10\n\x08\x65nrolled\x18\x02 \x01(\x08\x12\x12\n\nstepped_up\x18\x03 \x01(\x08\x12\x13\n\x0bneeds_setup\x18\x04 \x01(\x08\x12)\n\x07\x61llowed\x18\x05 \x03(\x0e\x32\x18.dop.v1.SecondFactorKind\x12%\n\x07\x66\x61\x63tors\x18\x06 \x03(\x0b\x32\x14.dop.v1.SecondFactor\x12\x1b\n\x13recovery_codes_left\x18\x07 \x01(\x05\x12\x36\n\x12step_up_expires_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"B\n\x1eRegenerateRecoveryCodesRequest\x12 \n\x03\x63tx\x18\x01 \x01(\x0b\x32\x13.dop.v1.CallContext\"0\n\x1fRegenerateRecoveryCodesResponse\x12\r\n\x05\x63odes\x18\x01 \x03(\t*\x8d\x01\n\x10SecondFactorKind\x12\"\n\x1eSECOND_FACTOR_KIND_UNSPECIFIED\x10\x00\x12\x1b\n\x17SECOND_FACTOR_KIND_TOTP\x10\x01\x12\x1c\n\x18SECOND_FACTOR_KIND_EMAIL\x10\x02\x12\x1a\n\x16SECOND_FACTOR_KIND_SMS\x10\x03\x32\xc2\x06\n\x13SecondFactorService\x12X\n\x11ListSecondFactors\x12 .dop.v1.ListSecondFactorsRequest\x1a!.dop.v1.ListSecondFactorsResponse\x12[\n\x12\x45nrollSecondFactor\x12!.dop.v1.EnrollSecondFactorRequest\x1a\".dop.v1.EnrollSecondFactorResponse\x12^\n\x13\x43onfirmSecondFactor\x12\".dop.v1.ConfirmSecondFactorRequest\x1a#.dop.v1.ConfirmSecondFactorResponse\x12M\n\x12RevokeSecondFactor\x12!.dop.v1.RevokeSecondFactorRequest\x1a\x14.dop.v1.SecondFactor\x12\x64\n\x15\x43hallengeSecondFactor\x12$.dop.v1.ChallengeSecondFactorRequest\x1a%.dop.v1.ChallengeSecondFactorResponse\x12G\n\x12VerifySecondFactor\x12!.dop.v1.VerifySecondFactorRequest\x1a\x0e.dop.v1.StepUp\x12G\n\x12VerifyRecoveryCode\x12!.dop.v1.VerifyRecoveryCodeRequest\x1a\x0e.dop.v1.StepUp\x12\x61\n\x14GetSecondFactorState\x12#.dop.v1.GetSecondFactorStateRequest\x1a$.dop.v1.GetSecondFactorStateResponse\x12j\n\x17RegenerateRecoveryCodes\x12&.dop.v1.RegenerateRecoveryCodesRequest\x1a\'.dop.v1.RegenerateRecoveryCodesResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x64op/v1/secondfactor.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfe\x02\n\x0cSecondFactor\x12\n\n\x02id\x18\x01 \x01(\t\x12&\n\x04kind\x18\x02 \x01(\x0e\x32\x18.dop.v1.SecondFactorKind\x12+\n\x06status\x18\x03 \x01(\x0e\x32\x1b.dop.v1.SecondFactor.Status\x12\r\n\x05label\x18\x04 \x01(\t\x12\x1a\n\x12masked_destination\x18\x05 \x01(\t\x12\x30\n\x0c\x63onfirmed_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x0clast_used_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12!\n\x05\x61udit\x18\x08 \x01(\x0b\x32\x12.dop.v1.AuditStamp\"[\n\x06Status\x12\x16\n\x12STATUS_UNSPECIFIED\x10\x00\x12\x12\n\x0eSTATUS_PENDING\x10\x01\x12\x11\n\rSTATUS_ACTIVE\x10\x02\x12\x12\n\x0eSTATUS_REVOKED\x10\x03\"\x86\x01\n\x19\x45nrollSecondFactorRequest\x12&\n\x04kind\x18\x02 \x01(\x0e\x32\x18.dop.v1.SecondFactorKind\x12\r\n\x05label\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65stination\x18\x04 \x01(\t\x12\x17\n\x0fidempotency_key\x18\x05 \x01(\tJ\x04\x08\x01\x10\x02\"u\n\x1a\x45nrollSecondFactorResponse\x12$\n\x06\x66\x61\x63tor\x18\x01 \x01(\x0b\x32\x14.dop.v1.SecondFactor\x12\x14\n\x0c\x63hallenge_id\x18\x02 \x01(\t\x12\x0e\n\x06secret\x18\x03 \x01(\t\x12\x0b\n\x03uri\x18\x04 \x01(\t\"Y\n\x1a\x43onfirmSecondFactorRequest\x12\x11\n\tfactor_id\x18\x02 \x01(\t\x12\x14\n\x0c\x63hallenge_id\x18\x03 \x01(\t\x12\x0c\n\x04\x63ode\x18\x04 \x01(\tJ\x04\x08\x01\x10\x02\"[\n\x1b\x43onfirmSecondFactorResponse\x12$\n\x06\x66\x61\x63tor\x18\x01 \x01(\x0b\x32\x14.dop.v1.SecondFactor\x12\x16\n\x0erecovery_codes\x18\x02 \x03(\t\"-\n\x19RevokeSecondFactorRequest\x12\n\n\x02id\x18\x02 \x01(\tJ\x04\x08\x01\x10\x02\" \n\x18ListSecondFactorsRequestJ\x04\x08\x01\x10\x02\"B\n\x19ListSecondFactorsResponse\x12%\n\x07\x66\x61\x63tors\x18\x01 \x03(\x0b\x32\x14.dop.v1.SecondFactor\"7\n\x1c\x43hallengeSecondFactorRequest\x12\x11\n\tfactor_id\x18\x02 \x01(\tJ\x04\x08\x01\x10\x02\"\xa9\x01\n\x1d\x43hallengeSecondFactorResponse\x12\x14\n\x0c\x63hallenge_id\x18\x01 \x01(\t\x12&\n\x04kind\x18\x02 \x01(\x0e\x32\x18.dop.v1.SecondFactorKind\x12\x1a\n\x12masked_destination\x18\x03 \x01(\t\x12.\n\nexpires_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"E\n\x19VerifySecondFactorRequest\x12\x14\n\x0c\x63hallenge_id\x18\x02 \x01(\t\x12\x0c\n\x04\x63ode\x18\x03 \x01(\tJ\x04\x08\x01\x10\x02\"/\n\x19VerifyRecoveryCodeRequest\x12\x0c\n\x04\x63ode\x18\x02 \x01(\tJ\x04\x08\x01\x10\x02\"\xa5\x01\n\x06StepUp\x12(\n\x06method\x18\x01 \x01(\x0e\x32\x18.dop.v1.SecondFactorKind\x12\x10\n\x08recovery\x18\x02 \x01(\x08\x12/\n\x0bverified_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nexpires_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"#\n\x1bGetSecondFactorStateRequestJ\x04\x08\x01\x10\x02\"\x92\x02\n\x1cGetSecondFactorStateResponse\x12\x10\n\x08required\x18\x01 \x01(\x08\x12\x10\n\x08\x65nrolled\x18\x02 \x01(\x08\x12\x12\n\nstepped_up\x18\x03 \x01(\x08\x12\x13\n\x0bneeds_setup\x18\x04 \x01(\x08\x12)\n\x07\x61llowed\x18\x05 \x03(\x0e\x32\x18.dop.v1.SecondFactorKind\x12%\n\x07\x66\x61\x63tors\x18\x06 \x03(\x0b\x32\x14.dop.v1.SecondFactor\x12\x1b\n\x13recovery_codes_left\x18\x07 \x01(\x05\x12\x36\n\x12step_up_expires_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"&\n\x1eRegenerateRecoveryCodesRequestJ\x04\x08\x01\x10\x02\"0\n\x1fRegenerateRecoveryCodesResponse\x12\r\n\x05\x63odes\x18\x01 \x03(\t*\x8d\x01\n\x10SecondFactorKind\x12\"\n\x1eSECOND_FACTOR_KIND_UNSPECIFIED\x10\x00\x12\x1b\n\x17SECOND_FACTOR_KIND_TOTP\x10\x01\x12\x1c\n\x18SECOND_FACTOR_KIND_EMAIL\x10\x02\x12\x1a\n\x16SECOND_FACTOR_KIND_SMS\x10\x03\x32\xc2\x06\n\x13SecondFactorService\x12X\n\x11ListSecondFactors\x12 .dop.v1.ListSecondFactorsRequest\x1a!.dop.v1.ListSecondFactorsResponse\x12[\n\x12\x45nrollSecondFactor\x12!.dop.v1.EnrollSecondFactorRequest\x1a\".dop.v1.EnrollSecondFactorResponse\x12^\n\x13\x43onfirmSecondFactor\x12\".dop.v1.ConfirmSecondFactorRequest\x1a#.dop.v1.ConfirmSecondFactorResponse\x12M\n\x12RevokeSecondFactor\x12!.dop.v1.RevokeSecondFactorRequest\x1a\x14.dop.v1.SecondFactor\x12\x64\n\x15\x43hallengeSecondFactor\x12$.dop.v1.ChallengeSecondFactorRequest\x1a%.dop.v1.ChallengeSecondFactorResponse\x12G\n\x12VerifySecondFactor\x12!.dop.v1.VerifySecondFactorRequest\x1a\x0e.dop.v1.StepUp\x12G\n\x12VerifyRecoveryCode\x12!.dop.v1.VerifyRecoveryCodeRequest\x1a\x0e.dop.v1.StepUp\x12\x61\n\x14GetSecondFactorState\x12#.dop.v1.GetSecondFactorStateRequest\x1a$.dop.v1.GetSecondFactorStateResponse\x12j\n\x17RegenerateRecoveryCodes\x12&.dop.v1.RegenerateRecoveryCodesRequest\x1a\'.dop.v1.RegenerateRecoveryCodesResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'dop.v1.secondfactor_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_SECONDFACTORKIND']._serialized_start=2239
-  _globals['_SECONDFACTORKIND']._serialized_end=2380
+  _globals['_SECONDFACTORKIND']._serialized_start=1987
+  _globals['_SECONDFACTORKIND']._serialized_end=2128
   _globals['_SECONDFACTOR']._serialized_start=92
   _globals['_SECONDFACTOR']._serialized_end=474
   _globals['_SECONDFACTOR_STATUS']._serialized_start=383
   _globals['_SECONDFACTOR_STATUS']._serialized_end=474
   _globals['_ENROLLSECONDFACTORREQUEST']._serialized_start=477
-  _globals['_ENROLLSECONDFACTORREQUEST']._serialized_end=639
-  _globals['_ENROLLSECONDFACTORRESPONSE']._serialized_start=641
-  _globals['_ENROLLSECONDFACTORRESPONSE']._serialized_end=758
-  _globals['_CONFIRMSECONDFACTORREQUEST']._serialized_start=760
-  _globals['_CONFIRMSECONDFACTORREQUEST']._serialized_end=877
-  _globals['_CONFIRMSECONDFACTORRESPONSE']._serialized_start=879
-  _globals['_CONFIRMSECONDFACTORRESPONSE']._serialized_end=970
-  _globals['_REVOKESECONDFACTORREQUEST']._serialized_start=972
-  _globals['_REVOKESECONDFACTORREQUEST']._serialized_end=1045
-  _globals['_LISTSECONDFACTORSREQUEST']._serialized_start=1047
-  _globals['_LISTSECONDFACTORSREQUEST']._serialized_end=1107
-  _globals['_LISTSECONDFACTORSRESPONSE']._serialized_start=1109
-  _globals['_LISTSECONDFACTORSRESPONSE']._serialized_end=1175
-  _globals['_CHALLENGESECONDFACTORREQUEST']._serialized_start=1177
-  _globals['_CHALLENGESECONDFACTORREQUEST']._serialized_end=1260
-  _globals['_CHALLENGESECONDFACTORRESPONSE']._serialized_start=1263
-  _globals['_CHALLENGESECONDFACTORRESPONSE']._serialized_end=1432
-  _globals['_VERIFYSECONDFACTORREQUEST']._serialized_start=1434
-  _globals['_VERIFYSECONDFACTORREQUEST']._serialized_end=1531
-  _globals['_VERIFYRECOVERYCODEREQUEST']._serialized_start=1533
-  _globals['_VERIFYRECOVERYCODEREQUEST']._serialized_end=1608
-  _globals['_STEPUP']._serialized_start=1611
-  _globals['_STEPUP']._serialized_end=1776
-  _globals['_GETSECONDFACTORSTATEREQUEST']._serialized_start=1778
-  _globals['_GETSECONDFACTORSTATEREQUEST']._serialized_end=1841
-  _globals['_GETSECONDFACTORSTATERESPONSE']._serialized_start=1844
-  _globals['_GETSECONDFACTORSTATERESPONSE']._serialized_end=2118
-  _globals['_REGENERATERECOVERYCODESREQUEST']._serialized_start=2120
-  _globals['_REGENERATERECOVERYCODESREQUEST']._serialized_end=2186
-  _globals['_REGENERATERECOVERYCODESRESPONSE']._serialized_start=2188
-  _globals['_REGENERATERECOVERYCODESRESPONSE']._serialized_end=2236
-  _globals['_SECONDFACTORSERVICE']._serialized_start=2383
-  _globals['_SECONDFACTORSERVICE']._serialized_end=3217
+  _globals['_ENROLLSECONDFACTORREQUEST']._serialized_end=611
+  _globals['_ENROLLSECONDFACTORRESPONSE']._serialized_start=613
+  _globals['_ENROLLSECONDFACTORRESPONSE']._serialized_end=730
+  _globals['_CONFIRMSECONDFACTORREQUEST']._serialized_start=732
+  _globals['_CONFIRMSECONDFACTORREQUEST']._serialized_end=821
+  _globals['_CONFIRMSECONDFACTORRESPONSE']._serialized_start=823
+  _globals['_CONFIRMSECONDFACTORRESPONSE']._serialized_end=914
+  _globals['_REVOKESECONDFACTORREQUEST']._serialized_start=916
+  _globals['_REVOKESECONDFACTORREQUEST']._serialized_end=961
+  _globals['_LISTSECONDFACTORSREQUEST']._serialized_start=963
+  _globals['_LISTSECONDFACTORSREQUEST']._serialized_end=995
+  _globals['_LISTSECONDFACTORSRESPONSE']._serialized_start=997
+  _globals['_LISTSECONDFACTORSRESPONSE']._serialized_end=1063
+  _globals['_CHALLENGESECONDFACTORREQUEST']._serialized_start=1065
+  _globals['_CHALLENGESECONDFACTORREQUEST']._serialized_end=1120
+  _globals['_CHALLENGESECONDFACTORRESPONSE']._serialized_start=1123
+  _globals['_CHALLENGESECONDFACTORRESPONSE']._serialized_end=1292
+  _globals['_VERIFYSECONDFACTORREQUEST']._serialized_start=1294
+  _globals['_VERIFYSECONDFACTORREQUEST']._serialized_end=1363
+  _globals['_VERIFYRECOVERYCODEREQUEST']._serialized_start=1365
+  _globals['_VERIFYRECOVERYCODEREQUEST']._serialized_end=1412
+  _globals['_STEPUP']._serialized_start=1415
+  _globals['_STEPUP']._serialized_end=1580
+  _globals['_GETSECONDFACTORSTATEREQUEST']._serialized_start=1582
+  _globals['_GETSECONDFACTORSTATEREQUEST']._serialized_end=1617
+  _globals['_GETSECONDFACTORSTATERESPONSE']._serialized_start=1620
+  _globals['_GETSECONDFACTORSTATERESPONSE']._serialized_end=1894
+  _globals['_REGENERATERECOVERYCODESREQUEST']._serialized_start=1896
+  _globals['_REGENERATERECOVERYCODESREQUEST']._serialized_end=1934
+  _globals['_REGENERATERECOVERYCODESRESPONSE']._serialized_start=1936
+  _globals['_REGENERATERECOVERYCODESRESPONSE']._serialized_end=1984
+  _globals['_SECONDFACTORSERVICE']._serialized_start=2131
+  _globals['_SECONDFACTORSERVICE']._serialized_end=2965
 # @@protoc_insertion_point(module_scope)

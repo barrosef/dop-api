@@ -45,9 +45,7 @@ from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context_from
 from app.coreclient.gen.dop.v1 import demand_pb2, event_pb2, execution_pb2
-from app.platform.context import auth_ctx
 from app.platform.logging.config import FIELD_DURATION_MS, get_logger
 from app.platform.security.decorator import account_scoped
 
@@ -131,9 +129,7 @@ def _demand_event(ev: demand_pb2.DemandEvent, demand_id: str) -> StreamEvent:
 
 
 def _log_line(ll: execution_pb2.LogLine) -> LogLine:
-    return LogLine(
-        source=ll.source, service=ll.service, line=ll.line, at=_when(ll, "at")
-    )
+    return LogLine(source=ll.source, service=ll.service, line=ll.line, at=_when(ll, "at"))
 
 
 # ── the three streams' common mechanics ─────────────────────────────────────
@@ -190,27 +186,22 @@ def watch_account_events(
     `@account_scoped` refuses at the moment of opening, and not at the first
     iteration.
     """
-    ctx = auth_ctx.get()
     call = stubs.event_stub().WatchEvents(
         event_pb2.WatchEventsRequest(
-            ctx=call_context_from(ctx),
             aggregate=aggregate or [],
             types=types or [],
             since_event_id=since_event_id,
         ),
         metadata=core.metadata(),
     )
-    return _pump(
-        call, _event, label="account_events", since_event_id=since_event_id
-    )
+    return _pump(call, _event, label="account_events", since_event_id=since_event_id)
 
 
 @account_scoped
 def watch_demand(demand_id: str) -> AsyncIterator[StreamEvent]:
     """One demand's events — a thread message, a stage, a published finding."""
-    ctx = auth_ctx.get()
     call = stubs.demand_stub().WatchDemand(
-        demand_pb2.WatchDemandRequest(ctx=call_context_from(ctx), demand_id=demand_id),
+        demand_pb2.WatchDemandRequest(demand_id=demand_id),
         metadata=core.metadata(),
     )
     return _pump(
@@ -226,10 +217,8 @@ def tail_sandbox_logs(
     sandbox_id: str, *, source: str = "", service: str = "", test_type: str = ""
 ) -> AsyncIterator[LogLine]:
     """A sandbox's log tail. The filters pass on without interpretation."""
-    ctx = auth_ctx.get()
     call = stubs.execution_stub().StreamLogs(
         execution_pb2.StreamLogsRequest(
-            ctx=call_context_from(ctx),
             sandbox_id=sandbox_id,
             source=source,
             service=service,

@@ -15,7 +15,7 @@ from grpc.aio import AioRpcError
 
 from app.coreclient import stubs
 from app.coreclient.client import core
-from app.coreclient.convert import call_context, role_name
+from app.coreclient.convert import role_name
 from app.coreclient.gen.dop.v1 import common_pb2, identity_pb2
 from app.platform.context import Principal
 from app.platform.errors import as_http
@@ -53,10 +53,9 @@ class CoreResolver:
             return user_id, "", {}
 
         md = core.metadata_for(user_id=user_id, account_id=account_id, actor_name=actor_name)
-        ctx = call_context(user_id=user_id, account_id=account_id, actor_name=actor_name)
 
-        await self._assert_membership(user_id, account_id, ctx, md)
-        role = await self._role_in_account(user_id, ctx, md)
+        await self._assert_membership(user_id, account_id, md)
+        role = await self._role_in_account(user_id, account_id, md)
         return user_id, role, self._grants()
 
     async def _ensure_user(self, principal: Principal) -> str:
@@ -83,9 +82,9 @@ class CoreResolver:
             raise as_http(exc) from exc
         return user.id
 
-    async def _assert_membership(self, user_id, account_id, ctx, md) -> None:
+    async def _assert_membership(self, user_id, account_id, md) -> None:
         """With no membership in the requested account, the request dies here with a 403."""
-        req = identity_pb2.ListAccountsRequest(ctx=ctx, user=common_pb2.UserRef(id=user_id))
+        req = identity_pb2.ListAccountsRequest(user=common_pb2.UserRef(id=user_id))
         try:
             resp = await stubs.identity_stub().ListAccounts(
                 req, metadata=md, timeout=self._deadline
@@ -96,10 +95,8 @@ class CoreResolver:
         if account_id not in {a.id for a in resp.accounts}:
             raise HTTPException(status_code=403, detail="No membership in the requested account")
 
-    async def _role_in_account(self, user_id, ctx, md) -> str:
-        req = identity_pb2.ListMembershipsRequest(
-            ctx=ctx, account=common_pb2.AccountRef(id=ctx.account.id)
-        )
+    async def _role_in_account(self, user_id, account_id, md) -> str:
+        req = identity_pb2.ListMembershipsRequest(account=common_pb2.AccountRef(id=account_id))
         try:
             resp = await stubs.identity_stub().ListMemberships(
                 req, metadata=md, timeout=self._deadline
@@ -107,7 +104,7 @@ class CoreResolver:
         except AioRpcError as exc:
             if exc.code() in _TOLERABLE:
                 get_logger().warning(
-                    "role not resolved", account_id=ctx.account.id, code=str(exc.code())
+                    "role not resolved", account_id=account_id, code=str(exc.code())
                 )
                 return ""
             raise as_http(exc) from exc
