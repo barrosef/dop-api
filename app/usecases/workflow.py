@@ -1,33 +1,33 @@
-"""Casos de uso de fluxo de trabalho — o ciclo da demanda, e de onde ele veio.
+"""Workflow use cases — the demand's cycle, and where it came from.
 
-Mesma disciplina de `identity` e `hierarchy`: a regra vive aqui e só aqui;
-`app/routers/workflow.py` traduz HTTP e `app/grpcapi/workflow.py` traduz
-protobuf, ambos chamando estas MESMAS funções. Ver o docstring de
-`app/usecases/identity.py` para o porquê de os decorators morarem no caso de uso
-— autorização presa ao router deixaria a porta gRPC aberta.
+The same discipline as `identity` and `hierarchy`: the rule lives here and only
+here; `app/routers/workflow.py` translates HTTP and `app/grpcapi/workflow.py`
+translates protobuf, both calling these SAME functions. See
+`app/usecases/identity.py`'s docstring for why the decorators live in the use
+case — authorization pinned to the router would leave the gRPC door open.
 
-O que este módulo entrega ao cliente é a **procedência**: o fluxo efetivo é o
-resultado da cadeia `plataforma ◁ conta ◁ workspace ◁ projeto ◁ demanda`
-(ADR-0014 §3), e "por que esta demanda seguiu este fluxo?" é a pergunta que
-chega ao suporte.
+What this module delivers to the client is the **provenance**: the effective
+flow is the result of the chain `platform ◁ account ◁ workspace ◁ project ◁
+demand` (ADR-0014 §3), and "why did this demand follow this flow?" is the
+question that reaches support.
 
-O núcleo devolve isso de duas formas, e a borda usa a certa. `resolved_from` é
-uma FRASE, boa para imprimir e péssima para usar:
+The core returns that in two ways, and the edge uses the right one.
+`resolved_from` is a SENTENCE, good to print and terrible to use:
 
-    "conta ◂ plataforma — etapas: contexto (plataforma), spec (conta), …"
+    "account ◂ platform — stages: context (platform), spec (account), …"
 
-`contributors` e `origins` são os MESMOS fatos, estruturados (P-19). A borda lê
-os campos e repassa a frase inteira em `sentence`, para log, mensagem de erro e
-conferência. Até a P-20 ela fazia parsing da frase, porque os campos não
-existiam — e um contrato que obriga o consumidor a interpretar texto quebra no
-dia em que alguém melhora a redação. O parser saiu inteiro, junto com a tabela
-de rótulos em português que ele precisava carregar: o vocabulário de escopo já
-vem do núcleo igual ao de `owner_scope`, sem tradução no meio.
+`contributors` and `origins` are the SAME facts, structured (P-19). The edge
+reads the fields and passes the whole sentence on in `sentence`, for logs, error
+messages and checking. Until P-20 it parsed the sentence, because the fields did
+not exist — and a contract that forces the consumer to interpret text breaks the
+day somebody improves the wording. The parser went out whole, along with the
+label table it had to carry: the scope vocabulary already comes from the core
+identical to `owner_scope`'s, with no translation in between.
 
-Este módulo também é o dono do vocabulário de ETAPA (tipo, artefato, portão),
-importado por `demand`: em dop.v1 a etapa da demanda usa os enums declarados em
-workflow.proto, e repetir as tabelas do outro lado seria criar duas verdades
-sobre o que é uma etapa de "spec".
+This module also owns the STAGE vocabulary (type, artifact, gate), imported by
+`demand`: in dop.v1 the demand's stage uses the enums declared in
+workflow.proto, and repeating the tables on the other side would create two
+truths about what a "spec" stage is.
 """
 
 from pydantic import BaseModel, Field
@@ -41,11 +41,11 @@ from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
 
-# ── vocabulário de etapa: número do proto ↔ nome da borda ───────────────────
-# Um lugar só. `demand` importa daqui em vez de repetir, porque a etapa da
-# demanda é a instância do que a especificação do fluxo descreve.
+# ── the stage vocabulary: proto number ↔ edge name ──────────────────────────
+# One place only. `demand` imports from here instead of repeating, because the
+# demand's stage is the instance of what the flow's specification describes.
 
-_TIPO_POR_ENUM: dict[int, str] = {
+_TYPE_BY_ENUM: dict[int, str] = {
     workflow_pb2.STAGE_TYPE_CONTEXT: "context",
     workflow_pb2.STAGE_TYPE_SPEC: "spec",
     workflow_pb2.STAGE_TYPE_PLAN: "plan",
@@ -55,9 +55,9 @@ _TIPO_POR_ENUM: dict[int, str] = {
     workflow_pb2.STAGE_TYPE_FINALIZATION: "finalization",
     workflow_pb2.STAGE_TYPE_GENERIC: "generic",
 }
-_ENUM_POR_TIPO = {nome: valor for valor, nome in _TIPO_POR_ENUM.items()}
+_ENUM_BY_TYPE = {name: value for value, name in _TYPE_BY_ENUM.items()}
 
-_ARTEFATO_POR_ENUM: dict[int, str] = {
+_ARTIFACT_BY_ENUM: dict[int, str] = {
     workflow_pb2.ARTIFACT_KIND_DOCUMENT: "document",
     workflow_pb2.ARTIFACT_KIND_SPEC: "spec",
     workflow_pb2.ARTIFACT_KIND_PLAN: "plan",
@@ -65,55 +65,55 @@ _ARTEFATO_POR_ENUM: dict[int, str] = {
     workflow_pb2.ARTIFACT_KIND_DIAGRAM: "diagram",
     workflow_pb2.ARTIFACT_KIND_REPORT: "report",
 }
-_ENUM_POR_ARTEFATO = {nome: valor for valor, nome in _ARTEFATO_POR_ENUM.items()}
+_ENUM_BY_ARTIFACT = {name: value for value, name in _ARTIFACT_BY_ENUM.items()}
 
-_PORTAO_POR_ENUM: dict[int, str] = {
+_GATE_BY_ENUM: dict[int, str] = {
     workflow_pb2.GATE_NONE: "none",
     workflow_pb2.GATE_HUMAN: "human",
 }
-_ENUM_POR_PORTAO = {nome: valor for valor, nome in _PORTAO_POR_ENUM.items()}
+_ENUM_BY_GATE = {name: value for value, name in _GATE_BY_ENUM.items()}
 
 
-def tipo_nome(valor: int) -> str:
-    return _TIPO_POR_ENUM.get(valor, "")
+def stage_type_name(value: int) -> str:
+    return _TYPE_BY_ENUM.get(value, "")
 
 
-def tipo_valor(nome: str) -> int:
-    return _ENUM_POR_TIPO.get(nome, workflow_pb2.STAGE_TYPE_UNSPECIFIED)
+def stage_type_value(name: str) -> int:
+    return _ENUM_BY_TYPE.get(name, workflow_pb2.STAGE_TYPE_UNSPECIFIED)
 
 
-def artefato_nome(valor: int) -> str:
-    return _ARTEFATO_POR_ENUM.get(valor, "")
+def artifact_name(value: int) -> str:
+    return _ARTIFACT_BY_ENUM.get(value, "")
 
 
-def artefato_valor(nome: str) -> int:
-    return _ENUM_POR_ARTEFATO.get(nome, workflow_pb2.ARTIFACT_KIND_UNSPECIFIED)
+def artifact_value(name: str) -> int:
+    return _ENUM_BY_ARTIFACT.get(name, workflow_pb2.ARTIFACT_KIND_UNSPECIFIED)
 
 
-def portao_nome(valor: int) -> str:
-    return _PORTAO_POR_ENUM.get(valor, "")
+def gate_name(value: int) -> str:
+    return _GATE_BY_ENUM.get(value, "")
 
 
-def portao_valor(nome: str) -> int:
-    return _ENUM_POR_PORTAO.get(nome, workflow_pb2.GATE_UNSPECIFIED)
+def gate_value(name: str) -> int:
+    return _ENUM_BY_GATE.get(name, workflow_pb2.GATE_UNSPECIFIED)
 
 
 def _deadline() -> float:
     return settings.core_deadline_s
 
 
-def _idempotency(chave: str = "") -> str:
-    return chave or core.idempotency_key()
+def _idempotency(key: str = "") -> str:
+    return key or core.idempotency_key()
 
 
-# ── modelos da borda ────────────────────────────────────────────────────────
+# ── the edge's models ───────────────────────────────────────────────────────
 
 
 class StageSpec(BaseModel):
     key: str = Field(min_length=1)
     name: str = ""
-    # Vocabulário FECHADO da plataforma (ADR-0014 §1): tipo novo exige evolução
-    # da plataforma. Composição de etapas, essa é livre.
+    # The platform's CLOSED vocabulary (ADR-0014 §1): a new type requires the
+    # platform to evolve. Composing stages, that is free.
     type: str = "generic"
     artifacts: list[str] = Field(default_factory=list)
     gate: str = "none"
@@ -131,7 +131,7 @@ class Flow(BaseModel):
 
 
 class NewFlow(BaseModel):
-    """O fluxo entra inteiro — a v1 não tem edição por etapa (ADR-0014 §2)."""
+    """The flow goes in whole — v1 has no per-stage editing (ADR-0014 §2)."""
 
     name: str = Field(min_length=1)
     description: str = ""
@@ -141,7 +141,7 @@ class NewFlow(BaseModel):
 
 
 class PromotionTarget(BaseModel):
-    """Nível para onde o fluxo sobe (demanda → projeto → workspace → conta)."""
+    """The level the flow moves up to (demand → project → workspace → account)."""
 
     target_scope: str = Field(min_length=1)
     target_id: str = ""
@@ -153,7 +153,7 @@ class StageOrigin(BaseModel):
 
 
 class Provenance(BaseModel):
-    """O rastro da cadeia, estruturado — ver o docstring do módulo."""
+    """The chain's trail, structured — see the module's docstring."""
 
     contributors: list[str] = Field(default_factory=list)
     origins: list[StageOrigin] = Field(default_factory=list)
@@ -162,30 +162,31 @@ class Provenance(BaseModel):
 
 
 class EffectiveFlow(BaseModel):
-    # Ausente quando nenhum nível da cadeia declarou fluxo. Não é um fluxo
-    # vazio: é a ausência de fluxo, e a tela precisa distinguir as duas.
+    # Absent when no level of the chain declared a flow. It is not an empty
+    # flow: it is the absence of a flow, and the screen has to tell the two
+    # apart.
     flow: Flow | None = None
     provenance: Provenance = Field(default_factory=Provenance)
 
 
 class ValidationReport(BaseModel):
-    """Relatório, não erro: a tela marca as etapas problemáticas com a lista."""
+    """A report, not an error: the screen marks the problematic stages with the list."""
 
     valid: bool
     errors: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
 
-# ── tradução do núcleo para a borda ─────────────────────────────────────────
+# ── translating the core into the edge ──────────────────────────────────────
 
 
 def _stage_spec(s: workflow_pb2.StageSpec) -> StageSpec:
     return StageSpec(
         key=s.key,
         name=s.name,
-        type=tipo_nome(s.type),
-        artifacts=[artefato_nome(a) for a in s.artifacts],
-        gate=portao_nome(s.gate),
+        type=stage_type_name(s.type),
+        artifacts=[artifact_name(a) for a in s.artifacts],
+        gate=gate_name(s.gate),
         subtypes=list(s.subtypes),
     )
 
@@ -202,7 +203,7 @@ def _flow(f: workflow_pb2.Flow) -> Flow:
     )
 
 
-def _flow_para_o_nucleo(body: NewFlow, flow_id: str = "") -> workflow_pb2.Flow:
+def _flow_for_the_core(body: NewFlow, flow_id: str = "") -> workflow_pb2.Flow:
     return workflow_pb2.Flow(
         id=flow_id,
         name=body.name,
@@ -213,9 +214,9 @@ def _flow_para_o_nucleo(body: NewFlow, flow_id: str = "") -> workflow_pb2.Flow:
             workflow_pb2.StageSpec(
                 key=s.key,
                 name=s.name,
-                type=tipo_valor(s.type),
-                artifacts=[artefato_valor(a) for a in s.artifacts],
-                gate=portao_valor(s.gate),
+                type=stage_type_value(s.type),
+                artifacts=[artifact_value(a) for a in s.artifacts],
+                gate=gate_value(s.gate),
                 subtypes=s.subtypes,
             )
             for s in body.stages
@@ -223,47 +224,47 @@ def _flow_para_o_nucleo(body: NewFlow, flow_id: str = "") -> workflow_pb2.Flow:
     )
 
 
-def _procedencia(eff: workflow_pb2.EffectiveFlow) -> Provenance:
-    """A procedência, lida dos CAMPOS do núcleo — não da frase.
+def _provenance(eff: workflow_pb2.EffectiveFlow) -> Provenance:
+    """The provenance, read from the core's FIELDS — not from the sentence.
 
-    `contributors` chega como `ScopeRef{scope, id}` e `origins` como
-    `StageOrigin{key, scope, scope_id}`, na mesma ordem de `flow.stages`. A
-    borda só troca os nomes para os do seu contrato; o vocabulário de escopo já
-    é o mesmo de `owner_scope`, então não há tabela de tradução aqui — e é
-    justamente essa tabela (com os rótulos em português da frase) que sumiu
-    quando o parsing saiu.
+    `contributors` arrives as `ScopeRef{scope, id}` and `origins` as
+    `StageOrigin{key, scope, scope_id}`, in the same order as `flow.stages`. The
+    edge only swaps the names for its contract's; the scope vocabulary is
+    already the same as `owner_scope`'s, so there is no translation table here —
+    and it is precisely that table (with the sentence's labels) that went away
+    when the parsing did.
 
-    O `id` do contribuinte e o `scope_id` da origem NÃO são repassados: o
-    contrato da borda ainda os expõe como escopo nu (`contributors` é uma lista
-    de strings). Publicá-los é uma decisão de contrato, não de dívida — está
-    registrada no relatório da P-20 como o próximo passo, e o dado já está aqui
-    quando ela for tomada.
+    The contributor's `id` and the origin's `scope_id` are NOT passed on: the
+    edge's contract still exposes them as a bare scope (`contributors` is a list
+    of strings). Publishing them is a contract decision, not a debt — it is
+    recorded in P-20's report as the next step, and the data is already here for
+    when it is taken.
 
-    `truncated` continua significando o que o contrato promete — "as origens não
-    cobrem todas as etapas" —, mas agora é MEDIDO, e não deduzido de um "…" no
-    fim da frase. O corte de 12 etapas do núcleo é da frase, e só dela; a lista
-    estruturada vem inteira. Medir em vez de deduzir é o que faz este campo
-    continuar correto se o núcleo um dia passar a cortar (ou parar de cortar).
+    `truncated` still means what the contract promises — "the origins do not
+    cover every stage" — but it is now MEASURED, and not deduced from a "…" at
+    the end of the sentence. The core's 12-stage cut is of the sentence, and of
+    it alone; the structured list comes whole. Measuring instead of deducing is
+    what keeps this field correct if the core one day starts cutting (or stops).
     """
-    etapas = len(eff.flow.stages) if eff.HasField("flow") else 0
-    origens = [
+    stage_count = len(eff.flow.stages) if eff.HasField("flow") else 0
+    origins = [
         StageOrigin(stage_key=o.key, scope=o.scope) for o in eff.origins
     ]
     return Provenance(
         contributors=[c.scope for c in eff.contributors],
-        origins=origens,
+        origins=origins,
         sentence=eff.resolved_from.strip(),
-        truncated=len(origens) < etapas,
+        truncated=len(origins) < stage_count,
     )
 
 
-# ── casos de uso ────────────────────────────────────────────────────────────
+# ── use cases ───────────────────────────────────────────────────────────────
 
 
 @log
 @account_scoped
 async def list_flows(owner_scope: str = "", owner_id: str = "") -> list[Flow]:
-    """Fluxos visíveis na conta ativa; com escopo, só os daquele nível."""
+    """The flows visible in the active account; with a scope, only that level's."""
     ctx = auth_ctx.get()
     resp = await stubs.workflow_stub().ListFlows(
         workflow_pb2.ListFlowsRequest(
@@ -290,11 +291,11 @@ async def get_flow(flow_id: str) -> Flow:
 @log
 @account_scoped
 async def resolve_flow(scope: str, scope_id: str = "") -> EffectiveFlow:
-    """O fluxo efetivo de um nível E o rastro de como se chegou nele.
+    """A level's effective flow AND the trail of how it was reached.
 
-    A resolução é do NÚCLEO — ele conhece a cadeia inteira e a ordem de
-    sobreposição. O que a borda faz é vestir a procedência com o vocabulário do
-    contrato de borda: ver `_procedencia` e o docstring do módulo.
+    The resolution is the CORE's — it knows the whole chain and the overriding
+    order. What the edge does is dress the provenance in the edge contract's
+    vocabulary: see `_provenance` and the module's docstring.
     """
     ctx = auth_ctx.get()
     eff = await stubs.workflow_stub().ResolveFlow(
@@ -304,24 +305,25 @@ async def resolve_flow(scope: str, scope_id: str = "") -> EffectiveFlow:
         metadata=core.metadata(),
         timeout=_deadline(),
     )
-    # HasField: fluxo ausente e fluxo zerado são coisas diferentes — nenhum
-    # nível declarou nada, versus um fluxo sem nome e sem etapas.
-    fluxo = _flow(eff.flow) if eff.HasField("flow") else None
-    return EffectiveFlow(flow=fluxo, provenance=_procedencia(eff))
+    # HasField: an absent flow and a zeroed flow are different things — no level
+    # declared anything, versus a flow with no name and no stages.
+    flow = _flow(eff.flow) if eff.HasField("flow") else None
+    return EffectiveFlow(flow=flow, provenance=_provenance(eff))
 
 
 @log
 @account_scoped
 @require_role("owner", "admin", "developer")
 async def create_flow(body: NewFlow, idempotency_key: str = "") -> Flow:
-    """Fluxo é CONHECIMENTO, não credencial: aberto dentro da conta (ADR-0014
-    §6). Por isso developer compõe o fluxo do próprio projeto — o que exige
-    gestão é PROMOVER, que muda o jeito de trabalhar de quem não pediu."""
+    """A flow is KNOWLEDGE, not a credential: open within the account
+    (ADR-0014 §6). That is why a developer composes their own project's flow —
+    what requires management is PROMOTING, which changes the way of working of
+    people who did not ask."""
     ctx = auth_ctx.get()
     f = await stubs.workflow_stub().CreateFlow(
         workflow_pb2.CreateFlowRequest(
             ctx=call_context_from(ctx),
-            flow=_flow_para_o_nucleo(body),
+            flow=_flow_for_the_core(body),
             idempotency_key=_idempotency(idempotency_key),
         ),
         metadata=core.metadata(),
@@ -334,17 +336,17 @@ async def create_flow(body: NewFlow, idempotency_key: str = "") -> Flow:
 @account_scoped
 @require_role("owner", "admin", "developer")
 async def update_flow(flow_id: str, body: NewFlow) -> Flow:
-    """Alterar gera VERSÃO NOVA no núcleo.
+    """Changing it produces a NEW VERSION in the core.
 
-    Sem idempotency_key de propósito: quem versiona é o núcleo, e a chamada não
-    cria um segundo agregado se repetir — ela produz outra versão do mesmo, que
-    é o efeito pedido. As demandas em andamento seguem na versão que
-    congelaram (ADR-0014 §4).
+    No idempotency_key on purpose: the one that versions is the core, and the
+    call does not create a second aggregate if repeated — it produces another
+    version of the same one, which is the requested effect. Demands under way
+    carry on with the version they froze (ADR-0014 §4).
     """
     ctx = auth_ctx.get()
     f = await stubs.workflow_stub().UpdateFlow(
         workflow_pb2.UpdateFlowRequest(
-            ctx=call_context_from(ctx), flow=_flow_para_o_nucleo(body, flow_id)
+            ctx=call_context_from(ctx), flow=_flow_for_the_core(body, flow_id)
         ),
         metadata=core.metadata(),
         timeout=_deadline(),
@@ -355,11 +357,11 @@ async def update_flow(flow_id: str, body: NewFlow) -> Flow:
 @log
 @account_scoped
 async def validate_flow(body: NewFlow) -> ValidationReport:
-    """Ensaio antes de gravar — não altera nada, então não exige papel de escrita."""
+    """A dry run before writing — it changes nothing, so it requires no write role."""
     ctx = auth_ctx.get()
     resp = await stubs.workflow_stub().ValidateFlow(
         workflow_pb2.ValidateFlowRequest(
-            ctx=call_context_from(ctx), flow=_flow_para_o_nucleo(body)
+            ctx=call_context_from(ctx), flow=_flow_for_the_core(body)
         ),
         metadata=core.metadata(),
         timeout=_deadline(),
@@ -373,11 +375,12 @@ async def validate_flow(body: NewFlow) -> ValidationReport:
 @account_scoped
 @require_role("owner", "admin")
 async def promote_flow(flow_id: str, body: PromotionTarget) -> Flow:
-    """Promover é mudar o processo de quem não pediu — daí exigir gestão.
+    """Promoting changes the process of people who did not ask — hence requiring management.
 
-    ADR-0014 §5 pede `manage` sobre o fluxo; enquanto o núcleo não expuser
-    concessão por fluxo ao BFF, owner e admin (que têm manage implícito em todo
-    recurso) são a aproximação conservadora: recusa a mais, nunca a menos.
+    ADR-0014 §5 asks for `manage` over the flow; until the core exposes a
+    per-flow grant to the BFF, owner and admin (who have implicit manage over
+    every resource) are the conservative approximation: one refusal too many,
+    never one too few.
     """
     ctx = auth_ctx.get()
     f = await stubs.workflow_stub().PromoteFlow(

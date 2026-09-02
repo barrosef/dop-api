@@ -40,7 +40,7 @@ from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
-from app.usecases.workflow import artefato_nome, portao_nome, tipo_nome
+from app.usecases.workflow import artifact_name, gate_name, stage_type_name
 
 # Situação da demanda no NOSSO vocabulário. A do provedor viaja crua, em
 # `provider_status`: normalizar as duas no mesmo campo apagaria a diferença
@@ -226,7 +226,7 @@ class NewFinding(BaseModel):
 def _artifact(a: demand_pb2.Artifact) -> Artifact:
     return Artifact(
         id=a.id,
-        kind=artefato_nome(a.kind),
+        kind=artifact_name(a.kind),
         name=a.name,
         object_ref=a.object_ref,
         version=a.version,
@@ -237,9 +237,9 @@ def _stage(s: demand_pb2.DemandStage) -> Stage:
     return Stage(
         key=s.key,
         name=s.name,
-        type=tipo_nome(s.type),
+        type=stage_type_name(s.type),
         status=_ETAPA_POR_ENUM.get(s.status, ""),
-        gate=portao_nome(s.gate),
+        gate=gate_name(s.gate),
         artifacts=[_artifact(a) for a in s.artifacts],
         started_at=_instante(s, "started_at"),
         finished_at=_instante(s, "finished_at"),
