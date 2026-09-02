@@ -1,25 +1,26 @@
-"""Casos de uso de custo de LLM — medição, orçamento e roteamento (ADR-0011).
+"""LLM cost use cases — measurement, budget and routing (ADR-0011).
 
-Mesma disciplina de `identity` e `hierarchy`: a regra vive aqui, router e
-servicer traduzem. Ver o docstring de `app/usecases/identity.py` para o porquê
-dos decorators morarem no caso de uso e não no adaptador.
+The same discipline as `identity` and `hierarchy`: the rule lives here, the
+router and the servicer translate. See `app/usecases/identity.py`'s docstring
+for why the decorators live in the use case and not in the adapter.
 
-Três regras duras deste módulo:
+Three hard rules of this module:
 
-**1. Dinheiro é `int` em MICROS, com a moeda junto — nunca `float`.** Não há um
-`/ 1_000_000` neste arquivo e não deve passar a haver. Um float de 64 bits não
-representa 0,1 exatamente; somar mil chamadas de agente em float é como o
-centavo some, devagar, do jeito que só aparece na conciliação do fim do mês. A
-aritmética que existe aqui (`remaining`) é de inteiro para inteiro. Quem
-formata é a tela, que sabe a localidade.
+**1. Money is an `int` in MICROS, with the currency alongside — never a
+`float`.** There is no `/ 1_000_000` in this file and there must not come to be
+one. A 64-bit float does not represent 0.1 exactly; summing a thousand agent
+calls in float is how the cent disappears, slowly, in the way that only shows up
+at the end-of-month reconciliation. The arithmetic that exists here
+(`remaining`) is integer to integer. The one that formats is the screen, which
+knows the locale.
 
-**2. Orçamento estourado NÃO é erro.** A ADR-0011 §2 escolheu corte SUAVE: a
-demanda pausa e pergunta (caixa de atenção), nunca morre no meio nem segue
-queimando. Devolver 402/RESOURCE_EXHAUSTED aqui seria o corte duro que a ADR
-recusou — e, pior, apagaria a medição justo quando ela mais importa. Então
-`record_usage` responde OK, com o aviso legível e os orçamentos estourados.
+**2. A blown budget is NOT an error.** ADR-0011 §2 chose a SOFT cut: the demand
+pauses and asks (the attention box), it never dies halfway nor keeps burning.
+Returning a 402/RESOURCE_EXHAUSTED here would be the hard cut the ADR refused —
+and, worse, it would erase the measurement just when it matters most. So
+`record_usage` answers OK, with the readable notice and the blown budgets.
 
-**3. A justificativa do roteamento viaja inteira.** Ver `route_model`.
+**3. The routing's justification travels whole.** See `route_model`.
 """
 
 from datetime import UTC, datetime
@@ -35,27 +36,27 @@ from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
 
-# Vocabulário de escopo do núcleo (cost.Scope). Validar na borda evita gastar
-# uma ida ao núcleo para ouvir "escopo desconhecido".
-_ESCOPOS = "^(account|demand)$"
+# The core's scope vocabulary (cost.Scope). Validating at the edge avoids
+# spending a round trip to the core to be told "unknown scope".
+_SCOPES = "^(account|demand)$"
 
 
 def _deadline() -> float:
     return settings.core_deadline_s
 
 
-def _idempotency(chave: str = "") -> str:
-    return chave or core.idempotency_key()
+def _idempotency(key: str = "") -> str:
+    return key or core.idempotency_key()
 
 
-# ── modelos da borda ────────────────────────────────────────────────────────
+# ── the edge's models ───────────────────────────────────────────────────────
 
 
 class Money(BaseModel):
-    """Valor monetário: inteiro em micros (10⁻⁶ da moeda) MAIS a moeda.
+    """A monetary value: an integer in micros (10⁻⁶ of the currency) PLUS the currency.
 
-    Os dois juntos, sempre. Um número sem moeda é um número que alguém vai
-    somar com outra moeda um dia, e ninguém vai notar até a fatura.
+    The two together, always. A number with no currency is a number somebody will
+    add to another currency one day, and nobody will notice until the invoice.
     """
 
     currency: str = ""
@@ -67,16 +68,16 @@ class BudgetView(BaseModel):
     scope_id: str = ""
     limit: Money
     spent: Money
-    # None = escopo SEM TETO (limite zero, ADR-0011). Zero significaria "acabou
-    # o dinheiro", que é o oposto — a mesma disciplina de ausente ≠ zerado que
-    # `hierarchy.ProjectSummary.task_manager` aplica.
+    # None = a scope with NO CEILING (a zero limit, ADR-0011). Zero would mean
+    # "the money ran out", which is the opposite — the same absent ≠ zeroed
+    # discipline `hierarchy.ProjectSummary.task_manager` applies.
     remaining: Money | None = None
 
 
 class NewBudget(BaseModel):
-    scope: str = Field(default="account", pattern=_ESCOPOS)
+    scope: str = Field(default="account", pattern=_SCOPES)
     scope_id: str = ""
-    # 0 = sem teto. Negativo o núcleo recusa; a borda recusa antes.
+    # 0 = no ceiling. The core refuses a negative; the edge refuses first.
     limit_micros: int = Field(default=0, ge=0)
 
 
@@ -84,7 +85,7 @@ class RoutingDecision(BaseModel):
     task_kind: str
     model: str
     effort: str
-    # A justificativa COM a proveniência, inteira. Ver `route_model`.
+    # The justification WITH the provenance, whole. See `route_model`.
     reason: str
 
 
@@ -98,16 +99,16 @@ class UsageEventSummary(BaseModel):
     cache_read_tokens: int = 0
     cache_creation_tokens: int = 0
     cost: Money = Field(default_factory=Money)
-    # None = o núcleo não datou o evento. Não vira época zero: "1970" numa tela
-    # de custo parece um evento antiquíssimo, não um evento sem data.
+    # None = the core did not date the event. It does not become epoch zero:
+    # "1970" on a cost screen looks like an ancient event, not an undated one.
     at: datetime | None = None
 
 
 class NewUsage(BaseModel):
-    """Consumo de modelo a registrar.
+    """Model consumption to record.
 
-    `cost_micros` vem de quem chamou o modelo porque é lá que se sabe o preço
-    da chamada; a conta não é recalculada na borda.
+    `cost_micros` comes from whoever called the model because that is where the
+    call's price is known; the sum is not recomputed at the edge.
     """
 
     model: str = Field(min_length=1)
@@ -124,21 +125,21 @@ class NewUsage(BaseModel):
 class RecordUsageOutcome(BaseModel):
     recorded: bool
     budget_exceeded: bool = False
-    # Frase pronta para a caixa de atenção; vazia quando não estourou.
+    # A ready-made sentence for the attention box; empty when nothing was blown.
     notice: str = ""
-    # Os escopos consultados quando houve estouro. Vazia no caso normal — não
-    # se gasta ida ao núcleo para desenhar o que não aconteceu.
+    # The scopes consulted when something was blown. Empty in the normal case —
+    # no round trip to the core is spent drawing what did not happen.
     budgets: list[BudgetView] = Field(default_factory=list)
 
 
 class CostSummary(BaseModel):
     total: Money
-    # Razão, não dinheiro: aqui `float` é o tipo certo.
+    # A ratio, not money: here `float` is the right type.
     cache_hit_ratio: float = 0.0
     recent: list[UsageEventSummary] = Field(default_factory=list)
 
 
-# ── tradução do núcleo para a borda ─────────────────────────────────────────
+# ── translating the core into the edge ──────────────────────────────────────
 
 
 def _money(m: common_pb2.Money) -> Money:
@@ -146,34 +147,35 @@ def _money(m: common_pb2.Money) -> Money:
 
 
 def _budget_view(b: cost_pb2.Budget) -> BudgetView:
-    """Orçamento do núcleo → visão da tela.
+    """The core's budget → the screen's view.
 
-    A moeda vem do CAMPO `dop.v1.Budget.currency`, que o núcleo passou a
-    carregar (P-19). Antes ela era lida com `getattr` porque o campo não
-    existia; o contorno servia, mas contorno que fica vira exemplo copiado —
-    e `getattr` sobre protobuf esconde erro de digitação em nome de campo, que
-    é justamente o que a leitura direta denuncia na hora.
+    The currency comes from the `dop.v1.Budget.currency` FIELD, which the core
+    now carries (P-19). Before, it was read with `getattr` because the field did
+    not exist; the workaround served, but a workaround that stays becomes a
+    copied example — and `getattr` over protobuf hides a typo in a field name,
+    which is exactly what a direct read reports at once.
 
-    O que NÃO mudou é a disciplina: moeda vazia continua significando "o núcleo
-    não disse", e a borda segue sem inventar "USD" para preencher o buraco —
-    a afirmação ficaria certa até a primeira conta em BRL.
+    What did NOT change is the discipline: an empty currency still means "the
+    core did not say", and the edge still does not invent "USD" to fill the hole
+    — the assertion would be right until the first invoice in another currency.
     """
-    moeda = b.currency
-    limite = Money(currency=moeda, amount_micros=b.limit_micros)
-    gasto = Money(currency=moeda, amount_micros=b.spent_micros)
+    currency = b.currency
+    limit = Money(currency=currency, amount_micros=b.limit_micros)
+    spent = Money(currency=currency, amount_micros=b.spent_micros)
 
-    # Sem teto (limite zero) não há sobra a mostrar: ausente, não zero.
-    sobra = None
+    # With no ceiling (a zero limit) there is no remainder to show: absent, not
+    # zero.
+    remaining = None
     if b.limit_micros > 0:
-        # Aritmética de INTEIRO, e nunca negativa — a mesma regra do núcleo
-        # (cost.Budget.Remaining): quem lê este número quer saber quanto ainda
-        # dá para gastar, e "menos vinte" não responde essa pergunta. O estouro
-        # continua visível comparando `spent` com `limit`.
-        sobra = Money(
-            currency=moeda, amount_micros=max(b.limit_micros - b.spent_micros, 0)
+        # INTEGER arithmetic, and never negative — the same rule as the core's
+        # (cost.Budget.Remaining): whoever reads this number wants to know how
+        # much can still be spent, and "minus twenty" does not answer that
+        # question. The overrun stays visible by comparing `spent` with `limit`.
+        remaining = Money(
+            currency=currency, amount_micros=max(b.limit_micros - b.spent_micros, 0)
         )
     return BudgetView(
-        scope=b.scope, scope_id=b.scope_id, limit=limite, spent=gasto, remaining=sobra
+        scope=b.scope, scope_id=b.scope_id, limit=limit, spent=spent, remaining=remaining
     )
 
 
@@ -188,49 +190,56 @@ def _usage(u: cost_pb2.UsageEvent) -> UsageEventSummary:
         cache_read_tokens=u.cache_read_tokens,
         cache_creation_tokens=u.cache_creation_tokens,
         cost=_money(u.cost),
-        # HasField porque timestamp é campo de MENSAGEM: ausente e zerado são
-        # coisas diferentes, e o zero do protobuf é 1970.
+        # HasField because a timestamp is a MESSAGE field: absent and zeroed are
+        # different things, and protobuf's zero is 1970.
         at=u.at.ToDatetime(tzinfo=UTC) if u.HasField("at") else None,
     )
 
 
-def _aviso_de_estouro(escopos: list[BudgetView]) -> str:
-    """A frase que a caixa de atenção mostra quando o orçamento estoura.
+def _overrun_notice(scopes: list[BudgetView]) -> str:
+    """The sentence the attention box shows when the budget is blown.
 
-    Escrita aqui, uma vez, e não em cada cliente: três clientes redigindo a
-    mesma explicação é como dois deles a explicam errado — e o que está em jogo
-    é o usuário entender que a demanda PAUSOU, não que ela morreu.
+    Written here, once, and not in each client: three clients writing the same
+    explanation is how two of them explain it wrong — and what is at stake is
+    the user understanding that the demand PAUSED, not that it died.
+
+    Pending: this is still English prose composed at the edge. dop-core already
+    carries a stable translation code plus params next to its developer message;
+    when the BFF propagates those, this sentence becomes a key the cockpit
+    localizes, and the text here goes back to being only the developer's.
     """
-    alvos = ", ".join(f"{b.scope}:{b.scope_id}" for b in escopos) or "conta ativa"
+    targets = ", ".join(f"{b.scope}:{b.scope_id}" for b in scopes) or "the active account"
     return (
-        f"Orçamento estourado ({alvos}). A demanda PAUSA e vira item da caixa de "
-        "atenção (ADR-0011 §2): ela não é cortada no meio nem segue queimando. "
-        "Um humano decide — aumentar o teto, cortar escopo ou encerrar. O "
-        "consumo continua sendo medido enquanto isso."
+        f"Budget exceeded ({targets}). The demand PAUSES and becomes an item in "
+        "the attention box (ADR-0011 §2): it is not cut off halfway nor does it "
+        "keep burning. A human decides — raise the ceiling, cut scope or close "
+        "it. Consumption keeps being measured meanwhile."
     )
 
 
-# ── casos de uso ────────────────────────────────────────────────────────────
+# ── use cases ───────────────────────────────────────────────────────────────
 
 
 @log
 @account_scoped
 async def route_model(task_kind: str, demand_id: str = "") -> RoutingDecision:
-    """A decisão tarefa → (modelo, effort), COM a justificativa e a proveniência.
+    """The task → (model, effort) decision, WITH the justification and the provenance.
 
-    `reason` chega do núcleo já prefixado pela proveniência da política —
-    "ADR-0011 §3 (rascunho — calibrar com telemetria, P-7): …" — e atravessa
-    INTEIRO. Parece verboso e é exatamente esse o valor:
+    `reason` arrives from the core already prefixed by the policy's provenance —
+    "ADR-0011 §3 (draft — calibrate with telemetry, P-7): …" — and crosses
+    WHOLE. It looks verbose and that is exactly its value:
 
-      - é o que permite auditar ("por que esta demanda rodou no modelo caro?");
-      - é o que permite recalibrar: uma linha de tabela só é contestável se o
-        motivo dela estiver escrito;
-      - e é o que avisa, em toda decisão, que a política ainda é rascunho.
+      - it is what makes auditing possible ("why did this demand run on the
+        expensive model?");
+      - it is what makes recalibrating possible: a table row can only be
+        challenged if its reason is written down;
+      - and it is what warns, in every decision, that the policy is still a
+        draft.
 
-    A borda também não parte essa string em "proveniência" e "motivo" para
-    ficar mais arrumada: separá-los exigiria parsear texto do núcleo, e o
-    parser seria um segundo dicionário — que envelhece em separado e um dia
-    discorda do primeiro.
+    Nor does the edge split that string into "provenance" and "reason" to look
+    tidier: separating them would require parsing the core's text, and the parser
+    would be a second dictionary — which ages separately and one day disagrees
+    with the first.
     """
     ctx = auth_ctx.get()
     d = await stubs.cost_stub().RouteModel(
@@ -248,10 +257,10 @@ async def route_model(task_kind: str, demand_id: str = "") -> RoutingDecision:
 @log
 @account_scoped
 async def get_budget(scope: str = "", scope_id: str = "") -> BudgetView:
-    """Orçamento de um escopo. Escopo vazio = a conta ativa.
+    """One scope's budget. An empty scope = the active account.
 
-    Escopo sem teto definido devolve limite zero com o gasto real: ausência de
-    orçamento é resposta, não erro.
+    A scope with no ceiling set returns a zero limit with the real spend: the
+    absence of a budget is an answer, not an error.
     """
     ctx = auth_ctx.get()
     b = await stubs.cost_stub().GetBudget(
@@ -268,18 +277,18 @@ async def get_budget(scope: str = "", scope_id: str = "") -> BudgetView:
 @account_scoped
 @require_role("owner", "admin")
 async def set_budget(body: NewBudget) -> BudgetView:
-    """Define o teto do escopo, preservando o acumulado.
+    """Sets the scope's ceiling, preserving the accumulated spend.
 
-    Papel exigido porque orçamento é GOVERNANÇA (ADR-0011): quem gasta não é
-    quem decide quanto pode ser gasto. Rebaixar o teto abaixo do gasto corrente
-    é permitido de propósito — quem descobre uma demanda queimando dinheiro
-    precisa fechar a torneira agora, e o rebaixamento é um estouro como outro
-    qualquer, que pausa pelo caminho de sempre.
+    A role is required because a budget is GOVERNANCE (ADR-0011): the one who
+    spends is not the one who decides how much may be spent. Lowering the ceiling
+    below the current spend is allowed on purpose — whoever finds a demand
+    burning money has to close the tap now, and the lowering is an overrun like
+    any other, which pauses down the usual path.
 
-    Não carrega chave de idempotência: `SetBudget` grava valor ABSOLUTO, não
-    incremento, então repetir a chamada grava o mesmo teto. O contrato do
-    núcleo também não a recebe — anunciar um campo aqui só para descartá-lo
-    seria prometer uma garantia que a borda não entrega.
+    It carries no idempotency key: `SetBudget` writes an ABSOLUTE value, not an
+    increment, so repeating the call writes the same ceiling. The core's contract
+    does not receive one either — announcing a field here only to discard it
+    would be promising a guarantee the edge does not deliver.
     """
     ctx = auth_ctx.get()
     b = await stubs.cost_stub().SetBudget(
@@ -289,8 +298,9 @@ async def set_budget(body: NewBudget) -> BudgetView:
                 scope=body.scope,
                 scope_id=body.scope_id,
                 limit_micros=body.limit_micros,
-                # `spent_micros` não é enviado: o acumulado é do sistema. Mandar
-                # o do cliente permitiria zerar o gasto pedindo.
+                # `spent_micros` is not sent: the accumulated value is the
+                # system's. Sending the client's would let anyone zero the spend
+                # by asking.
             ),
         ),
         metadata=core.metadata(),
@@ -302,17 +312,17 @@ async def set_budget(body: NewBudget) -> BudgetView:
 @log
 @account_scoped
 async def record_usage(body: NewUsage, idempotency_key: str = "") -> RecordUsageOutcome:
-    """Registra consumo de modelo — e, se estourou, explica o que isso significa.
+    """Records model consumption — and, if it blew the budget, explains what that means.
 
-    O estouro NÃO vira erro (ADR-0011 §2, corte suave). Vira uma resposta OK
-    com `budget_exceeded`, a frase da caixa de atenção e os orçamentos
-    estourados — que são os números com que o humano decide. Um
-    RESOURCE_EXHAUSTED seco aqui teria três defeitos de uma vez: contrariaria a
-    ADR, faria o chamador achar que o consumo NÃO foi registrado (ele foi), e
-    obrigaria cada cliente a reinventar a explicação.
+    The overrun does NOT become an error (ADR-0011 §2, a soft cut). It becomes an
+    OK response with `budget_exceeded`, the attention box's sentence and the
+    blown budgets — which are the numbers with which the human decides. A bare
+    RESOURCE_EXHAUSTED here would have three defects at once: it would contradict
+    the ADR, it would make the caller think the consumption was NOT recorded (it
+    was), and it would force every client to reinvent the explanation.
 
-    A ida extra ao núcleo para buscar os orçamentos só acontece no estouro: o
-    caso normal continua sendo uma chamada só.
+    The extra round trip to the core to fetch the budgets only happens on an
+    overrun: the normal case is still a single call.
     """
     ctx = auth_ctx.get()
     stub = stubs.cost_stub()
@@ -333,9 +343,9 @@ async def record_usage(body: NewUsage, idempotency_key: str = "") -> RecordUsage
         cost_pb2.RecordUsageRequest(
             ctx=call_context_from(ctx),
             usage=usage,
-            # Obrigatória no núcleo, e por um motivo diferente do usual: uma
-            # duplicata aqui não colide com nada, entraria como consumo
-            # legítimo e o orçamento viraria ficção.
+            # Mandatory in the core, and for a different reason than usual: a
+            # duplicate here collides with nothing, it would come in as
+            # legitimate consumption and the budget would become fiction.
             idempotency_key=_idempotency(idempotency_key),
         ),
         metadata=core.metadata(),
@@ -344,40 +354,41 @@ async def record_usage(body: NewUsage, idempotency_key: str = "") -> RecordUsage
     if not resp.budget_exceeded:
         return RecordUsageOutcome(recorded=resp.recorded)
 
-    # Quais escopos: o da demanda (quando há demanda) e o da conta. São os dois
-    # tetos que podem ter estourado, e a tela precisa mostrar QUAL.
-    pedidos = [("account", "")]
+    # Which scopes: the demand's (when there is a demand) and the account's.
+    # They are the two ceilings that may have been blown, and the screen has to
+    # show WHICH.
+    wanted = [("account", "")]
     if body.demand_id:
-        pedidos.insert(0, ("demand", body.demand_id))
-    escopos = [
+        wanted.insert(0, ("demand", body.demand_id))
+    scopes = [
         _budget_view(
             await stub.GetBudget(
                 cost_pb2.GetBudgetRequest(
-                    ctx=call_context_from(ctx), scope=escopo, scope_id=alvo
+                    ctx=call_context_from(ctx), scope=scope, scope_id=target
                 ),
                 metadata=core.metadata(),
                 timeout=_deadline(),
             )
         )
-        for escopo, alvo in pedidos
+        for scope, target in wanted
     ]
     return RecordUsageOutcome(
         recorded=resp.recorded,
         budget_exceeded=True,
-        notice=_aviso_de_estouro(escopos),
-        budgets=escopos,
+        notice=_overrun_notice(scopes),
+        budgets=scopes,
     )
 
 
 @log
 @account_scoped
 async def summarize_cost(scope: str = "", scope_id: str = "") -> CostSummary:
-    """Total do período, taxa de acerto de cache e os últimos consumos.
+    """The period's total, the cache hit ratio and the latest consumption.
 
-    O período é o padrão do núcleo (mês corrente, a janela do ciclo de
-    cobrança): o contrato do núcleo ainda não recebe início e fim, e a borda
-    não inventa um recorte próprio — dois recortes para o mesmo total é como
-    duas telas passam a mostrar números diferentes.
+    The period is the core's default (the current month, the billing cycle's
+    window): the core's contract does not take a start and an end yet, and the
+    edge does not invent a window of its own — two windows for the same total is
+    how two screens start showing different numbers.
     """
     ctx = auth_ctx.get()
     resp = await stubs.cost_stub().SummarizeCost(

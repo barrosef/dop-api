@@ -338,7 +338,7 @@ class TestOrcamentoEstourado:
             headers=CABECALHOS_REST,
             json={"model": "claude-opus", "demand_id": "dem-1", "cost_micros": 1},
         ).json()
-        assert "PAUSA" in corpo["notice"]
+        assert "PAUSES" in corpo["notice"]
         assert "ADR-0011" in corpo["notice"]
         # E os números com que o humano decide vêm junto.
         assert [b["scope"] for b in corpo["budgets"]] == ["demand", "account"]
@@ -362,7 +362,7 @@ class TestOrcamentoEstourado:
         )
         assert resp.recorded is True
         assert resp.budget_exceeded is True
-        assert "PAUSA" in resp.notice
+        assert "PAUSES" in resp.notice
 
     def test_registro_carrega_idempotencia(self, cliente_cost, custo):
         """Obrigatória no núcleo: duplicata aqui viraria consumo legítimo."""
