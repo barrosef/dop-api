@@ -1,20 +1,20 @@
-"""Casos de uso de conhecimento — regras, índice e memória (ADR-0009).
+"""Knowledge use cases — rules, index and memory (ADR-0009).
 
-Mesma disciplina de `identity` e `hierarchy`: a regra vive aqui, router e
-servicer traduzem. Ver o docstring de `app/usecases/identity.py` para o porquê
-dos decorators morarem no caso de uso e não no adaptador.
+The same discipline as `identity` and `hierarchy`: the rule lives here, the
+router and the servicer translate. See `app/usecases/identity.py`'s docstring
+for why the decorators live in the use case and not in the adapter.
 
-**A regra que estrutura este módulo: o DESCARTE é informação de primeira
-classe.** O pacote de contexto é selecionado por orçamento de tokens
-(ADR-0012), e o que não coube não desaparece de fininho — a tela precisa poder
-dizer "o contexto foi truncado". Daí `ContextPackageSummary.dropped` ser
-`None`-ável e nunca zerado por conveniência: `None` é "o núcleo não informou",
-zero é a AFIRMAÇÃO de que nada ficou de fora. São respostas diferentes e a
-diferença é o ponto.
+**The rule that structures this module: what was DROPPED is first-class
+information.** The context package is selected by a token budget (ADR-0012), and
+what did not fit does not quietly vanish — the screen has to be able to say "the
+context was truncated". Hence `ContextPackageSummary.dropped` being
+`None`-able and never zeroed out of convenience: `None` is "the core did not
+say", zero is the ASSERTION that nothing was left out. They are different
+answers and the difference is the point.
 
-O outro trabalho de borda aqui é desfazer duas formas do núcleo que servem ao
-banco e não à tela: as listas paralelas de `SearchMemory` viram pares, e as
-chaves internas do `meta` (`dop.body`, `dop.scope`) viram campos.
+The edge's other job here is undoing two shapes of the core that serve the
+database and not the screen: `SearchMemory`'s parallel lists become pairs, and
+the `meta`'s internal keys (`dop.body`, `dop.scope`) become fields.
 """
 
 import base64
@@ -32,38 +32,38 @@ from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped
 from app.settings import settings
 
-# Nome ↔ enum num lugar só, como em `resource`. Espalhar esta tabela é como as
-# duas pontas passam a discordar sobre o que é uma "memory".
-_KIND_POR_NOME = {
+# Name ↔ enum in one place only, as in `resource`. Spreading this table out is
+# how the two ends start disagreeing about what a "memory" is.
+_KIND_BY_NAME = {
     "rule": knowledge_pb2.KnowledgeArtifact.KIND_RULE,
     "index": knowledge_pb2.KnowledgeArtifact.KIND_INDEX,
     "memory": knowledge_pb2.KnowledgeArtifact.KIND_MEMORY,
 }
-_NOME_POR_KIND = {v: k for k, v in _KIND_POR_NOME.items()}
+_NAME_BY_KIND = {v: k for k, v in _KIND_BY_NAME.items()}
 
-# Chaves NOSSAS que o núcleo esconde dentro do `meta` do artefato: o corpo do
-# artefato pequeno e o nível de escopo. São convenção interna do núcleo — a
-# borda as promove a campo e as REMOVE do meta, para que a tela nunca precise
-# conhecer o prefixo "dop.".
+# OUR keys that the core hides inside the artifact's `meta`: the small
+# artifact's body and the scope level. They are the core's internal convention —
+# the edge promotes them to fields and REMOVES them from the meta, so the screen
+# never has to know the "dop." prefix.
 _META_BODY = "dop.body"
 _META_SCOPE = "dop.scope"
 
-# As camadas do pacote de contexto (ADR-0009 §1), na ordem em que o orçamento
-# de tokens as corta. São as chaves do `map<string,int32> dropped` do núcleo —
-# escritas aqui uma vez, para que a tradução não dependa de ordem de iteração
-# de mapa nem repita literal em quatro lugares.
-_CAMADAS = ("rules", "findings", "index", "memories")
+# The context package's layers (ADR-0009 §1), in the order the token budget cuts
+# them. They are the keys of the core's `map<string,int32> dropped` — written
+# here once, so the translation neither depends on a map's iteration order nor
+# repeats a literal in four places.
+_LAYERS = ("rules", "findings", "index", "memories")
 
 
 def _deadline() -> float:
     return settings.core_deadline_s
 
 
-def _idempotency(chave: str = "") -> str:
-    return chave or core.idempotency_key()
+def _idempotency(key: str = "") -> str:
+    return key or core.idempotency_key()
 
 
-# ── modelos da borda ────────────────────────────────────────────────────────
+# ── the edge's models ───────────────────────────────────────────────────────
 
 
 class ArtifactSummary(BaseModel):
@@ -72,21 +72,23 @@ class ArtifactSummary(BaseModel):
     project_id: str = ""
     name: str
     version: int = 1
-    # Preenchido só no artefato GRANDE, que o sandbox lê direto do storage.
+    # Filled in only on a LARGE artifact, which the sandbox reads straight from
+    # storage.
     object_ref: str = ""
-    # Meta do AUTOR, já sem as chaves internas do núcleo.
+    # The AUTHOR's meta, already without the core's internal keys.
     meta: dict = Field(default_factory=dict)
-    # Conteúdo inline do artefato pequeno.
+    # The small artifact's inline content.
     body: str = ""
     scope: str = ""
 
 
 class DroppedCounts(BaseModel):
-    """O que FICOU DE FORA do pacote, por camada (ADR-0012).
+    """What was LEFT OUT of the package, per layer (ADR-0012).
 
-    `truncated` é derivado — é o único campo que a tela precisa consultar para
-    dizer "o contexto foi truncado". Deriva aqui, e não em cada cliente, porque
-    três clientes derivando a mesma coisa é como dois deles erram.
+    `truncated` is derived — it is the only field the screen has to consult to
+    say "the context was truncated". It is derived here, and not in each client,
+    because three clients deriving the same thing is how two of them get it
+    wrong.
     """
 
     rules: int = 0
@@ -110,66 +112,68 @@ class ContextPackageSummary(BaseModel):
     memories: list[ArtifactSummary] = Field(default_factory=list)
     findings: list[FindingSummary] = Field(default_factory=list)
     estimated_tokens: int = 0
-    # None = o núcleo não informou o descarte. NUNCA zeros de consolo.
+    # None = the core did not report the drops. NEVER consolation zeroes.
     dropped: DroppedCounts | None = None
 
 
 class MemoryHit(BaseModel):
     artifact: ArtifactSummary
-    # None = o núcleo não pontuou este resultado (a busca lexical não pontua
-    # como a semântica). Zero seria "nenhuma semelhança", que é outra coisa.
+    # None = the core did not score this result (the lexical search does not
+    # score like the semantic one). Zero would be "no similarity", which is
+    # another thing.
     score: float | None = None
 
 
 class NewArtifact(BaseModel):
-    """Escrita na base de conhecimento — o lado de volta do ciclo (ADR-0009 §4).
+    """A write into the knowledge base — the cycle's way back (ADR-0009 §4).
 
-    O conteúdo chega em base64 porque no contrato do núcleo ele é `bytes`:
-    artefato de conhecimento é markdown, JSON ou mapa gerado, em UTF-8 ou não, e
-    fingir que é `str` transcodificaria em silêncio o que não for.
+    The content arrives in base64 because in the core's contract it is `bytes`:
+    a knowledge artifact is markdown, JSON or a generated map, in UTF-8 or not,
+    and pretending it is a `str` would silently transcode whatever is not.
     """
 
     kind: str = Field(pattern="^(rule|index|memory)$")
     name: str = Field(min_length=1)
-    # Vazio grava no escopo da CONTA — a regra que vale em todo projeto.
+    # Empty writes into the ACCOUNT's scope — the rule that holds in every
+    # project.
     project_id: str = ""
     content_base64: str = Field(min_length=1)
     meta: dict = Field(default_factory=dict)
 
     @field_validator("content_base64")
     @classmethod
-    def _base64_valido(cls, v: str) -> str:
-        """Recusa base64 inválido na BORDA, com 422.
+    def _valid_base64(cls, v: str) -> str:
+        """Refuses invalid base64 at the EDGE, with a 422.
 
-        Sem isto o `b64decode` estouraria dentro do caso de uso e viraria 500 —
-        erro de servidor para um pedido malformado do cliente.
+        Without this the `b64decode` would blow up inside the use case and become
+        a 500 — a server error for a malformed client request.
         """
         try:
             base64.b64decode(v, validate=True)
         except (ValueError, TypeError) as exc:
-            raise ValueError("conteúdo não é base64 válido") from exc
+            raise ValueError("content is not valid base64") from exc
         return v
 
     def content(self) -> bytes:
         return base64.b64decode(self.content_base64, validate=True)
 
 
-# ── tradução do núcleo para a borda ─────────────────────────────────────────
+# ── translating the core into the edge ──────────────────────────────────────
 
 
 def _artifact(a: knowledge_pb2.KnowledgeArtifact) -> ArtifactSummary:
-    # MessageToDict sobre o Struct devolve tipos Python puros em qualquer
-    # profundidade; `dict(struct)` devolveria submensagens do protobuf, que o
-    # Pydantic não sabe serializar.
+    # MessageToDict over the Struct returns plain Python types at any depth;
+    # `dict(struct)` would return protobuf submessages, which Pydantic does not
+    # know how to serialize.
     meta = MessageToDict(a.meta) if a.HasField("meta") else {}
     return ArtifactSummary(
         id=a.id,
-        kind=_NOME_POR_KIND.get(a.kind, ""),
+        kind=_NAME_BY_KIND.get(a.kind, ""),
         project_id=a.project.id,
         name=a.name,
         version=a.version,
         object_ref=a.object_ref,
-        # pop: a convenção interna do núcleo não atravessa para a tela.
+        # pop: the core's internal convention does not cross to the screen.
         body=str(meta.pop(_META_BODY, "")),
         scope=str(meta.pop(_META_SCOPE, "")),
         meta=meta,
@@ -185,50 +189,50 @@ def _finding(f) -> FindingSummary:
     )
 
 
-def _descartes(pacote: knowledge_pb2.ContextPackage) -> DroppedCounts | None:
-    """Contadores de descarte, lidos do campo `dropped` do núcleo.
+def _drops(package: knowledge_pb2.ContextPackage) -> DroppedCounts | None:
+    """The drop counters, read from the core's `dropped` field.
 
-    `dop.v1.ContextPackage.dropped` é um `map<string,int32>` por camada, e o
-    núcleo o preenche SEMPRE — com as quatro chaves, inclusive zeradas. Um mapa
-    VAZIO é, portanto, o núcleo que não informou (um núcleo anterior ao campo),
-    e vira `None`: "não dá para saber" continua sendo diferente de zero, que é
-    a AFIRMAÇÃO de que nada ficou de fora.
+    `dop.v1.ContextPackage.dropped` is a `map<string,int32>` per layer, and the
+    core fills it in ALWAYS — with all four keys, zeroed ones included. An EMPTY
+    map is therefore the core not having reported (a core older than the field),
+    and becomes `None`: "there is no way to know" stays different from zero,
+    which is the ASSERTION that nothing was left out.
 
-    Nota sobre o contorno que estava aqui antes: ele checava
-    `DESCRIPTOR.fields_by_name` e depois `HasField("dropped")`, apostando que o
-    campo chegaria como MENSAGEM. Chegou como mapa — e mapa não tem presença,
-    então o `HasField` passou a levantar `ValueError` no primeiro pacote de
-    contexto pedido. Contorno que se adianta ao formato do contrato não
-    envelhece: quebra.
+    A note on the workaround that used to be here: it checked
+    `DESCRIPTOR.fields_by_name` and then `HasField("dropped")`, betting the field
+    would arrive as a MESSAGE. It arrived as a map — and a map has no presence,
+    so the `HasField` started raising `ValueError` on the first context package
+    requested. A workaround that runs ahead of the contract's shape does not
+    age: it breaks.
 
-    `truncated` deriva de TODOS os valores do mapa, não só das quatro camadas
-    conhecidas: se o núcleo passar a descartar numa camada nova, o número dela
-    ainda não tem campo aqui, mas "o contexto foi truncado" continua verdade — e
-    é essa a frase que a tela precisa dizer (ADR-0012).
+    `truncated` derives from ALL the map's values, not only the four known
+    layers: if the core starts dropping in a new layer, its number has no field
+    here yet, but "the context was truncated" is still true — and that is the
+    sentence the screen needs to say (ADR-0012).
     """
-    d = pacote.dropped
+    d = package.dropped
     if not d:
         return None
-    contagens = {camada: d.get(camada, 0) for camada in _CAMADAS}
-    return DroppedCounts(**contagens, truncated=any(v > 0 for v in d.values()))
+    counts = {layer: d.get(layer, 0) for layer in _LAYERS}
+    return DroppedCounts(**counts, truncated=any(v > 0 for v in d.values()))
 
 
-# ── casos de uso ────────────────────────────────────────────────────────────
+# ── use cases ───────────────────────────────────────────────────────────────
 
 
 @log
 @account_scoped
 async def get_context_package(demand_id: str) -> ContextPackageSummary:
-    """A bagagem de bordo do agente para uma demanda, numa resposta só.
+    """The agent's carry-on luggage for a demand, in a single response.
 
-    A borda NÃO refaz a curadoria nem recalcula `estimated_tokens`: o que entra
-    no pacote é decisão do núcleo (ADR-0009 §3), e um segundo critério de corte
-    aqui divergiria do primeiro no primeiro ajuste de orçamento. O que a borda
-    acrescenta é o que a tela precisa e o protobuf não dá de graça: o descarte
-    como fato explícito, e não como silêncio.
+    The edge does NOT redo the curation nor recompute `estimated_tokens`: what
+    goes into the package is the core's decision (ADR-0009 §3), and a second
+    cutting criterion here would diverge from the first at the first budget
+    adjustment. What the edge adds is what the screen needs and protobuf does not
+    give for free: the drops as an explicit fact, and not as silence.
     """
     ctx = auth_ctx.get()
-    pacote = await stubs.knowledge_stub().BuildContextPackage(
+    package = await stubs.knowledge_stub().BuildContextPackage(
         knowledge_pb2.BuildContextPackageRequest(
             ctx=call_context_from(ctx), demand_id=demand_id
         ),
@@ -236,42 +240,43 @@ async def get_context_package(demand_id: str) -> ContextPackageSummary:
         timeout=_deadline(),
     )
     return ContextPackageSummary(
-        demand_id=pacote.demand.id or demand_id,
-        rules=list(pacote.rules),
-        index=[_artifact(a) for a in pacote.index],
-        memories=[_artifact(a) for a in pacote.memories],
-        findings=[_finding(f) for f in pacote.findings],
-        estimated_tokens=pacote.estimated_tokens,
-        dropped=_descartes(pacote),
+        demand_id=package.demand.id or demand_id,
+        rules=list(package.rules),
+        index=[_artifact(a) for a in package.index],
+        memories=[_artifact(a) for a in package.memories],
+        findings=[_finding(f) for f in package.findings],
+        estimated_tokens=package.estimated_tokens,
+        dropped=_drops(package),
     )
 
 
 @log
 @account_scoped
 async def search_memory(project_id: str, query: str, limit: int = 0) -> list[MemoryHit]:
-    """O que não coube no pacote entra por aqui (ADR-0009 §3).
+    """What did not fit in the package comes in through here (ADR-0009 §3).
 
-    O núcleo devolve artefatos e scores em listas PARALELAS; a borda os PAREIA.
-    Não é enfeite: duas listas que o cliente precisa indexar em paralelo é um
-    erro por distração esperando acontecer, e o erro seria silencioso — a
-    memória errada com o score da vizinha ainda parece uma resposta plausível.
+    The core returns artifacts and scores in PARALLEL lists; the edge PAIRS
+    them. It is not decoration: two lists the client has to index in parallel is
+    a mistake-by-distraction waiting to happen, and the mistake would be silent —
+    the wrong memory with its neighbour's score still looks like a plausible
+    answer.
     """
     ctx = auth_ctx.get()
-    pedido = knowledge_pb2.SearchMemoryRequest(
+    request = knowledge_pb2.SearchMemoryRequest(
         ctx=call_context_from(ctx), query=query, limit=limit
     )
     if project_id:
-        pedido.project.CopyFrom(common_pb2.ProjectRef(id=project_id))
+        request.project.CopyFrom(common_pb2.ProjectRef(id=project_id))
     resp = await stubs.knowledge_stub().SearchMemory(
-        pedido, metadata=core.metadata(), timeout=_deadline()
+        request, metadata=core.metadata(), timeout=_deadline()
     )
     scores = list(resp.scores)
     return [
         MemoryHit(
             artifact=_artifact(a),
-            # Score que o núcleo não mandou fica ausente. Preencher com 0.0
-            # afirmaria "nenhuma semelhança" sobre um resultado que ele
-            # devolveu justamente por ser semelhante.
+            # A score the core did not send stays absent. Filling it with 0.0
+            # would assert "no similarity" about a result it returned precisely
+            # for being similar.
             score=scores[i] if i < len(scores) else None,
         )
         for i, a in enumerate(resp.artifacts)
@@ -281,11 +286,12 @@ async def search_memory(project_id: str, query: str, limit: int = 0) -> list[Mem
 @log
 @account_scoped
 async def read_index(project_id: str, repo: str) -> ArtifactSummary:
-    """O mapa de um repositório.
+    """A repository's map.
 
-    Índice ausente vem como NOT_FOUND do núcleo e assim atravessa (404 no REST):
-    o agente precisa SABER que não há mapa. Um índice vazio devolvido como se
-    fosse índice mentiria com a mesma confiança de um índice desatualizado.
+    A missing index comes back as NOT_FOUND from the core and crosses as such (a
+    404 in REST): the agent has to KNOW there is no map. An empty index returned
+    as if it were an index would lie with the same confidence as an out-of-date
+    one.
     """
     ctx = auth_ctx.get()
     a = await stubs.knowledge_stub().ReadIndex(
@@ -303,7 +309,7 @@ async def read_index(project_id: str, repo: str) -> ArtifactSummary:
 @log
 @account_scoped
 async def list_rules(project_id: str) -> list[str]:
-    """As regras que VALEM para o projeto, com a herança já resolvida no núcleo."""
+    """The rules that HOLD for the project, with the inheritance already resolved in the core."""
     ctx = auth_ctx.get()
     resp = await stubs.knowledge_stub().ListRules(
         knowledge_pb2.ListRulesRequest(
@@ -318,27 +324,28 @@ async def list_rules(project_id: str) -> list[str]:
 @log
 @account_scoped
 async def put_artifact(body: NewArtifact, idempotency_key: str = "") -> ArtifactSummary:
-    """Grava conhecimento — a escrita de volta do ciclo (ADR-0009 §4).
+    """Writes knowledge — the cycle's way back (ADR-0009 §4).
 
-    A chave de idempotência aqui não é redundante com uma UNIQUE do banco:
-    regravar o mesmo nome no mesmo escopo é operação legítima (bumpa a versão),
-    então sem chave um retry do canal viraria versão nova em silêncio.
+    The idempotency key here is not redundant with a database UNIQUE: rewriting
+    the same name in the same scope is a legitimate operation (it bumps the
+    version), so without the key a channel retry would silently become a new
+    version.
     """
     ctx = auth_ctx.get()
-    artefato = knowledge_pb2.KnowledgeArtifact(
-        kind=_KIND_POR_NOME[body.kind],
+    artifact = knowledge_pb2.KnowledgeArtifact(
+        kind=_KIND_BY_NAME[body.kind],
         name=body.name,
     )
     if body.project_id:
-        artefato.project.CopyFrom(common_pb2.ProjectRef(id=body.project_id))
+        artifact.project.CopyFrom(common_pb2.ProjectRef(id=body.project_id))
     if body.meta:
         meta = struct_pb2.Struct()
         meta.update(body.meta)
-        artefato.meta.CopyFrom(meta)
+        artifact.meta.CopyFrom(meta)
     a = await stubs.knowledge_stub().PutArtifact(
         knowledge_pb2.PutArtifactRequest(
             ctx=call_context_from(ctx),
-            artifact=artefato,
+            artifact=artifact,
             content=body.content(),
             idempotency_key=_idempotency(idempotency_key),
         ),
