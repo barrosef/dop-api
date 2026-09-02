@@ -1,8 +1,8 @@
-"""Hierarquia nos dois transportes, contra um núcleo fake.
+"""Hierarchy on both transports, against a fake core.
 
-O teste que mais importa aqui é o de paridade: ele é o que impede alguém de
-reimplementar um caso de uso no servicer (ou no router) sem ninguém notar na
-revisão.
+The test that matters most here is the parity one: it is what stops anybody
+from reimplementing a use case in the servicer (or in the router) with nobody
+noticing in review.
 """
 
 import pytest
@@ -24,10 +24,10 @@ class TestREST:
         assert [p["name"] for p in nos[0]["projects"]] == ["Cockpit", "No board"]
 
     def test_a_project_with_no_board_comes_back_null_not_zeroed(self, client_hier):
-        """Ausente e zerado são coisas diferentes.
+        """Absent and zeroed are different things.
 
         Um vínculo zerado faria o cockpit desenhar 'board configurado' com
-        campos vazios, quando a verdade é que não há board nenhum.
+        empty fields, when the truth is that there is no board at all.
         """
         nos = client_hier.get("/api/v1/tree", headers=REST_HEADERS).json()
         com, sem = nos[0]["projects"]
@@ -35,7 +35,7 @@ class TestREST:
         assert sem["task_manager"] is None
 
     def test_creating_a_workspace_requires_a_role(self, client_hier, core):
-        """Developer não reorganiza a account."""
+        """A developer does not reorganize the account."""
         core.demote_to_developer()
         r = client_hier.post(
             "/api/v1/workspaces",
@@ -97,8 +97,9 @@ class TestGRPC:
         assert e.value.code() == grpc.StatusCode.PERMISSION_DENIED
 
     async def test_the_client_may_send_its_own_idempotency_key(self, stub_hier, hierarchy):
-        """No gRPC o client sabe se está retentando — e por isso pode mandar
-        a key dele. O REST não tem onde carregá-la e recebe uma nossa."""
+        """Over gRPC the client knows whether it is retrying — and that is why
+        it may send its own key. REST has nowhere to carry it and gets one of
+        ours."""
         await stub_hier.CreateWorkspace(
             bff.CreateWorkspaceRequest(name="P", key="P", idempotency_key="minha-key"),
             metadata=ACCOUNT,
@@ -108,10 +109,10 @@ class TestGRPC:
     async def test_bind_task_manager_preserves_the_rest_of_the_project(
         self, stub_hier, hierarchy
     ):
-        """UpdateProject no núcleo é SUBSTITUIÇÃO.
+        """UpdateProject in the core is a REPLACEMENT.
 
-        Se a borda mandasse só o vínculo, name, descrição e regras do project
-        seriam apagados. Este teste é o que impede essa regressão silenciosa.
+        If the edge sent only the binding, the project's name, description and
+        rules would be erased. This test is what stops that silent regression.
         """
         await stub_hier.BindTaskManager(
             bff.BindTaskManagerRequest(
@@ -129,7 +130,7 @@ class TestGRPC:
 
 
 class TestParityBetweenTransports:
-    """Uma função, dois adaptadores — e a prova de que continua assim."""
+    """One function, two adapters — and the proof that it stays that way."""
 
     async def test_the_tree_is_the_same_on_both_ports(self, client_hier, stub_hier):
         rest = client_hier.get("/api/v1/tree", headers=REST_HEADERS).json()
@@ -142,7 +143,8 @@ class TestParityBetweenTransports:
             assert [p.name for p in no_grpc.projects] == [
                 p["name"] for p in no_rest["projects"]
             ]
-            # E o vínculo, que é onde ausente≠zerado pode divergir entre pontas.
+            # And the binding, which is where absent≠zeroed may diverge between
+            # the ends.
             for p_grpc, p_rest in zip(no_grpc.projects, no_rest["projects"], strict=True):
                 assert p_grpc.HasField("task_manager") == (
                     p_rest["task_manager"] is not None

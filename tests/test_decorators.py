@@ -1,4 +1,4 @@
-"""Testes dos transversais — o comportamento que os routers dependem."""
+"""Tests of the cross-cutting concerns — the behaviour the routers depend on."""
 
 import pytest
 from fastapi import HTTPException
@@ -20,7 +20,7 @@ def _ctx(account_id="", role="", grants=None):
 
 class TestAccountScoped:
     async def test_it_refuses_with_no_active_account(self):
-        """Regra do SP-0: requisição sem account ativa é inválida."""
+        """SP-0's rule: a request with no active account is invalid."""
         token = auth_ctx.set(_ctx(account_id=""))
 
         @account_scoped
@@ -81,7 +81,7 @@ class TestRequireRole:
 
 class TestRequireGrant:
     async def test_an_owner_has_implicit_manage(self):
-        """Sem isso, ninguém conserta uma integração quebrada."""
+        """Without this, nobody fixes a broken integration."""
         token = auth_ctx.set(_ctx(account_id="acct-1", role="owner"))
 
         @require_grant("manage")
@@ -142,7 +142,7 @@ class TestRequireGrant:
 
 
 class TestSecretMasking:
-    """Redação de segredos é requisito (F-10), não conveniência."""
+    """Redacting secrets is a requirement (F-10), not a convenience."""
 
     def test_it_masks_sensitive_keys(self):
         out = _mask_processor(None, None, {"password": "abc", "user": "ed"})

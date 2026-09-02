@@ -1,9 +1,9 @@
-"""Recursos nos dois transportes.
+"""Resources on both transports.
 
-O teste mais importante deste arquivo é o de vazamento: nenhuma response pode
-conter o segredo. Ele é escrito procurando o VALOR no body serializado inteiro,
-e não conferindo campo por campo — conferir campo por campo só pega o vazamento
-que alguém lembrou de imaginar.
+This file's most important test is the leak one: no response may contain the
+secret. It is written by looking for the VALUE in the whole serialized body, and
+not by checking field by field — checking field by field only catches the leak
+somebody remembered to imagine.
 """
 
 import base64
@@ -31,7 +31,7 @@ class TestTheSecretDoesNotLeak:
         assert r.status_code == 200
         assert SEGREDO not in r.text
         assert SEGREDO_B64 not in r.text
-        # O que volta é o rótulo opaco, que diz que HÁ credencial.
+        # What comes back is the opaque label, which says there IS a credential.
         assert r.json()["credential_ref"].startswith("integration_credential:")
 
     async def test_grpc_does_not_return_the_value(self, stub_res):
@@ -43,7 +43,7 @@ class TestTheSecretDoesNotLeak:
         assert resp.credential_ref.startswith("integration_credential:")
 
     def test_the_secret_reached_the_core(self, client_res, resources):
-        """Não vazar não pode virar não gravar."""
+        """Not leaking must not become not writing."""
         client_res.put(
             "/api/v1/resources/res-1/credential",
             headers=REST_HEADERS,
