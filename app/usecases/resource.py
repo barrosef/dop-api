@@ -1,14 +1,15 @@
-"""Casos de uso de recursos — integrações, skills, fluxos.
+"""Resource use cases — integrations, skills, flows.
 
-Mesma disciplina de `identity` e `hierarchy`: a regra vive aqui, router e
-servicer traduzem.
+The same discipline as `identity` and `hierarchy`: the rule lives here, the
+router and the servicer translate.
 
-**A regra dura deste módulo: o segredo nunca volta.** `SetCredential` grava no
-cofre e devolve apenas uma referência opaca; não existe caminho de leitura do
-valor pela borda, e não deve passar a existir. Quem precisa do segredo é o
-executor, direto do cofre (ADR-0001). Por isso o valor também não entra em log
-nem em mensagem de erro — o mascaramento automático do logger cobre o campo,
-mas a primeira linha de defesa é não passar o valor adiante.
+**This module's hard rule: the secret never comes back.** `SetCredential` writes
+it into the vault and returns only an opaque reference; there is no path through
+the edge that reads the value, and there must not come to be one. The one that
+needs the secret is the executor, straight from the vault (ADR-0001). That is
+why the value also goes into no log and no error message — the logger's
+automatic masking covers the field, but the first line of defence is not passing
+the value on.
 """
 
 import base64
@@ -25,23 +26,23 @@ from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
 
-# Nome ↔ enum num lugar só. Espalhar essa tabela é como as duas pontas passam
-# a discordar sobre o que é um "git_flow".
-_KIND_POR_NOME = {
+# Name ↔ enum in one place only. Spreading this table out is how the two ends
+# start disagreeing about what a "git_flow" is.
+_KIND_BY_NAME = {
     "integration": resource_pb2.Resource.KIND_INTEGRATION,
     "skill": resource_pb2.Resource.KIND_SKILL,
     "workflow": resource_pb2.Resource.KIND_WORKFLOW,
     "git_flow": resource_pb2.Resource.KIND_GIT_FLOW,
 }
-_NOME_POR_KIND = {v: k for k, v in _KIND_POR_NOME.items()}
+_NAME_BY_KIND = {v: k for k, v in _KIND_BY_NAME.items()}
 
 
 def _deadline() -> float:
     return settings.core_deadline_s
 
 
-def _idempotency(chave: str = "") -> str:
-    return chave or core.idempotency_key()
+def _idempotency(key: str = "") -> str:
+    return key or core.idempotency_key()
 
 
 class ResourceSummary(BaseModel):
@@ -50,25 +51,27 @@ class ResourceSummary(BaseModel):
     name: str
     version: int = 1
     config: dict = Field(default_factory=dict)
-    # Rótulo opaco derivável da linha — a presença dele diz que HÁ credencial,
-    # nunca qual é. Vazio significa integração ainda sem segredo.
+    # An opaque label derivable from the row — its presence says there IS a
+    # credential, never which one. Empty means an integration with no secret
+    # yet.
     credential_ref: str = ""
 
 
 class NewResource(BaseModel):
     kind: str = Field(min_length=1)
     name: str = Field(min_length=1)
-    # Categoria e provedor vão aqui: a categoria é string minúscula
-    # (git | task_manager | agent) porque quem manda no vocabulário é o
-    # provedor, não a plataforma (ADR-0013).
+    # The category and the provider go here: the category is a lowercase string
+    # (git | task_manager | agent) because the one that rules the vocabulary is
+    # the provider, not the platform (ADR-0013).
     config: dict = Field(default_factory=dict)
 
 
 class NewCredential(BaseModel):
-    """O segredo chega em base64 — bytes no contrato do núcleo.
+    """The secret arrives in base64 — bytes in the core's contract.
 
-    Modelo separado de propósito: assim o valor nunca encosta no modelo que a
-    borda devolve, e não há como alguém acidentalmente serializá-lo de volta.
+    A separate model on purpose: that way the value never touches the model the
+    edge returns, and there is no way for anybody to accidentally serialize it
+    back.
     """
 
     secret_base64: str = Field(min_length=1)
@@ -90,10 +93,10 @@ class NewGrant(BaseModel):
 def _resource(r: resource_pb2.Resource) -> ResourceSummary:
     config = {}
     if r.HasField("config"):
-        config = {k: _valor(v) for k, v in r.config.fields.items()}
+        config = {k: _value(v) for k, v in r.config.fields.items()}
     return ResourceSummary(
         id=r.id,
-        kind=_NOME_POR_KIND.get(r.kind, ""),
+        kind=_NAME_BY_KIND.get(r.kind, ""),
         name=r.name,
         version=r.version,
         config=config,
@@ -101,37 +104,38 @@ def _resource(r: resource_pb2.Resource) -> ResourceSummary:
     )
 
 
-def _valor(v: struct_pb2.Value):
-    """Struct do protobuf para Python, só o que a config usa de fato."""
-    campo = v.WhichOneof("kind")
-    if campo == "string_value":
+def _value(v: struct_pb2.Value):
+    """Protobuf's Struct into Python, only what the config actually uses."""
+    field = v.WhichOneof("kind")
+    if field == "string_value":
         return v.string_value
-    if campo == "number_value":
+    if field == "number_value":
         return v.number_value
-    if campo == "bool_value":
+    if field == "bool_value":
         return v.bool_value
-    if campo == "list_value":
-        return [_valor(i) for i in v.list_value.values]
-    if campo == "struct_value":
-        return {k: _valor(i) for k, i in v.struct_value.fields.items()}
+    if field == "list_value":
+        return [_value(i) for i in v.list_value.values]
+    if field == "struct_value":
+        return {k: _value(i) for k, i in v.struct_value.fields.items()}
     return None
 
 
 @log
 @account_scoped
 async def list_resources(kind: str = "") -> list[ResourceSummary]:
-    """Recursos visíveis para o ator.
+    """The resources visible to the actor.
 
-    O núcleo já FILTRA pelo que o ator pode usar — integração de outra pessoa
-    não aparece. A borda não refiltra: duplicar a regra de visibilidade aqui
-    seria criar uma segunda verdade que uma hora discorda da primeira.
+    The core already FILTERS by what the actor may use — somebody else's
+    integration does not appear. The edge does not refilter: duplicating the
+    visibility rule here would create a second truth that eventually disagrees
+    with the first.
     """
     ctx = auth_ctx.get()
-    pedido = resource_pb2.ListResourcesRequest(ctx=call_context_from(ctx))
+    request = resource_pb2.ListResourcesRequest(ctx=call_context_from(ctx))
     if kind:
-        pedido.kind = _KIND_POR_NOME.get(kind, resource_pb2.Resource.KIND_UNSPECIFIED)
+        request.kind = _KIND_BY_NAME.get(kind, resource_pb2.Resource.KIND_UNSPECIFIED)
     resp = await stubs.resource_stub().ListResources(
-        pedido, metadata=core.metadata(), timeout=_deadline()
+        request, metadata=core.metadata(), timeout=_deadline()
     )
     return [_resource(r) for r in resp.resources]
 
@@ -151,10 +155,10 @@ async def get_resource(resource_id: str) -> ResourceSummary:
 @log
 @account_scoped
 async def create_resource(body: NewResource, idempotency_key: str = "") -> ResourceSummary:
-    """Cria o recurso SEM credencial — o segredo entra por `set_credential`.
+    """Creates the resource WITHOUT a credential — the secret goes in through `set_credential`.
 
-    Separar os dois passos não é cerimônia: mantém o valor fora da requisição
-    que cria, que é a mais logada e a mais retentada de todas.
+    Separating the two steps is not ceremony: it keeps the value out of the
+    request that creates, which is the most logged and most retried of all.
     """
     ctx = auth_ctx.get()
     config = struct_pb2.Struct()
@@ -162,7 +166,7 @@ async def create_resource(body: NewResource, idempotency_key: str = "") -> Resou
     r = await stubs.resource_stub().CreateResource(
         resource_pb2.CreateResourceRequest(
             ctx=call_context_from(ctx),
-            kind=_KIND_POR_NOME.get(body.kind, resource_pb2.Resource.KIND_UNSPECIFIED),
+            kind=_KIND_BY_NAME.get(body.kind, resource_pb2.Resource.KIND_UNSPECIFIED),
             name=body.name,
             config=config,
             idempotency_key=_idempotency(idempotency_key),
@@ -176,11 +180,11 @@ async def create_resource(body: NewResource, idempotency_key: str = "") -> Resou
 @log
 @account_scoped
 async def set_credential(resource_id: str, body: NewCredential) -> ResourceSummary:
-    """Grava o segredo no cofre e devolve o RECURSO, sem o valor.
+    """Writes the secret into the vault and returns the RESOURCE, without the value.
 
-    Devolver o recurso (e não só a referência) poupa uma ida de volta ao
-    cockpit, que precisa mostrar "credencial configurada". O valor não vem
-    junto porque não existe caminho de leitura dele.
+    Returning the resource (and not only the reference) saves the cockpit a
+    round trip, since it needs to show "credential configured". The value does
+    not come along because there is no path that reads it.
     """
     ctx = auth_ctx.get()
     stub = stubs.resource_stub()
@@ -205,8 +209,8 @@ async def set_credential(resource_id: str, body: NewCredential) -> ResourceSumma
 @account_scoped
 @require_role("owner", "admin")
 async def grant_resource(body: NewGrant) -> GrantSummary:
-    """Concessão é sempre explícita — recurso credenciado é fechado por
-    padrão, e não há default que abra (ADR-0013)."""
+    """A grant is always explicit — a credentialed resource is closed by
+    default, and there is no default that opens it (ADR-0013)."""
     ctx = auth_ctx.get()
     g = await stubs.resource_stub().GrantResource(
         resource_pb2.GrantResourceRequest(

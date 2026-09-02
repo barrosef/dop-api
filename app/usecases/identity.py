@@ -1,15 +1,16 @@
-"""Casos de uso de identidade — chamados por REST e por gRPC, sem duplicação.
+"""Identity use cases — called by REST and by gRPC, with no duplication.
 
-Estas funções são o ÚNICO lugar onde a regra vive. `app/routers/identity.py`
-traduz HTTP para elas; `app/grpcapi/identity.py` traduz protobuf para as mesmas
-funções. Nenhuma das duas pontas repete uma linha de decisão.
+These functions are the ONLY place the rule lives. `app/routers/identity.py`
+translates HTTP into them; `app/grpcapi/identity.py` translates protobuf into
+the same functions. Neither end repeats a single line of decision.
 
-Os transversais também moram aqui, não nos adaptadores: `@log`, `@account_scoped`
-e `@require_role` decoram o CASO DE USO, e por isso valem igualmente nos dois
-transportes. Se a autorização ficasse no router, a porta gRPC nasceria aberta.
+The cross-cutting concerns live here too, not in the adapters: `@log`,
+`@account_scoped` and `@require_role` decorate the USE CASE, and therefore hold
+equally on both transports. If authorization sat in the router, the gRPC door
+would be born open.
 
-Os modelos de resposta são Pydantic puro — nada de FastAPI — justamente para
-que o servicer gRPC possa consumi-los sem arrastar o framework web junto.
+The response models are plain Pydantic — no FastAPI — precisely so the gRPC
+servicer can consume them without dragging the web framework along.
 """
 
 from pydantic import BaseModel, Field
@@ -34,17 +35,18 @@ def _deadline() -> float:
     return settings.core_deadline_s
 
 
-def _idempotency(chave: str = "") -> str:
-    """Chave de idempotência do cliente, ou uma nossa (ADR-0017).
+def _idempotency(key: str = "") -> str:
+    """The client's idempotency key, or one of ours (ADR-0017).
 
-    O contrato gRPC deixa o cliente enviar a dele — é ele quem sabe se está
-    retentando ou pedindo outra coisa. O REST não tem onde carregá-la, então
-    geramos: protege contra o retry do canal, que já é o caso comum.
+    The gRPC contract lets the client send its own — it is the one that knows
+    whether it is retrying or asking for something else. REST has nowhere to
+    carry it, so we generate one: it protects against the channel's retry, which
+    is already the common case.
     """
-    return chave or core.idempotency_key()
+    return key or core.idempotency_key()
 
 
-# ── modelos da borda ────────────────────────────────────────────────────────
+# ── the edge's models ───────────────────────────────────────────────────────
 
 
 class MeResponse(BaseModel):
@@ -68,7 +70,7 @@ class AccountSummary(BaseModel):
 class NewAccount(BaseModel):
     handle: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
-    legal_id: str = ""  # CNPJ
+    legal_id: str = ""  # the company's registration number
 
 
 class MemberSummary(BaseModel):
@@ -85,7 +87,7 @@ class GrantSpec(BaseModel):
 class NewInvite(BaseModel):
     email: str = Field(min_length=3)
     role: str = "developer"
-    # Concessões compostas NO CONVITE — sem defaults (ADR-0013).
+    # Grants composed IN THE INVITE — with no defaults (ADR-0013).
     grants: list[GrantSpec] = Field(default_factory=list)
 
 
@@ -96,15 +98,15 @@ class InviteSummary(BaseModel):
     status: str
 
 
-# ── casos de uso ────────────────────────────────────────────────────────────
+# ── use cases ───────────────────────────────────────────────────────────────
 
 
 @log
 async def me() -> MeResponse:
-    """Quem sou eu, na conta ativa.
+    """Who I am, in the active account.
 
-    O `user_id` NÃO é o subject do provedor de identidade: é o id do usuário no
-    core, resolvido pelo EnsureUser durante a autenticação.
+    The `user_id` is NOT the identity provider's subject: it is the user's id in
+    the core, resolved by EnsureUser during authentication.
     """
     ctx = auth_ctx.get()
     return MeResponse(
@@ -120,10 +122,10 @@ async def me() -> MeResponse:
 
 @log
 async def list_accounts() -> list[AccountSummary]:
-    """Contas do usuário — alimenta o seletor de conta ativa do cockpit.
+    """The user's accounts — it feeds the cockpit's active-account selector.
 
-    Sem @account_scoped de propósito: é justamente a chamada que se faz ANTES
-    de haver conta ativa.
+    Without @account_scoped on purpose: it is precisely the call made BEFORE
+    there is an active account.
     """
     ctx = auth_ctx.get()
     resp = await stubs.identity_stub().ListAccounts(
@@ -139,8 +141,9 @@ async def list_accounts() -> list[AccountSummary]:
             handle=a.handle,
             display_name=a.display_name,
             kind=account_kind_name(a.kind),
-            # O papel só é conhecido para a conta ATIVA — foi ela que o resolver
-            # consultou. Inventar papel para as outras seria mentir barato.
+            # The role is only known for the ACTIVE account — that is the one
+            # the resolver queried. Inventing a role for the others would be
+            # lying cheaply.
             role=ctx.role if a.id == ctx.account_id else "",
         )
         for a in resp.accounts
@@ -150,10 +153,10 @@ async def list_accounts() -> list[AccountSummary]:
 @log
 @account_scoped
 async def create_account(body: NewAccount, idempotency_key: str = "") -> AccountSummary:
-    """Cria uma organização.
+    """Creates an organization.
 
-    Qualquer usuário pode criar a sua — por isso não há @require_role. O que se
-    exige é conta ativa (SP-0): a criação acontece a partir de um contexto.
+    Any user may create their own — hence no @require_role. What is required is
+    an active account (SP-0): the creation happens from within a context.
     """
     ctx = auth_ctx.get()
     account = await stubs.identity_stub().CreateAccount(
@@ -173,7 +176,7 @@ async def create_account(body: NewAccount, idempotency_key: str = "") -> Account
         handle=account.handle,
         display_name=account.display_name,
         kind=account_kind_name(account.kind),
-        role="owner",  # quem cria a organização é o dono dela
+        role="owner",  # whoever creates the organization owns it
     )
 
 
@@ -181,10 +184,11 @@ async def create_account(body: NewAccount, idempotency_key: str = "") -> Account
 @account_scoped
 @require_role("owner", "admin")
 async def list_members() -> list[MemberSummary]:
-    """Membros da conta ativa — exige conta selecionada E papel de gestão.
+    """The active account's members — it requires a selected account AND a management role.
 
-    Os três decorators empilhados são o padrão: log, escopo, permissão. O corpo
-    da função não sabe que nada disso existe — e nem o transporte que a chamou.
+    The three stacked decorators are the pattern: log, scope, permission. The
+    function's body does not know any of that exists — nor does the transport
+    that called it.
     """
     ctx = auth_ctx.get()
     resp = await stubs.identity_stub().ListMemberships(
@@ -204,10 +208,10 @@ async def list_members() -> list[MemberSummary]:
 @account_scoped
 @require_role("owner", "admin")
 async def create_invite(body: NewInvite, idempotency_key: str = "") -> InviteSummary:
-    """Convida alguém para a conta ativa.
+    """Invites somebody to the active account.
 
-    O token do convite NÃO volta na resposta: ele sai pelo canal de comunicação
-    (P-11). Quem perder o link precisa de convite novo.
+    The invite's token does NOT come back in the response: it goes out through
+    the communication channel (P-11). Whoever loses the link needs a new invite.
     """
     ctx = auth_ctx.get()
     invite = await stubs.identity_stub().CreateInvite(

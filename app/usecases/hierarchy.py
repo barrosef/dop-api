@@ -1,12 +1,12 @@
-"""Casos de uso de hierarquia — workspaces e projetos.
+"""Hierarchy use cases — workspaces and projects.
 
-Mesma disciplina de `identity`: a regra vive aqui e só aqui; router e servicer
-traduzem. Ver o docstring de `app/usecases/identity.py` para o porquê dos
-decorators morarem no caso de uso e não no adaptador.
+The same discipline as `identity`: the rule lives here and only here; the router
+and the servicer translate. See `app/usecases/identity.py`'s docstring for why
+the decorators live in the use case and not in the adapter.
 
-Vocabulário, porque confundir custa caro: **workspace é conceito NOSSO**, o
-nível 1 da hierarquia. O "espaço" do provedor de tarefas (Jira, ClickUp) é
-outra coisa, e aparece como `external_space_id` no vínculo do projeto.
+Vocabulary, because confusing the two is expensive: **a workspace is OUR
+concept**, the hierarchy's level 1. The task provider's "space" (Jira, ClickUp)
+is another thing, and appears as `external_space_id` in the project's binding.
 """
 
 from pydantic import BaseModel, Field
@@ -25,11 +25,11 @@ def _deadline() -> float:
     return settings.core_deadline_s
 
 
-def _idempotency(chave: str = "") -> str:
-    return chave or core.idempotency_key()
+def _idempotency(key: str = "") -> str:
+    return key or core.idempotency_key()
 
 
-# ── modelos da borda ────────────────────────────────────────────────────────
+# ── the edge's models ───────────────────────────────────────────────────────
 
 
 class WorkspaceSummary(BaseModel):
@@ -42,19 +42,19 @@ class WorkspaceSummary(BaseModel):
 
 class NewWorkspace(BaseModel):
     name: str = Field(min_length=1)
-    # A chave é curta e maiúscula: é ela que prefixa identificador de demanda,
-    # e o núcleo recusa qualquer outra coisa.
+    # The key is short and uppercase: it is what prefixes a demand's identifier,
+    # and the core refuses anything else.
     key: str = Field(min_length=1)
     description: str = ""
     tags: list[str] = Field(default_factory=list)
 
 
 class TaskManagerBinding(BaseModel):
-    """Vínculo do projeto com o quadro do provedor.
+    """The project's binding to the provider's board.
 
-    `external_space_id` é o espaço DELE, nunca a nossa palavra workspace.
-    `card_types` vem do provedor e é dinâmico — a plataforma não impõe
-    vocabulário de card.
+    `external_space_id` is THEIR space, never our word workspace. `card_types`
+    comes from the provider and is dynamic — the platform imposes no card
+    vocabulary.
     """
 
     integration_id: str
@@ -83,7 +83,7 @@ class TreeNode(BaseModel):
     projects: list[ProjectSummary] = Field(default_factory=list)
 
 
-# ── tradução do núcleo para a borda ─────────────────────────────────────────
+# ── translating the core into the edge ──────────────────────────────────────
 
 
 def _workspace(w: hierarchy_pb2.Workspace) -> WorkspaceSummary:
@@ -93,12 +93,13 @@ def _workspace(w: hierarchy_pb2.Workspace) -> WorkspaceSummary:
 
 
 def _project(p: hierarchy_pb2.Project) -> ProjectSummary:
-    vinculo = None
-    # HasField só vale para mensagem: um task_manager ausente e um zerado são
-    # coisas diferentes, e tratar os dois como iguais inventaria vínculo.
+    binding = None
+    # HasField only works for a message: an absent task_manager and a zeroed one
+    # are different things, and treating them as the same would invent a
+    # binding.
     if p.HasField("task_manager"):
         tm = p.task_manager
-        vinculo = TaskManagerBinding(
+        binding = TaskManagerBinding(
             integration_id=tm.integration.id,
             external_space_id=tm.external_space_id,
             external_project_id=tm.external_project_id,
@@ -110,20 +111,20 @@ def _project(p: hierarchy_pb2.Project) -> ProjectSummary:
         name=p.name,
         description=p.description,
         rules=list(p.rules),
-        task_manager=vinculo,
+        task_manager=binding,
     )
 
 
-# ── casos de uso ────────────────────────────────────────────────────────────
+# ── use cases ───────────────────────────────────────────────────────────────
 
 
 @log
 @account_scoped
 async def get_tree() -> list[TreeNode]:
-    """A árvore inteira da conta ativa, numa resposta só.
+    """The active account's whole tree, in a single response.
 
-    O cockpit desenha a navegação a partir dela; buscar workspace e depois um
-    ListProjects por workspace faria a barra lateral piscar em N requisições.
+    The cockpit draws its navigation from it; fetching the workspaces and then a
+    ListProjects per workspace would make the sidebar flicker across N requests.
     """
     ctx = auth_ctx.get()
     resp = await stubs.hierarchy_stub().GetTree(
@@ -156,7 +157,7 @@ async def list_workspaces() -> list[WorkspaceSummary]:
 @account_scoped
 @require_role("owner", "admin")
 async def create_workspace(body: NewWorkspace, idempotency_key: str = "") -> WorkspaceSummary:
-    """Criar workspace reorganiza a conta inteira — daí exigir owner ou admin."""
+    """Creating a workspace reorganizes the whole account — hence requiring owner or admin."""
     ctx = auth_ctx.get()
     w = await stubs.hierarchy_stub().CreateWorkspace(
         hierarchy_pb2.CreateWorkspaceRequest(
@@ -176,13 +177,13 @@ async def create_workspace(body: NewWorkspace, idempotency_key: str = "") -> Wor
 @log
 @account_scoped
 async def list_projects(workspace_id: str = "") -> list[ProjectSummary]:
-    """Projetos da conta; com `workspace_id`, só os daquele workspace."""
+    """The account's projects; with `workspace_id`, only that workspace's."""
     ctx = auth_ctx.get()
-    pedido = hierarchy_pb2.ListProjectsRequest(ctx=call_context_from(ctx))
+    request = hierarchy_pb2.ListProjectsRequest(ctx=call_context_from(ctx))
     if workspace_id:
-        pedido.workspace.id = workspace_id
+        request.workspace.id = workspace_id
     resp = await stubs.hierarchy_stub().ListProjects(
-        pedido, metadata=core.metadata(), timeout=_deadline()
+        request, metadata=core.metadata(), timeout=_deadline()
     )
     return [_project(p) for p in resp.projects]
 
@@ -203,10 +204,10 @@ async def get_project(project_id: str) -> ProjectSummary:
 @account_scoped
 @require_role("owner", "admin")
 async def create_project(body: NewProject, idempotency_key: str = "") -> ProjectSummary:
-    """A conta NÃO é informada: ela é herdada do workspace.
+    """The account is NOT supplied: it is inherited from the workspace.
 
-    Deixar o chamador informá-la abriria caminho para projeto nascer numa conta
-    que não é a do seu próprio workspace.
+    Letting the caller supply it would open the way for a project to be born in
+    an account that is not its own workspace's.
     """
     ctx = auth_ctx.get()
     p = await stubs.hierarchy_stub().CreateProject(
@@ -227,21 +228,21 @@ async def create_project(body: NewProject, idempotency_key: str = "") -> Project
 @account_scoped
 @require_role("owner", "admin")
 async def bind_task_manager(project_id: str, body: TaskManagerBinding) -> ProjectSummary:
-    """Vincula o projeto ao quadro do provedor.
+    """Binds the project to the provider's board.
 
-    UpdateProject no núcleo é SUBSTITUIÇÃO: mandar o projeto sem os campos que
-    não se quer perder os apaga. Por isso lemos o projeto atual antes e
-    reenviamos o que já estava lá — a borda não vai fazer o cockpit adivinhar
-    essa armadilha.
+    UpdateProject in the core is a REPLACEMENT: sending the project without the
+    fields you do not want to lose erases them. That is why we read the current
+    project first and resend what was already there — the edge is not going to
+    make the cockpit guess that trap.
     """
     ctx = auth_ctx.get()
     stub = stubs.hierarchy_stub()
-    atual = await stub.GetProject(
+    current = await stub.GetProject(
         hierarchy_pb2.GetProjectRequest(ctx=call_context_from(ctx), id=project_id),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
-    atual.task_manager.CopyFrom(
+    current.task_manager.CopyFrom(
         hierarchy_pb2.ProjectTaskManager(
             integration=common_pb2.ResourceRef(id=body.integration_id),
             external_space_id=body.external_space_id,
@@ -250,7 +251,7 @@ async def bind_task_manager(project_id: str, body: TaskManagerBinding) -> Projec
         )
     )
     p = await stub.UpdateProject(
-        hierarchy_pb2.UpdateProjectRequest(ctx=call_context_from(ctx), project=atual),
+        hierarchy_pb2.UpdateProjectRequest(ctx=call_context_from(ctx), project=current),
         metadata=core.metadata(),
         timeout=_deadline(),
     )
