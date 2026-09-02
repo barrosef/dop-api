@@ -1,18 +1,20 @@
-"""Execução de turno de agente — uma chamada fina ao núcleo.
+"""Running an agent turn — a thin call to the core.
 
-**O runtime NÃO vive aqui** (ADR-0023). Ele vivia, e foi movido: o turno precisa
-da credencial do provedor de agente, que mora no cofre, e o BFF é a camada
-exposta à internet. Dar acesso ao cofre para esta camada significaria que
-comprometê-la entregaria as credenciais de agente de TODAS as contas — e esta
-plataforma já teve um bypass total de autenticação exatamente aqui.
+**The runtime does NOT live here** (ADR-0023). It used to, and it was moved: the
+turn needs the agent provider's credential, which lives in the vault, and the
+BFF is the layer exposed to the internet. Giving this layer access to the vault
+would mean that compromising it would hand over EVERY account's agent
+credentials — and this platform has already had a total authentication bypass
+exactly here.
 
-No núcleo, a credencial sai do cofre e é usada no mesmo processo, sem atravessar
-rede nenhuma. O que sobra para a borda é o que a borda deve fazer: autenticar,
-traduzir e devolver.
+In the core, the credential comes out of the vault and is used in the same
+process, crossing no network at all. What is left for the edge is what the edge
+should do: authenticate, translate and return.
 
-O acompanhamento ao vivo continua pelo SSE que já existe: as mensagens do turno
-viram eventos no núcleo e chegam sozinhas (`app/usecases/stream.py`). Não há um
-segundo caminho de streaming, e não deve haver — seriam duas fontes da verdade.
+Live following still goes through the SSE that already exists: the turn's
+messages become events in the core and arrive on their own
+(`app/usecases/stream.py`). There is no second streaming path, and there must not
+be — they would be two sources of truth.
 """
 
 from pydantic import BaseModel, Field
@@ -29,45 +31,47 @@ from app.usecases import cost as cost_uc
 
 
 def _deadline() -> float:
-    # Turno de agente é LONGO — chamada a modelo com raciocínio leva minutos.
-    # O prazo do núcleo (10s por padrão) derrubaria todo turno real.
+    # An agent turn is LONG — a call to a reasoning model takes minutes. The
+    # core's deadline (10s by default) would kill every real turn.
     return settings.agent_turn_deadline_s
 
 
 class RunTurn(BaseModel):
-    """Um turno a executar numa thread."""
+    """A turn to run on a thread."""
 
     text: str = Field(min_length=1)
-    # Vocabulário ABERTO (o núcleo trata desconhecido caindo no caro e diz que
-    # caiu). Vazio é que não passa: sem tipo de trabalho não há roteamento.
+    # An OPEN vocabulary (the core handles an unknown kind by falling back to
+    # the expensive path and saying so). What does not pass is empty: with no
+    # work kind there is no routing.
     task_kind: str = Field(default="implementation", min_length=1)
-    # Qual integração de agente usar. Vazio = a única da conta; havendo mais de
-    # uma, o núcleo RECUSA com a lista em vez de escolher (ADR-0013).
+    # Which agent integration to use. Empty = the account's only one; if there
+    # is more than one, the core REFUSES with the list instead of choosing
+    # (ADR-0013).
     resource_id: str = ""
-    # Instrução do OPERADOR, vinda da caixa de atenção. Entra pelo canal de
-    # autoridade do fornecedor, nunca como texto de usuário.
+    # The OPERATOR's instruction, coming from the attention box. It goes in
+    # through the provider's authority channel, never as user text.
     operator_note: str = ""
     max_output_tokens: int = Field(default=8192, ge=256, le=64000)
 
 
 class TurnUsage(BaseModel):
-    """As quatro parcelas, DISJUNTAS, mais o custo em micros inteiros."""
+    """The four parts, DISJOINT, plus the cost in integer micros."""
 
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_tokens: int = 0
     cache_creation_tokens: int = 0
     cost: cost_uc.Money = Field(default_factory=cost_uc.Money)
-    # Falso = o provedor não reporta criação de cache. Zero afirmaria que nada
-    # foi escrito no cache, que é outra coisa.
+    # False = the provider does not report cache creation. Zero would assert
+    # that nothing was written to the cache, which is another thing.
     cache_creation_known: bool = True
-    # Falso = não há tabela de preço para este modelo. O custo NÃO vira zero de
-    # consolo: orçamento alimentado com zeros é ficção.
+    # False = there is no price table for this model. The cost does NOT become a
+    # consolation zero: a budget fed with zeroes is fiction.
     cost_known: bool = True
 
 
 class RoutingView(BaseModel):
-    """A decisão do núcleo, com a justificativa INTEIRA (ADR-0011 §3)."""
+    """The core's decision, with the WHOLE justification (ADR-0011 §3)."""
 
     task_kind: str = ""
     model: str = ""
@@ -99,10 +103,10 @@ class TurnOutcome(BaseModel):
 
 def _outcome(o: agent_pb2.TurnOutcome) -> TurnOutcome:
     u = o.usage
-    achado = None
-    # Ausente ≠ zerado: achado só existe quando a thread concluiu.
+    finding = None
+    # Absent ≠ zeroed: a finding only exists once the thread has concluded.
     if o.HasField("finding"):
-        achado = FindingRef(id=o.finding.id, title=o.finding.title)
+        finding = FindingRef(id=o.finding.id, title=o.finding.title)
     return TurnOutcome(
         demand_id=o.demand.id,
         thread_id=o.thread_id,
@@ -118,7 +122,7 @@ def _outcome(o: agent_pb2.TurnOutcome) -> TurnOutcome:
         reply=o.reply,
         message_ids=list(o.message_ids),
         concluded=o.concluded,
-        finding=achado,
+        finding=finding,
         usage=TurnUsage(
             input_tokens=u.input_tokens,
             output_tokens=u.output_tokens,
@@ -142,11 +146,11 @@ def _outcome(o: agent_pb2.TurnOutcome) -> TurnOutcome:
 async def run_turn(
     demand_id: str, thread_id: str, body: RunTurn, idempotency_key: str = ""
 ) -> TurnOutcome:
-    """Executa UM turno, no núcleo.
+    """Runs ONE turn, in the core.
 
-    A chave de idempotência é OBRIGATÓRIA no núcleo e a borda não inventa uma:
-    turno de agente gasta dinheiro, e uma chave gerada aqui transformaria retry
-    de rede em consumo em dobro sem ninguém pedir.
+    The idempotency key is MANDATORY in the core and the edge does not invent
+    one: an agent turn spends money, and a key generated here would turn a
+    network retry into double consumption with nobody asking.
     """
     ctx = auth_ctx.get()
     o = await stubs.agent_stub().RunTurn(

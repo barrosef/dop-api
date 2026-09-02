@@ -1,35 +1,36 @@
-"""Casos de uso de entrega — PR, fila de merge e as diretrizes do techlead.
+"""Delivery use cases — the PR, the merge queue and the techlead's directives.
 
-Mesma disciplina de `identity` e `hierarchy`: a regra vive aqui e só aqui;
-`app/routers/delivery.py` traduz HTTP e `app/grpcapi/delivery.py` traduz
-protobuf, os dois chamando estas MESMAS funções, com os decorators no caso de
-uso (ver o docstring de `app/usecases/identity.py`).
+The same discipline as `identity` and `hierarchy`: the rule lives here and only
+here; `app/routers/delivery.py` translates HTTP and `app/grpcapi/delivery.py`
+translates protobuf, both calling these SAME functions, with the decorators in
+the use case (see `app/usecases/identity.py`'s docstring).
 
-O que este módulo acrescenta ao núcleo:
+What this module adds to the core:
 
-1. **A recusa por falta de verde, item por item.** O núcleo cobra a ADR-0007 na
-   porta da fila e recusa com FAILED_PRECONDITION mais uma frase que LISTA o
-   que falta ("nenhuma execução de aceitação aprovada para o commit abc1234
-   (ADR-0007 §1); falta o parecer do crítico…"). Essa lista é a parte útil da
-   resposta — é a receita do que fazer para entrar. Repassá-la como string
-   obrigaria cada cliente a separá-la por ponto-e-vírgula para mostrar uma
-   lista; então ela é separada UMA vez, aqui, em `MergeRefusal.missing`.
+1. **The refusal for want of green, item by item.** The core enforces ADR-0007
+   at the queue's door and refuses with FAILED_PRECONDITION plus a sentence that
+   LISTS what is missing ("no approved acceptance run for commit abc1234
+   (ADR-0007 §1); the critic's verdict is missing…"). That list is the useful
+   part of the answer — it is the recipe for what to do to get in. Passing it on
+   as a string would force every client to split it on semicolons to show a
+   list; so it is split ONCE, here, into `MergeRefusal.missing`.
 
-   E a recusa vira RESPOSTA, não exceção: para o agente que pede a entrada na
-   fila, "ainda não, falta isto" é trabalho a fazer, não falha (ADR-0007 §2). O
-   REST devolve a mesma coisa com 412, porque lá o status faz parte da resposta.
+   And the refusal becomes a RESPONSE, not an exception: for the agent asking to
+   enter the queue, "not yet, this is missing" is work to do, not a failure
+   (ADR-0007 §2). REST returns the same thing with a 412, because there the
+   status is part of the response.
 
-2. **O quadro de entrega numa chamada.** PRs e diretrizes do projeto são duas
-   RPCs no núcleo e uma tela só; `get_board` pede as duas em paralelo.
+2. **The delivery board in one call.** The project's PRs and directives are two
+   RPCs in the core and a single screen; `get_board` asks for both in parallel.
 
-3. **`pending_reviews`.** O núcleo devolve os revisores com status cru; quem
-   ordena a caixa de atenção quer o NÚMERO de quem ainda não se pronunciou.
-   Contar em cada cliente é a mesma regra escrita três vezes.
+3. **`pending_reviews`.** The core returns the reviewers with a raw status;
+   whoever orders the attention box wants the NUMBER of those who have not
+   spoken yet. Counting it in each client is the same rule written three times.
 
-Nada disto decide sobre o verde: o verde é derivado das execuções de
-verificação, no núcleo, sobre um commit específico (ADR-0007/ADR-0008). A borda
-não recalcula nem cacheia essa conclusão — o verde de ontem não é o verde de
-agora, e um segundo juiz do mesmo fato é como as duas pontas passam a discordar.
+None of this decides about green: green is derived from the verification runs,
+in the core, over a specific commit (ADR-0007/ADR-0008). The edge neither
+recomputes nor caches that conclusion — yesterday's green is not now's green,
+and a second judge of the same fact is how the two ends start disagreeing.
 """
 
 import asyncio
@@ -49,7 +50,7 @@ from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
 from app.settings import settings
 
-_ESTADO_POR_ENUM: dict[int, str] = {
+_STATE_BY_ENUM: dict[int, str] = {
     delivery_pb2.MergeQueueEntry.STATE_QUEUED: "queued",
     delivery_pb2.MergeQueueEntry.STATE_REBASING: "rebasing",
     delivery_pb2.MergeQueueEntry.STATE_VERIFYING: "verifying",
@@ -57,38 +58,40 @@ _ESTADO_POR_ENUM: dict[int, str] = {
     delivery_pb2.MergeQueueEntry.STATE_CONFLICT: "conflict",
 }
 
-_DIRETRIZ_POR_ENUM: dict[int, str] = {
+_DIRECTIVE_BY_ENUM: dict[int, str] = {
     delivery_pb2.Directive.KIND_CHERRY_PICK: "cherry_pick",
     delivery_pb2.Directive.KIND_MERGE_ORDER: "merge_order",
     delivery_pb2.Directive.KIND_FILE_PARTITION: "file_partition",
     delivery_pb2.Directive.KIND_CROSS_VERIFY: "cross_verify",
 }
 
-# Como o núcleo monta a frase da recusa (internal/domain/delivery/service.go):
-# "<razão>: <item>; <item>". O primeiro ": " separa a razão dos itens.
-_SEP_RAZAO = ": "
-_SEP_ITEM = "; "
+# How the core builds the refusal's sentence
+# (internal/domain/delivery/service.go): "<reason>: <item>; <item>". The first
+# ": " separates the reason from the items.
+_REASON_SEP = ": "
+_ITEM_SEP = "; "
 
-# Revisor que ainda não se pronunciou. O vocabulário é do provedor de git e
-# viaja cru (dop.v1 usa string aqui); a borda só sabe reconhecer o pendente.
-_REVISAO_PENDENTE = "pending"
+# A reviewer who has not spoken yet. The vocabulary is the git provider's and
+# travels raw (dop.v1 uses a string here); the edge only knows how to recognize
+# the pending one.
+_PENDING_REVIEW = "pending"
 
 
 def _deadline() -> float:
     return settings.core_deadline_s
 
 
-def _idempotency(chave: str = "") -> str:
-    return chave or core.idempotency_key()
+def _idempotency(key: str = "") -> str:
+    return key or core.idempotency_key()
 
 
-# ── modelos da borda ────────────────────────────────────────────────────────
+# ── the edge's models ───────────────────────────────────────────────────────
 
 
 class Reviewer(BaseModel):
     name: str = ""
     initials: str = ""
-    status: str = ""  # approved | rejected | pending, do provedor
+    status: str = ""  # approved | rejected | pending, the provider's
 
 
 class PullRequest(BaseModel):
@@ -123,17 +126,17 @@ class Directive(BaseModel):
 
 
 class MergeRefusal(BaseModel):
-    """A recusa da fila, desmontada — ver o item 1 do docstring do módulo."""
+    """The queue's refusal, taken apart — see item 1 of the module's docstring."""
 
     reason: str = ""
     missing: list[str] = Field(default_factory=list)
 
 
 class MergeAttempt(BaseModel):
-    """Entrou na fila, ou não entrou e aqui está o porquê.
+    """It got into the queue, or it did not and here is why.
 
-    Exatamente um dos dois vem preenchido. Ausente ≠ zerado: uma entrada zerada
-    e uma recusa são a diferença entre estar e não estar na fila.
+    Exactly one of the two comes filled in. Absent ≠ zeroed: a zeroed entry and a
+    refusal are the difference between being and not being in the queue.
     """
 
     entry: MergeQueueEntry | None = None
@@ -150,18 +153,18 @@ class NewMergeEntry(BaseModel):
 
 
 class DirectiveDecision(BaseModel):
-    """A decisão é payload livre: o formato de cada tipo de diretriz é do
-    techlead (ADR-0015), e tipar aqui congelaria o que ainda está sendo
-    descoberto."""
+    """The decision is a free payload: each directive kind's shape is the
+    techlead's (ADR-0015), and typing it here would freeze what is still being
+    discovered."""
 
     decision: dict = Field(default_factory=dict)
 
 
-# ── tradução do núcleo para a borda ─────────────────────────────────────────
+# ── translating the core into the edge ──────────────────────────────────────
 
 
 def _pull_request(pr: delivery_pb2.PullRequest) -> PullRequest:
-    revisores = [
+    reviewers = [
         Reviewer(name=r.name, initials=r.initials, status=r.status) for r in pr.reviewers
     ]
     return PullRequest(
@@ -173,8 +176,8 @@ def _pull_request(pr: delivery_pb2.PullRequest) -> PullRequest:
         url=pr.url,
         merged=pr.merged,
         has_conflict=pr.has_conflict,
-        reviewers=revisores,
-        pending_reviews=sum(1 for r in revisores if r.status == _REVISAO_PENDENTE),
+        reviewers=reviewers,
+        pending_reviews=sum(1 for r in reviewers if r.status == _PENDING_REVIEW),
     )
 
 
@@ -184,54 +187,56 @@ def _entry(e: delivery_pb2.MergeQueueEntry) -> MergeQueueEntry:
         repo_id=e.repo_id,
         demand_id=e.demand.id,
         position=e.position,
-        state=_ESTADO_POR_ENUM.get(e.state, ""),
+        state=_STATE_BY_ENUM.get(e.state, ""),
         overlapping_files=list(e.overlapping_files),
     )
 
 
 def _directive(d: delivery_pb2.Directive) -> Directive:
-    # MessageToDict converte a árvore inteira para tipos Python; iterar o Struct
-    # na mão devolveria submensagens do protobuf que o JSON do REST não escreve.
+    # MessageToDict converts the whole tree into Python types; iterating the
+    # Struct by hand would return protobuf submessages that REST's JSON cannot
+    # write.
     payload = MessageToDict(d.payload) if d.HasField("payload") else {}
     return Directive(
         id=d.id,
         project_id=d.project.id,
-        kind=_DIRETRIZ_POR_ENUM.get(d.kind, ""),
+        kind=_DIRECTIVE_BY_ENUM.get(d.kind, ""),
         payload=payload,
         decided_by_id=d.decided_by.id,
         decided_by_name=d.decided_by.name,
     )
 
 
-def _recusa(detalhe: str) -> MergeRefusal:
-    """Desmonta a frase da recusa do núcleo em razão + lista do que falta.
+def _refusal(detail: str) -> MergeRefusal:
+    """Takes the core's refusal sentence apart into a reason + a list of what is missing.
 
-    Tolerante: recusa sem lista (PR já mergeado, demanda sem PR aberto) vira
-    razão sozinha, e não uma lista inventada. O texto NUNCA é reescrito — o que
-    o núcleo diz é o que o dev lê, porque é ele que sabe o que aconteceu.
+    Tolerant: a refusal with no list (an already merged PR, a demand with no open
+    PR) becomes the reason alone, and not an invented list. The text is NEVER
+    rewritten — what the core says is what the dev reads, because it is the core
+    that knows what happened.
     """
-    razao, sep, cauda = detalhe.strip().partition(_SEP_RAZAO)
+    reason, sep, tail = detail.strip().partition(_REASON_SEP)
     if not sep:
-        return MergeRefusal(reason=detalhe.strip())
-    itens = [i.strip() for i in cauda.split(_SEP_ITEM) if i.strip()]
-    return MergeRefusal(reason=razao.strip(), missing=itens)
+        return MergeRefusal(reason=detail.strip())
+    items = [i.strip() for i in tail.split(_ITEM_SEP) if i.strip()]
+    return MergeRefusal(reason=reason.strip(), missing=items)
 
 
-# ── casos de uso ────────────────────────────────────────────────────────────
+# ── use cases ───────────────────────────────────────────────────────────────
 
 
 @log
 @account_scoped
 async def list_pull_requests(demand_id: str = "", project_id: str = "") -> list[PullRequest]:
-    """PRs de uma demanda (tela da demanda) ou de um projeto (tela de entrega)."""
+    """One demand's PRs (the demand's screen) or one project's (the delivery screen)."""
     ctx = auth_ctx.get()
-    pedido = delivery_pb2.ListPullRequestsRequest(
+    request = delivery_pb2.ListPullRequestsRequest(
         ctx=call_context_from(ctx), demand_id=demand_id
     )
     if project_id:
-        pedido.project.id = project_id
+        request.project.id = project_id
     resp = await stubs.delivery_stub().ListPullRequests(
-        pedido, metadata=core.metadata(), timeout=_deadline()
+        request, metadata=core.metadata(), timeout=_deadline()
     )
     return [_pull_request(pr) for pr in resp.pull_requests]
 
@@ -253,25 +258,26 @@ async def list_directives(project_id: str) -> list[Directive]:
 @log
 @account_scoped
 async def get_board(project_id: str) -> DeliveryBoard:
-    """A tela de entrega do projeto: PRs e diretrizes, em paralelo.
+    """The project's delivery screen: PRs and directives, in parallel.
 
-    Uma não depende da outra, então somar as latências seria transformar a
-    agregação em custo. `gather` propaga a primeira falha: meia tela sem dizer
-    que está pela metade é pior que erro.
+    Neither depends on the other, so adding the latencies would turn the
+    aggregation into a cost. `gather` propagates the first failure: half a screen
+    without saying it is half is worse than an error.
     """
-    prs, diretrizes = await asyncio.gather(
+    prs, directives = await asyncio.gather(
         list_pull_requests(project_id=project_id), list_directives(project_id)
     )
-    return DeliveryBoard(pull_requests=prs, directives=diretrizes)
+    return DeliveryBoard(pull_requests=prs, directives=directives)
 
 
 @log
 @account_scoped
 async def get_merge_queue(repo_id: str) -> list[MergeQueueEntry]:
-    """A fila de UM repositório — não existe "a fila" no singular (ADR-0008).
+    """ONE repository's queue — there is no "the queue" in the singular (ADR-0008).
 
-    É o repositório que serializa: dois PRs em repositórios diferentes não
-    invalidam um ao outro, e uma fila global seria uma serialização inventada.
+    It is the repository that serializes: two PRs in different repositories do
+    not invalidate each other, and a global queue would be an invented
+    serialization.
     """
     ctx = auth_ctx.get()
     resp = await stubs.delivery_stub().GetMergeQueue(
@@ -288,14 +294,15 @@ async def get_merge_queue(repo_id: str) -> list[MergeQueueEntry]:
 async def enqueue_merge(
     repo_id: str, body: NewMergeEntry, idempotency_key: str = ""
 ) -> MergeAttempt:
-    """Pede entrada na fila do repositório — e devolve a recusa POR EXTENSO.
+    """Asks to enter the repository's queue — and returns the refusal IN FULL.
 
-    FAILED_PRECONDITION aqui não é falha de quem chamou nem do sistema: é o
-    núcleo dizendo "o commit ainda não está verde, e eis o que falta". Vira
-    resposta com a lista intacta. Qualquer OUTRO status segue subindo para os
-    tradutores de sempre (`grpc_exception_handler` no REST, `ErrorInterceptor`
-    no gRPC) — inclusive porque só eles sabem redigir 5xx sem vazar detalhe do
-    núcleo. Um `except` largo aqui engoliria NOT_FOUND como se fosse recusa.
+    FAILED_PRECONDITION here is neither the caller's failure nor the system's: it
+    is the core saying "the commit is not green yet, and here is what is
+    missing". It becomes a response with the list intact. Any OTHER status keeps
+    going up to the usual translators (`grpc_exception_handler` in REST,
+    `ErrorInterceptor` in gRPC) — not least because only they know how to write a
+    5xx without leaking the core's detail. A broad `except` here would swallow
+    NOT_FOUND as if it were a refusal.
     """
     ctx = auth_ctx.get()
     try:
@@ -312,7 +319,7 @@ async def enqueue_merge(
     except AioRpcError as exc:
         if exc.code() is not grpc.StatusCode.FAILED_PRECONDITION:
             raise
-        return MergeAttempt(refusal=_recusa(exc.details() or ""))
+        return MergeAttempt(refusal=_refusal(exc.details() or ""))
     return MergeAttempt(entry=_entry(e))
 
 
@@ -322,15 +329,15 @@ async def enqueue_merge(
 async def decide_directive(
     directive_id: str, body: DirectiveDecision, idempotency_key: str = ""
 ) -> Directive:
-    """A decisão de coordenação é do DEV (ADR-0015) — o techlead recomenda."""
+    """The coordination decision is the DEV's (ADR-0015) — the techlead recommends."""
     ctx = auth_ctx.get()
-    decisao = struct_pb2.Struct()
-    decisao.update(body.decision)
+    decision = struct_pb2.Struct()
+    decision.update(body.decision)
     d = await stubs.delivery_stub().DecideDirective(
         delivery_pb2.DecideDirectiveRequest(
             ctx=call_context_from(ctx),
             directive_id=directive_id,
-            decision=decisao,
+            decision=decision,
             idempotency_key=_idempotency(idempotency_key),
         ),
         metadata=core.metadata(),
