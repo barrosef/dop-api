@@ -1,24 +1,24 @@
 # dop-api
 
-BFF da plataforma DOP. Duas portas de entrada, um só núcleo atrás:
+The DOP platform's BFF. Two doors in, a single core behind them:
 
-- **REST + SSE** → o cockpit (`dop-app`)
-- **gRPC** → o `dop-cli` e os agentes dos sandboxes
+- **REST + SSE** → the cockpit (`dop-app`)
+- **gRPC** → `dop-cli` and the sandboxes' agents
 
-## A regra que define este processo
+## The rule that defines this process
 
-**O BFF não tem banco** (ADR-0016). Nenhuma conexão ao Postgres — nem "só para
-uma consulta rápida". Dois donos do schema é como a fronteira morre em três
-semanas. Quando precisa de estado, ele **chama o core**, que grava estado e
-evento na mesma transação.
+**The BFF has no database** (ADR-0016). No connection to Postgres — not even
+"just for a quick query". Two owners of the schema is how the boundary dies in
+three weeks. When it needs state, it **calls the core**, which writes the state
+and the event in the same transaction.
 
-Aqui vivem: tradução de protocolo, resolução de conta ativa, URLs assinadas de
-upload e a conversa com os modelos (`AgentRuntime`).
+What lives here: protocol translation, resolving the active account, signed
+upload URLs and the conversation with the models (`AgentRuntime`).
 
-## Um caso de uso, dois transportes
+## One use case, two transports
 
-REST e gRPC são **adaptadores**, não implementações. A regra vive uma vez só,
-em `app/usecases/`, e as duas portas chamam a MESMA função:
+REST and gRPC are **adapters**, not implementations. The rule lives once, in
+`app/usecases/`, and both ports call the SAME function:
 
 ```
 app/routers/identity.py   ─┐
@@ -26,49 +26,47 @@ app/routers/identity.py   ─┐
 app/grpcapi/identity.py   ─┘
 ```
 
-Os decorators transversais (`@log`, `@account_scoped`, `@require_role`) ficam no
-**caso de uso**, não no adaptador — autorização presa ao router valeria só para
-o REST, e a porta gRPC nasceria aberta.
+The cross-cutting decorators (`@log`, `@account_scoped`, `@require_role`) live
+in the **use case**, not in the adapter — authorization pinned to the router
+would hold for REST alone, and the gRPC door would be born open.
 
-| ponta | autenticação | conta ativa | erro |
+| end | authentication | active account | error |
 |---|---|---|---|
-| REST | cabeçalho `authorization` | cabeçalho `x-account-id` | status HTTP |
-| gRPC | metadado `authorization` | metadado `x-account-id` | status gRPC |
+| REST | the `authorization` header | the `x-account-id` header | an HTTP status |
+| gRPC | the `authorization` metadata | the `x-account-id` metadata | a gRPC status |
 
-Nos dois casos quem preenche o `AuthContext` é o mesmo `CoreResolver`, e quem
-redige detalhe de 5xx é o mesmo `_detail_for`. `tests/test_grpc_identity.py`
-tem uma classe inteira (`TestParidadeEntreTransportes`) que pede a mesma coisa
-pelas duas portas e compara — é o alarme que dispara se alguém reimplementar um
-caso de uso num adaptador.
+In both cases the one that fills in the `AuthContext` is the same
+`CoreResolver`, and the one that writes a 5xx detail is the same `_detail_for`.
+`tests/test_grpc_identity.py` has a whole class (`TestParityBetweenTransports`)
+that asks for the same thing through both ports and compares — it is the alarm
+that fires if anybody reimplements a use case in an adapter.
 
-> **Armadilha resolvida:** em `grpc.aio`, ContextVar definido dentro de
-> `intercept_service` **não** chega ao servicer — o interceptor só devolve o
-> handler, que a biblioteca executa depois, noutro contexto. Por isso os
-> interceptores de `app/grpcapi/interceptors.py` **envolvem**
-> `handler.unary_unary` em vez de preparar o terreno antes da continuação.
+> **A trap already solved:** in `grpc.aio`, a ContextVar set inside
+> `intercept_service` does **not** reach the servicer — the interceptor only
+> returns the handler, which the library runs later, in another context. That is
+> why `app/grpcapi/interceptors.py`'s interceptors **wrap**
+> `handler.unary_unary` instead of preparing the ground before the continuation.
 
-A porta gRPC sobe no mesmo processo do FastAPI, controlada pelo lifespan
-(`grpc_port`, `grpc_enabled` em `app/settings.py`), depois do canal com o núcleo
-e antes dele no encerramento — gracioso, para não cortar escrita em voo.
+The gRPC port comes up in the same process as FastAPI, driven by the lifespan
+(`grpc_port`, `grpc_enabled` in `app/settings.py`), after the channel to the
+core and before it on shutdown — gracefully, so as not to cut a write in
+flight.
 
-**Streaming ainda não existe nesta porta**, de propósito: o núcleo está
-ganhando os RPCs de stream agora, e a borda os expõe depois.
+## Cross-cutting concerns by decorator
 
-## Transversais por decorator
+The pattern: **a ContextVar filled in by middleware, decorators that read the
+context**. The handler takes no auth or logging parameter — the cross-cutting
+concern stays invisible in the business code.
 
-O padrão: **ContextVar preenchido por middleware, decorators que leem o
-contexto**. O handler não recebe parâmetro de auth nem de log — o transversal
-fica invisível no código de negócio.
-
-| decorator | efeito |
+| decorator | effect |
 |---|---|
-| `@log(level=, mask=[])` | entrada, saída, erro e duração; máscara automática de segredos |
-| `@public` | isenta de autenticação (registrado por varredura de rotas no boot) |
-| `@account_scoped` | exige conta ativa e **recusa requisição sem ela** — regra do SP-0 |
-| `@require_role("admin")` | papel na conta ativa |
-| `@require_grant("use")` | concessão sobre um recurso (ADR-0013) |
+| `@log(level=, mask=[])` | entry, exit, error and duration; automatic secret masking |
+| `@public` | exempts from authentication (registered by a route sweep at boot) |
+| `@account_scoped` | requires an active account and **refuses a request without one** — SP-0's rule |
+| `@require_role("admin")` | a role in the active account |
+| `@require_grant("use")` | a grant over a resource (ADR-0013) |
 
-Empilham-se na ordem log → escopo → permissão:
+They stack in the order log → scope → permission:
 
 ```python
 @router.get("/accounts/current/members")
@@ -78,75 +76,75 @@ Empilham-se na ordem log → escopo → permissão:
 async def list_members() -> list[dict]: ...
 ```
 
-## Log
+## Logging
 
-JSON estruturado, com os **mesmos campos canônicos do core** — `ts`, `level`,
-`component`, `request_id`, `account_id`, `duration_ms`. Log agregado só é útil
-se as duas pontas falarem a mesma língua.
+Structured JSON, with the **same canonical fields as the core's** — `ts`,
+`level`, `component`, `request_id`, `account_id`, `duration_ms`. An aggregated
+log is only useful if both ends speak the same language.
 
-Máscara automática cobre `password`, `token`, `secret`, `authorization`,
-`api_key`, `private_key`, `client_secret`, `id_token`, `cpf`, `cnpj` — em
-qualquer profundidade do evento.
+The automatic mask covers `password`, `token`, `secret`, `authorization`,
+`api_key`, `private_key`, `client_secret`, `id_token`, `cpf`, `cnpj` — at any
+depth of the event.
 
-> **Armadilha resolvida:** logger vinculado no import congela a configuração
-> padrão (o `configure()` roda no lifespan) e as linhas saem fora do formato,
-> silenciosamente. Sempre `get_logger()` no ponto de uso.
+> **A trap already solved:** a logger bound at import freezes the default
+> configuration (`configure()` runs in the lifespan) and the lines come out
+> outside the format, silently. Always `get_logger()` at the point of use.
 
-## Contratos (.proto) e stubs gerados
+## Contracts (.proto) and generated stubs
 
-São **dois** contratos, e a diferença entre eles é intencional:
+There are **two** contracts, and the difference between them is intentional:
 
-| contrato | onde vive | quem consome | forma |
+| contract | where it lives | who consumes it | shape |
 |---|---|---|---|
-| `dop.v1` | `dop-core/api/proto` | o BFF | normalizado, granular |
-| `dop.bff.v1` | `api/proto/` **deste repo** | app, `dop-cli`, agentes | agregado, por tela |
+| `dop.v1` | `dop-core/api/proto` | the BFF | normalized, granular |
+| `dop.bff.v1` | `api/proto/` **in this repo** | the app, `dop-cli`, the agents | aggregated, per screen |
 
-O núcleo guarda o estado, então o modelo dele reflete o banco. A borda serve
-tela: `Me` responde numa chamada o que no núcleo exigiria `EnsureUser` +
-`ListAccounts` + `ListMemberships`. O **vocabulário**, esse é o mesmo — `Role`,
-`Kind` e `Status` repetem nome e número dos enums de `dop.v1`, porque
-dicionário paralelo é bug de tradução esperando acontecer.
+The core keeps the state, so its model reflects the database. The edge serves
+the screen: `Me` answers in one call what in the core would take `EnsureUser` +
+`ListAccounts` + `ListMemberships`. The **vocabulary**, that one is the same —
+`Role`, `Kind` and `Status` repeat the name and the number of `dop.v1`'s enums,
+because a parallel dictionary is a translation bug waiting to happen.
 
-O contrato da borda **não tem `CallContext`**: identidade vem do token, no
-metadado `authorization`, e conta ativa do `x-account-id`. Campo de identidade
-no corpo seria uma segunda fonte de verdade que o servidor teria obrigação de
-ignorar.
+The edge's contract has **no `CallContext`**: identity comes from the token, in
+the `authorization` metadata, and the active account from `x-account-id`. An
+identity field in the body would be a second source of truth the server would be
+obliged to ignore.
 
 ```bash
 make proto                                  # dop.v1     → app/coreclient/gen/
 make proto-bff                              # dop.bff.v1 → app/grpcapi/gen/
-make proto-all                              # as duas
-DOP_CORE_PROTO=/caminho/api/proto make proto
+make proto-all                              # both
+DOP_CORE_PROTO=/path/api/proto make proto
 ```
 
-Nenhuma das duas saídas **se edita à mão**.
+Neither output **is edited by hand**.
 
-> **Armadilha resolvida:** `protoc` gera `from dop.v1 import common_pb2` (e
-> `from dop.bff.v1 import identity_pb2`), que só resolveria com `gen/` na raiz
-> do `sys.path`. Em vez de mexer no `sys.path` em
-> tempo de execução — que quebra de formas difíceis de depurar, e de maneira
-> diferente sob pytest e sob uvicorn — o script reescreve o import para
-> `from app.coreclient.gen.dop.v1 import ...`. É determinístico, aparece no
-> diff, e o resto do app importa como qualquer outro módulo. Os dois scripts
-> fazem o mesmo, cada um para o seu pacote. O `ruff` ignora os diretórios
-> gerados (`extend-exclude` no `pyproject.toml`).
+> **A trap already solved:** `protoc` generates `from dop.v1 import common_pb2`
+> (and `from dop.bff.v1 import identity_pb2`), which would only resolve with
+> `gen/` at the root of `sys.path`. Rather than touching `sys.path` at runtime —
+> which breaks in ways that are hard to debug, and differently under pytest and
+> under uvicorn — the script rewrites the import to
+> `from app.coreclient.gen.dop.v1 import ...`. It is deterministic, it shows up
+> in the diff, and the rest of the app imports it like any other module. Both
+> scripts do the same, each for its own package. `ruff` ignores the generated
+> directories (`extend-exclude` in `pyproject.toml`).
 
-Quem fala com o núcleo passa por `app/coreclient/`:
+Whoever talks to the core goes through `app/coreclient/`:
 
-| módulo | papel |
+| module | role |
 |---|---|
-| `client.py` | canal único, retry, deadline e os metadados de contexto |
-| `stubs.py` | fábrica dos stubs — **o ponto único** que o teste substitui |
-| `convert.py` | enum do proto ↔ string da borda, e o `CallContext` |
-| `resolver.py` | `(principal, account_id) → (user_id, role, grants)`, perguntando ao core |
+| `client.py` | the single channel, retry, deadline and the context metadata |
+| `stubs.py` | the stub factory — **the single point** a test replaces |
+| `convert.py` | the proto's enum ↔ the edge's string, and the `CallContext` |
+| `resolver.py` | `(principal, account_id) → (user_id, role, grants)`, by asking the core |
 
-O `resolver` roda no `AuthMiddleware`: chama `EnsureUser` (idempotente, em todo
-login), confirma o vínculo com a conta pedida via `ListAccounts` — **sem vínculo
-é 403** — e descobre o papel em `ListMemberships`. Concessões de recurso vêm
-vazias enquanto o `ResourceService` não expuser consulta por usuário; owner e
-admin seguem com `manage` implícito.
+The `resolver` runs in `AuthMiddleware`: it calls `EnsureUser` (idempotent, on
+every login), confirms the membership in the requested account through
+`ListAccounts` — **no membership is a 403** — and discovers the role in
+`ListMemberships`. Resource grants come back empty while `ResourceService` does
+not expose a per-user query; owner and admin keep their implicit `manage`.
 
-## Desenvolvimento
+## Development
 
 ```bash
 uv sync
@@ -154,8 +152,9 @@ uv run pytest -q
 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 uv run uvicorn app.main:app --reload
 ```
 
-O `uvicorn` sobe as duas portas: HTTP em 8000 e gRPC em 9095 (`GRPC_PORT` no
-ambiente ou `grpc_port` no `.env`). Para subir só o REST, `GRPC_ENABLED=false`.
+`uvicorn` brings both ports up: HTTP on 8000 and gRPC on 9095 (`GRPC_PORT` in
+the environment or `grpc_port` in `.env`). To bring up REST only,
+`GRPC_ENABLED=false`.
 
-Coleções Bruno prontas em `docs/api/` do meta-repositório: pegam o token no
-emulador e já saem chamando o BFF autenticado.
+Ready-made Bruno collections in the meta-repository's `docs/api/`: they fetch
+the token from the emulator and go straight to calling the BFF authenticated.

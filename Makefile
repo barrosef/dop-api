@@ -1,25 +1,25 @@
-# Atalhos do dia a dia. Tudo passa por `uv` — sem venv ativado à mão.
+# Day-to-day shortcuts. Everything goes through `uv` — no hand-activated venv.
 .PHONY: proto proto-bff proto-all test lint run
 
-## proto: regenera os stubs Python a partir dos .proto do dop-core
+## proto: regenerate the Python stubs from dop-core's .proto files
 proto:
 	./scripts/gen_proto.sh
 
-## proto-bff: regenera os stubs do contrato de BORDA (api/proto, deste repo)
+## proto-bff: regenerate the stubs of the EDGE contract (api/proto, in this repo)
 proto-bff:
 	./scripts/gen_bff_proto.sh
 
-## proto-all: as duas gerações — o contrato do núcleo e o nosso
+## proto-all: both generations — the core's contract and ours
 proto-all: proto proto-bff
 
-## test: roda a suíte
+## test: run the suite
 test:
 	uv run pytest -q
 
-## lint: ruff sobre o código escrito à mão (o gerado é excluído no pyproject)
+## lint: ruff over the hand-written code (the generated code is excluded in pyproject)
 lint:
 	uv run ruff check app tests
 
-## run: sobe o BFF em modo desenvolvimento
+## run: bring the BFF up in development mode
 run:
 	uv run uvicorn app.main:app --reload --port 8000
