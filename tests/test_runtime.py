@@ -1,11 +1,11 @@
-"""A borda de execução de turno — e a invariante de que ela não tem segredo.
+"""The turn-running edge — and the invariant that it holds no secret.
 
-O runtime foi movido para o núcleo (ADR-0023). O que sobra aqui é tradução, e
-os testes refletem isso: a suíte de contrato dos provedores vive no dop-core,
-em `test/contract/agentprovider.go`, junto do código que ela exercita.
+The runtime was moved to the core (ADR-0023). What is left here is translation,
+and the tests reflect that: the providers' contract suite lives in dop-core, in
+`test/contract/agentprovider.go`, next to the code it exercises.
 
-O último teste deste arquivo é o mais importante e não tem nada a ver com
-tradução: ele guarda a invariante que motivou a mudança.
+This file's last test is the most important one and has nothing to do with
+translation: it guards the invariant that motivated the change.
 """
 
 import pathlib
@@ -26,7 +26,7 @@ HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 
 
 class AgenteFalso:
-    """Núcleo fake do AgentService — o turno acontece LÁ, não aqui."""
+    """A fake core of the AgentService — the turn happens THERE, not here."""
 
     def __init__(self):
         self.RunTurn = FakeCall(
@@ -41,7 +41,7 @@ class AgenteFalso:
                     effort_applied="medium",
                     reason="ADR-0011 §3 (rascunho — calibrar com telemetria, P-7): forense",
                 ),
-                reply="A lentidão vem da falta de índice.",
+                reply="The slowness comes from the missing index.",
                 message_ids=["m-1", "m-2"],
                 usage=agent_pb2.TurnUsage(
                     input_tokens=1000, output_tokens=800,
@@ -77,18 +77,19 @@ class TestTranslation:
         r = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
             headers={**HEADERS, "Idempotency-Key": "minha-key"},
-            json={"text": "por que está lento?", "task_kind": "investigation"},
+            json={"text": "why is it slow?", "task_kind": "investigation"},
         )
         assert r.status_code == 200
-        assert r.json()["reply"].startswith("A lentidão")
+        assert r.json()["reply"].startswith("The slowness")
         assert agente.RunTurn.requests[0].demand_id == "dem-1"
 
     def test_the_edge_does_not_invent_an_idempotency_key(self, client_rt, agente):
         """Turno gasta dinheiro.
 
-        Em toda outra escrita a borda gera a key, porque protege do retry do
-        channel. Aqui NÃO: uma key inventada transformaria retry de rede em
-        consumo em dobro. É o client quem sabe se está retentando.
+        On every other write the edge generates the key, because it protects
+        against the channel's retry. Here it does NOT: an invented key would turn
+        a network retry into double consumption. It is the client that knows
+        whether it is retrying.
         """
         client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
@@ -105,7 +106,7 @@ class TestTranslation:
         assert r.json()["context_truncated"] is True
 
     def test_an_unknown_cache_does_not_become_an_asserted_zero(self, client_rt):
-        """Zero com `cache_creation_known=false` é "não sei", não "não houve"."""
+        """A zero with `cache_creation_known=false` is "I do not know", not "there was none"."""
         u = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
             headers=HEADERS, json={"text": "oi"},
@@ -114,7 +115,7 @@ class TestTranslation:
         assert u["cache_creation_known"] is False
 
     def test_the_routing_justification_goes_whole(self, client_rt):
-        """É a única parte auditável da decisão (ADR-0011 §3)."""
+        """It is the only auditable part of the decision (ADR-0011 §3)."""
         r = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
             headers=HEADERS, json={"text": "oi"},
@@ -157,15 +158,16 @@ class TestGRPC:
 
 
 class TestTheBffHoldsNoSecret:
-    """A invariante que motivou a ADR-0023, virada teste (P-22).
+    """The invariant that motivated ADR-0023, turned into a test (P-22).
 
-    Irmã de "o BFF não tem banco": esta camada é a exposta à internet, e
-    comprometê-la não pode entregar credencial de coisa nenhuma. Disciplina não
-    basta — alguém adiciona um `import` de boa-fé e ninguém percebe na revisão.
+    A sibling of "the BFF has no database": this layer is the one exposed to the
+    internet, and compromising it must not hand over anybody's credential.
+    Discipline is not enough — somebody adds an `import` in good faith and nobody
+    notices in review.
     """
 
     def test_no_module_touches_the_vault_or_a_provider_key(self):
-        proibidos = [
+        forbidden = [
             "secretstore",
             "SecretStore",
             "ANTHROPIC_API_KEY",
@@ -175,22 +177,22 @@ class TestTheBffHoldsNoSecret:
         app = pathlib.Path(__file__).resolve().parent.parent / "app"
         findings = []
         for py in app.rglob("*.py"):
-            # Os stubs gerados citam names de serviço do núcleo; o que importa
-            # é o código escrito à mão.
+            # The generated stubs mention the core's service names; what matters
+            # is the hand-written code.
             if "/gen/" in str(py):
                 continue
             text = py.read_text(encoding="utf-8")
-            for termo in proibidos:
-                if termo in text:
-                    findings.append(f"{py.relative_to(app)}: {termo}")
+            for term in forbidden:
+                if term in text:
+                    findings.append(f"{py.relative_to(app)}: {term}")
         assert not findings, (
-            "o BFF não pode ter segredo nem falar com provedor de modelo "
+            "the BFF must hold no secret and must not talk to a model provider "
             f"(ADR-0023): {findings}"
         )
 
     def test_the_runtime_has_not_come_back_here(self):
         app = pathlib.Path(__file__).resolve().parent.parent / "app"
         assert not (app / "runtime").exists(), (
-            "app/runtime/ ressuscitou: o runtime vive no NÚCLEO (ADR-0023), "
-            "onde a credencial não atravessa a rede"
+            "app/runtime/ came back: the runtime lives in the CORE (ADR-0023), "
+            "where the credential crosses no network"
         )
