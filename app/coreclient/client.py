@@ -11,7 +11,9 @@ from collections.abc import Sequence
 
 import grpc
 
+from app.coreclient import callauth
 from app.platform.context import auth_ctx, current_request_id
+from app.settings import settings
 
 DEFAULT_DEADLINE_S = float(os.getenv("CORE_DEADLINE_S", "10"))
 
@@ -69,6 +71,7 @@ class CoreClient:
         actor_name: str = "",
         actor_kind: str = "user",
         session_id: str = "",
+        raw_token: str = "",
     ) -> Sequence[tuple[str, str]]:
         """Builds the metadata contract WITHOUT depending on auth_ctx.
 
@@ -78,6 +81,25 @@ class CoreClient:
         no active account and the core's interceptor would refuse it.
         """
         md = [("x-request-id", current_request_id() or uuid.uuid4().hex)]
+        # The PROOF (ADR-0029). It goes on every call, including the ones with
+        # no actor yet — the resolver's — because what it proves there is that
+        # the caller is the edge, which is the question those calls raise.
+        key = settings.call_auth_key
+        if key:
+            md.append((
+                "x-dop-assertion",
+                callauth.sign(
+                    key,
+                    actor_id=user_id,
+                    actor_kind=actor_kind if (user_id or account_id) else "system",
+                    account_id=account_id,
+                    session_id=session_id,
+                ),
+            ))
+        if raw_token:
+            # The person's own token, forwarded whole. The core verifies it
+            # against the identity provider — a signature neither of us controls.
+            md.append(("authorization", f"Bearer {raw_token}"))
         if user_id or account_id:
             md += [
                 ("x-account-id", account_id),
@@ -111,6 +133,7 @@ class CoreClient:
             account_id=ctx.account_id,
             actor_name=ctx.principal.name or ctx.principal.email,
             session_id=ctx.principal.session_id,
+            raw_token=ctx.raw_token,
         )
 
     @staticmethod

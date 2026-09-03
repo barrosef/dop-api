@@ -311,11 +311,12 @@ class AuthInterceptor(_Interceptor):
             # The two wrappers (unary and stream) resolve identity through the
             # SAME pair of methods: duplicating the token reading here would be
             # the classic way for the two ports to diverge with nobody noticing.
-            principal, account_id = await self._authenticate(_metadata(context))
+            principal, raw_token, account_id = await self._authenticate(_metadata(context))
             user_id, role, grants = await self._resolve(principal, account_id)
             token = auth_ctx.set(
                 AuthContext(
                     principal=principal,
+                    raw_token=raw_token,
                     user_id=user_id,
                     account_id=account_id,
                     role=role,
@@ -343,11 +344,12 @@ class AuthInterceptor(_Interceptor):
             return inner
 
         async def behavior(request, context):
-            principal, account_id = await self._authenticate(_metadata(context))
+            principal, raw_token, account_id = await self._authenticate(_metadata(context))
             user_id, role, grants = await self._resolve(principal, account_id)
             token = auth_ctx.set(
                 AuthContext(
                     principal=principal,
+                    raw_token=raw_token,
                     user_id=user_id,
                     account_id=account_id,
                     role=role,
@@ -363,7 +365,12 @@ class AuthInterceptor(_Interceptor):
         return behavior
 
     async def _authenticate(self, md: dict[str, str]):
-        """Token → Principal, and the active account from the metadata. Common to both forms."""
+        """Token → Principal, the raw token, and the active account. Common to both forms.
+
+        The raw token comes back too because the core verifies it itself
+        (ADR-0029): the edge proves WHO by forwarding the proof, not by
+        asserting the conclusion.
+        """
         # Identity comes from the TOKEN, not from the message's body. That is
         # why no request of the edge's contract has a CallContext.
         raw = md.get("authorization", "")
@@ -375,7 +382,7 @@ class AuthInterceptor(_Interceptor):
             raise HTTPException(status_code=401, detail=str(exc)) from exc
         # The active account comes from the metadata — it is the interface's
         # selector, the same x-account-id header as REST.
-        return principal, md.get("x-account-id", "")
+        return principal, raw.removeprefix("Bearer ").strip(), md.get("x-account-id", "")
 
     async def _resolve(self, principal, account_id: str):
         if self.resolver is None:

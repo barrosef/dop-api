@@ -53,6 +53,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         token = auth_ctx.set(
             AuthContext(
                 principal=principal,
+                raw_token=raw.removeprefix("Bearer ").strip(),
                 user_id=user_id,
                 account_id=account_id,
                 role=role,

@@ -42,6 +42,10 @@ class AuthContext:
     """Who is calling, in which account, with which permissions."""
 
     principal: Principal
+    # The token the person presented, whole. It is forwarded to the core so the
+    # core can verify it ITSELF (ADR-0029) instead of taking our word for who
+    # the actor is. It is not a credential of ours and it is never stored.
+    raw_token: str = ""
     user_id: str = ""
     account_id: str = ""
     role: str = ""
