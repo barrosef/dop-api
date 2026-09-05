@@ -116,7 +116,7 @@ def create_app() -> FastAPI:
     app.include_router(workflow.router)
     app.include_router(demand.router)
     app.include_router(delivery.router)
-    # Knowledge, cost and the substrate.
+    # Knowledge, cost and the executor.
     app.include_router(knowledge.router)
     app.include_router(cost.router)
     app.include_router(execution.router)

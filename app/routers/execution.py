@@ -1,4 +1,4 @@
-"""The execution substrate's routes — the use cases' HTTP translation, nothing more.
+"""The executor's routes — the use cases' HTTP translation, nothing more.
 
 Zero decisions here, authorization included: the decorators are in
 `app/usecases/execution.py`, and that is why the gRPC port is born with the same
@@ -36,10 +36,10 @@ async def provision_sandbox(
     **`min_tier` is MANDATORY** — `hardware`, `kernel_emulated` or `namespace`.
     Omitting it is a 422, and it is a 422 on purpose: the platform does not
     choose the isolation of code it did not write, and a default would choose
-    downwards. If the substrate does not offer the requested level, the core
+    downwards. If the executor does not offer the requested level, the core
     REFUSES with a message — it never silently delivers a lower one.
 
-    The response's `tier` is what the substrate DELIVERED, not what was asked
+    The response's `tier` is what the executor DELIVERED, not what was asked
     for.
     """
     return await uc.provision_sandbox(body, idempotency_key)

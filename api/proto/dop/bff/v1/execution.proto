@@ -3,7 +3,7 @@ package dop.bff.v1;
 
 import "google/protobuf/timestamp.proto";
 
-// The execution substrate at the EDGE: the demand's sandbox (the substrate
+// The executor at the EDGE: the demand's sandbox (the executor
 // spec).
 //
 // The same discipline as identity.proto: identity comes from the token in
@@ -28,7 +28,7 @@ import "google/protobuf/timestamp.proto";
 // build and none of what the agent had already learned on disk.
 
 // The same NAMES and the same numbers as dop.v1.IsolationTier — the conversion
-// between the two ends is the identity, not a translation (the substrate spec
+// between the two ends is the identity, not a translation (the execution spec
 // §1).
 enum IsolationTier {
   ISOLATION_TIER_UNSPECIFIED     = 0;  // an INCOMPLETE request, never a default
@@ -57,7 +57,7 @@ message Sandbox {
   string        id        = 1;
   string        demand_id = 2;
   State         state     = 3;
-  // What the substrate DELIVERED — the client sees what it got (spec §2). The
+  // What the executor DELIVERED — the client sees what it got (spec §2). The
   // core refuses when the adapter delivers a level different from the declared
   // one, so this field is never a promise: it is the fact.
   IsolationTier tier      = 4;

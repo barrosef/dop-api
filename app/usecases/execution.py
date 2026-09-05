@@ -1,4 +1,4 @@
-"""Execution substrate use cases — the demand's sandbox.
+"""Executor use cases — the demand's sandbox.
 
 The same discipline as `identity` and `hierarchy`: the rule lives here, the
 router and the servicer translate. See `app/usecases/identity.py`'s docstring
@@ -35,7 +35,7 @@ from app.settings import settings
 
 # Name ↔ enum in one place only. The names are the core's
 # (execution.RequireTier: "hardware, kernel_emulated or namespace"); the
-# substrate spec writes `kernel-emulated` with a hyphen in its environment
+# execution spec writes `kernel-emulated` with a hyphen in its environment
 # table, but the vocabulary that crosses the boundary is the core's — two
 # spellings for the same value is a translation bug waiting to happen.
 _TIER_BY_NAME = {
@@ -86,7 +86,7 @@ class SandboxSummary(BaseModel):
     id: str
     demand_id: str = ""
     state: str = ""
-    # What the substrate DELIVERED — the client sees what it got. Never a
+    # What the executor DELIVERED — the client sees what it got. Never a
     # promise: the core discards the sandbox if the adapter delivers another
     # level.
     tier: str = ""
@@ -151,9 +151,9 @@ async def provision_sandbox(body: NewSandbox, idempotency_key: str = "") -> Sand
     """Creates the demand's sandbox, at the DECLARED isolation level.
 
     `min_tier` goes down as the client declared it. The edge does not complete
-    it, does not downgrade it when the substrate does not offer the requested
+    it, does not downgrade it when the executor does not offer the requested
     level (that is the core's refusal, with a message — silent degradation is
-    the failure mode the substrate spec §2 forbids) and does not promote it "to
+    the failure mode the execution spec §2 forbids) and does not promote it "to
     be safe": promoting is also choosing for the client, and it is the client
     who answers for the cost.
     """
@@ -193,7 +193,7 @@ async def suspend_sandbox(sandbox_id: str) -> SandboxSummary:
     """Kills the execution and PRESERVES the workspace — the saving operation.
 
     Repeating is harmless: suspending what is already suspended returns the
-    sandbox as it stands, without touching the substrate and without emitting an
+    sandbox as it stands, without touching the executor and without emitting an
     event.
     """
     s = await stubs.execution_stub().SuspendSandbox(

@@ -1,4 +1,4 @@
-"""The execution substrate on both transports, against a fake core.
+"""The executor on both transports, against a fake core.
 
 The test that carries this file is the one about DECLARED ISOLATION: a request
 with no `min_tier` has to be refused AT THE EDGE, and — what really proves the
@@ -65,7 +65,7 @@ def viewer_role(core) -> None:
 
 
 class FakeExecution:
-    """Núcleo fake do substrato.
+    """Núcleo fake do executor.
 
     The ACTIVE sandbox has `last_active_at`; the freshly provisioned one does
     NOT — it is the case that tells absent from zeroed, and without it the field
@@ -223,7 +223,7 @@ class TestIsolationIsDeclaredNeverPresumed:
         assert request.idempotency_key == "key-do-client"
 
     def test_the_response_brings_the_delivered_tier(self, client_exec):
-        """The client sees what it GOT, not what it asked for (the substrate spec §2)."""
+        """The client sees what it GOT, not what it asked for (the execution spec §2)."""
         s = client_exec.post(
             "/api/v1/sandboxes",
             headers=REST_HEADERS,
@@ -232,10 +232,10 @@ class TestIsolationIsDeclaredNeverPresumed:
         assert s["tier"] == "hardware"
 
     def test_the_cores_refusal_crosses_as_a_412(self, client_exec, execution):
-        """A substrate without the requested level = a refusal with a message, not degradation."""
+        """A executor without the requested level = a refusal with a message, not degradation."""
         execution.ProvisionSandbox.fails_with(
             grpc.StatusCode.FAILED_PRECONDITION,
-            "this substrate does not offer \"hardware\" isolation",
+            "this executor does not offer \"hardware\" isolation",
         )
         r = client_exec.post(
             "/api/v1/sandboxes",

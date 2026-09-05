@@ -1,4 +1,4 @@
-"""The substrate gRPC servicer — a protobuf adapter over the use cases.
+"""The executor gRPC servicer — a protobuf adapter over the use cases.
 
 Symmetric to `app/routers/execution.py`: it receives a message, calls the SAME
 function from `app/usecases/execution.py`, returns a message. No decisions here.
@@ -6,7 +6,7 @@ function from `app/usecases/execution.py`, returns a message. No decisions here.
 And, in particular, **no isolation default**: `ISOLATION_TIER_UNSPECIFIED`
 becomes an empty string, the use case's model refuses it and the client receives
 INVALID_ARGUMENT. Filling the gap "so the client does not have to think" would
-be the servicer deciding the isolation — exactly what the substrate spec §2
+be the servicer deciding the isolation — exactly what the execution spec §2
 forbids, and in the hardest way to audit: in silence.
 
 `StreamLogs` is deliberately not here — the edge's streaming is being designed
