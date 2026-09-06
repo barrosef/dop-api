@@ -119,6 +119,16 @@ class TestHappyPath:
 
 
 class TestContextPropagation:
+    async def test_the_grpc_edge_also_carries_the_token(self, stub_grpc, core):
+        """Two edges call the same resolver. Fixing one and not the other leaves the
+        CLI and the agents unable to sign in while the browser works, which is the
+        kind of asymmetry nobody finds until a demo."""
+        await stub_grpc.ListAccounts(bff.ListAccountsRequest(), metadata=ACCOUNT)
+
+        md = core.EnsureUser.metadata()
+        assert "authorization" in md, f"EnsureUser went out without the token: {md}"
+        assert md["authorization"].startswith("Bearer ")
+
     async def test_the_metadata_from_bff_to_core_carries_account_actor_and_trace(
         self, stub_grpc, core
     ):
