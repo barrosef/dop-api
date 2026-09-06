@@ -295,7 +295,7 @@ class AuthInterceptor(_Interceptor):
 
     def __init__(self, verifier: FirebaseVerifier, resolver=None):
         self.verifier = verifier
-        # resolver(principal, account_id) -> (user_id, role, grants)
+        # resolver(principal, account_id, raw_token="") -> (user_id, role, grants)
         # The one that decides roles and grants is the CORE (ADR-0016); the BFF
         # asks.
         self.resolver = resolver
@@ -312,7 +312,7 @@ class AuthInterceptor(_Interceptor):
             # SAME pair of methods: duplicating the token reading here would be
             # the classic way for the two ports to diverge with nobody noticing.
             principal, raw_token, account_id = await self._authenticate(_metadata(context))
-            user_id, role, grants = await self._resolve(principal, account_id)
+            user_id, role, grants = await self._resolve(principal, account_id, raw_token)
             token = auth_ctx.set(
                 AuthContext(
                     principal=principal,
@@ -345,7 +345,7 @@ class AuthInterceptor(_Interceptor):
 
         async def behavior(request, context):
             principal, raw_token, account_id = await self._authenticate(_metadata(context))
-            user_id, role, grants = await self._resolve(principal, account_id)
+            user_id, role, grants = await self._resolve(principal, account_id, raw_token)
             token = auth_ctx.set(
                 AuthContext(
                     principal=principal,
@@ -384,11 +384,11 @@ class AuthInterceptor(_Interceptor):
         # selector, the same x-account-id header as REST.
         return principal, raw.removeprefix("Bearer ").strip(), md.get("x-account-id", "")
 
-    async def _resolve(self, principal, account_id: str):
+    async def _resolve(self, principal, account_id: str, raw_token: str = ""):
         if self.resolver is None:
             return "", "", {}
         try:
-            return await self.resolver(principal, account_id)
+            return await self.resolver(principal, account_id, raw_token)
         except HTTPException:
             # Already translated (and written) by the resolver's `as_http`: it
             # goes on to the ErrorInterceptor to become a gRPC status.

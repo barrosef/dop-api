@@ -35,16 +35,16 @@ _TOLERABLE = (
 
 
 class CoreResolver:
-    """`resolver(principal, account_id) -> (user_id, role, grants)`."""
+    """`resolver(principal, account_id, raw_token="") -> (user_id, role, grants)`."""
 
     def __init__(self, deadline_s: float | None = None):
         self._deadline = deadline_s if deadline_s is not None else settings.core_deadline_s
 
     async def __call__(
-        self, principal: Principal, account_id: str
+        self, principal: Principal, account_id: str, raw_token: str = ""
     ) -> tuple[str, str, dict[str, str]]:
         actor_name = principal.name or principal.email
-        user_id = await self._ensure_user(principal)
+        user_id = await self._ensure_user(principal, raw_token)
 
         if not account_id:
             # No active account yet is a VALID state: it is how the cockpit
@@ -58,12 +58,14 @@ class CoreResolver:
         role = await self._role_in_account(user_id, account_id, md)
         return user_id, role, self._grants()
 
-    async def _ensure_user(self, principal: Principal) -> str:
+    async def _ensure_user(self, principal: Principal, raw_token: str = "") -> str:
         """Idempotent by design — it runs on EVERY login, not only the first.
 
-        It is what guarantees the identity provider's user exists in the core
-        before any other question. It carries no CallContext: it happens before
-        there is an active account.
+        It carries the person's TOKEN and not only the edge's assertion,
+        because since ADR-0029 the core reads who the person is from the
+        signature it verified itself rather than from this request's body.
+        Without the header the core refuses, and it refuses on every request,
+        not only the first.
         """
         req = identity_pb2.EnsureUserRequest(
             subject=principal.subject,
@@ -76,7 +78,7 @@ class CoreResolver:
         )
         try:
             user = await stubs.identity_stub().EnsureUser(
-                req, metadata=core.metadata_for(), timeout=self._deadline
+                req, metadata=core.metadata_for(raw_token=raw_token), timeout=self._deadline
             )
         except AioRpcError as exc:
             raise as_http(exc) from exc

@@ -84,6 +84,20 @@ class TestContextPropagation:
         assert md["x-actor-kind"] == "user"
         assert md["x-request-id"] == "trace-1"  # the same trail from the BFF to the core
 
+    def test_ensure_user_carries_the_persons_token(self, client, core):
+        """The core stopped believing the request body (ADR-0029, D-10).
+
+        It now reads who the person is from the token it verified itself, and
+        refuses when there is none. If this header stops going out, every login
+        fails — and it fails on EVERY request, because the resolver runs on all
+        of them and not only the first.
+        """
+        client.get("/api/v1/accounts", headers=ACCOUNT)
+
+        md = core.EnsureUser.metadata()
+        assert "authorization" in md, f"EnsureUser went out without the token: {md}"
+        assert md["authorization"].startswith("Bearer ")
+
     def test_the_body_does_not_carry_the_call_context(self, client, core):
         """The reverse of what this test used to assert — and that is the point.
 

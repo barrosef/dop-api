@@ -16,7 +16,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, verifier: FirebaseVerifier, resolver=None):
         super().__init__(app)
         self.verifier = verifier
-        # resolver(principal, account_id) -> (user_id, role, grants)
+        # resolver(principal, account_id, raw_token="") -> (user_id, role, grants)
         # Implemented by the coreclient: the one that resolves the role and the
         # grants is the CORE.
         self.resolver = resolver
@@ -40,7 +40,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         user_id, role, grants = "", "", {}
         if self.resolver is not None:
             try:
-                user_id, role, grants = await self.resolver(principal, account_id)
+                user_id, role, grants = await self.resolver(
+                    principal, account_id, raw.removeprefix("Bearer ").strip()
+                )
             except HTTPException as exc:
                 # Middleware runs ABOVE Starlette's ExceptionMiddleware: an
                 # HTTPException raised here would be translated by nobody and
