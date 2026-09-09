@@ -6,10 +6,12 @@ BFF, the boundary dies in three weeks.
 """
 
 import os
+import time
 import uuid
 from collections.abc import Sequence
 
 import grpc
+import httpx
 
 from app.coreclient import callauth
 from app.platform.context import auth_ctx, current_request_id
@@ -35,23 +37,100 @@ _RETRY_POLICY = {
 }
 
 
+class _ServiceIdentity(grpc.AuthMetadataPlugin):
+    """Attaches this service's own identity to every call to the core.
+
+    Cloud Run checks it before the core's process runs: without the invoker
+    permission the request is refused at the platform, and nothing of ours
+    executes. It answers "may this caller invoke this service" — a different
+    question from the person's token (who is this human) and from the signed
+    assertion (which component is asserting). ADR-0029 keeps all three.
+
+    The header is X-Serverless-Authorization, not Authorization, and that is the
+    whole reason this class exists rather than gRPC's built-in call credentials.
+    `Authorization` already carries the person's token on the way to the core;
+    Cloud Run reads this second header precisely so the two do not fight. Sending
+    the service token in `Authorization` would overwrite the person's, and the
+    symptom — every call arriving unauthenticated — is silent.
+
+    The token is cached: it lives an hour, and minting one per RPC would add a
+    metadata-server round trip to every request.
+    """
+
+    _SKEW = 300  # refresh five minutes early rather than racing the expiry
+
+    def __init__(self, audience: str):
+        self._audience = audience
+        self._token = ""
+        self._expires_at = 0.0
+
+    # The metadata server, not a Google auth library. It is the documented way to
+    # get an identity token on Cloud Run, it needs no credentials of its own, and
+    # it costs no dependency: `google.auth`'s transport pulls in `requests`, and
+    # this service already speaks httpx.
+    _METADATA = (
+        "http://metadata.google.internal/computeMetadata/v1/"
+        "instance/service-accounts/default/identity"
+    )
+
+    def _fresh_token(self) -> str:
+        now = time.time()
+        if self._token and now < self._expires_at - self._SKEW:
+            return self._token
+        response = httpx.get(
+            self._METADATA,
+            params={"audience": self._audience, "format": "full"},
+            headers={"Metadata-Flavor": "Google"},
+            timeout=5.0,
+        )
+        response.raise_for_status()
+        self._token = response.text.strip()
+        # Google issues these for an hour; the skew above is sized against that.
+        self._expires_at = now + 3600
+        return self._token
+
+    def __call__(self, context, callback):
+        try:
+            callback((("x-serverless-authorization", f"Bearer {self._fresh_token()}"),), None)
+        except Exception as exc:  # noqa: BLE001 — surfaced to the caller as an RPC error
+            callback((), exc)
+
+
 class CoreClient:
     """A single, shared channel — gRPC multiplexes over HTTP/2."""
 
     def __init__(self, target: str | None = None):
         self.target = target or os.getenv("CORE_GRPC", "dop-core.dop-local.svc:9090")
+        # CORE_AUDIENCE is set only where the core is a Cloud Run service. Its
+        # presence is what switches this client from the in-cluster shape
+        # (plaintext, no service identity) to the managed one (TLS, plus an
+        # identity token the platform checks before the core's process runs).
+        #
+        # It is derived from configuration rather than guessed from the target,
+        # because "the hostname ends in run.app" is the kind of inference that is
+        # right until somebody puts a custom domain in front of it.
+        self.audience = os.getenv("CORE_AUDIENCE", "")
         self._channel: grpc.aio.Channel | None = None
 
     async def start(self) -> None:
         import json
 
-        self._channel = grpc.aio.insecure_channel(
-            self.target,
-            options=[
-                ("grpc.service_config", json.dumps(_RETRY_POLICY)),
-                ("grpc.keepalive_time_ms", 30_000),
-            ],
-        )
+        options = [
+            ("grpc.service_config", json.dumps(_RETRY_POLICY)),
+            ("grpc.keepalive_time_ms", 30_000),
+        ]
+        if self.audience:
+            # Cloud Run terminates TLS and speaks HTTP/2; a plaintext channel is
+            # refused before anything of ours runs. The service identity rides
+            # along as a call credential so every RPC carries it without any
+            # caller having to remember.
+            credentials = grpc.composite_channel_credentials(
+                grpc.ssl_channel_credentials(),
+                grpc.metadata_call_credentials(_ServiceIdentity(self.audience)),
+            )
+            self._channel = grpc.aio.secure_channel(self.target, credentials, options=options)
+        else:
+            self._channel = grpc.aio.insecure_channel(self.target, options=options)
 
     async def stop(self) -> None:
         if self._channel is not None:
