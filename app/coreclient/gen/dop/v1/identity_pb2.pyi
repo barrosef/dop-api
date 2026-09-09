@@ -220,6 +220,22 @@ class CreateAccountRequest(_message.Message):
     idempotency_key: str
     def __init__(self, kind: _Optional[_Union[Account.Kind, str]] = ..., handle: _Optional[str] = ..., display_name: _Optional[str] = ..., legal_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
+class SendEmailVerificationRequest(_message.Message):
+    __slots__ = ("email", "subject", "link", "display_name")
+    EMAIL_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_FIELD_NUMBER: _ClassVar[int]
+    LINK_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    email: str
+    subject: str
+    link: str
+    display_name: str
+    def __init__(self, email: _Optional[str] = ..., subject: _Optional[str] = ..., link: _Optional[str] = ..., display_name: _Optional[str] = ...) -> None: ...
+
+class SendEmailVerificationResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class ListMembershipsRequest(_message.Message):
     __slots__ = ("account",)
     ACCOUNT_FIELD_NUMBER: _ClassVar[int]
