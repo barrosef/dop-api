@@ -184,11 +184,21 @@ class ListAccountsRequest(_message.Message):
     user: _common_pb2.UserRef
     def __init__(self, user: _Optional[_Union[_common_pb2.UserRef, _Mapping]] = ...) -> None: ...
 
+class AccountMembership(_message.Message):
+    __slots__ = ("account", "role")
+    ACCOUNT_FIELD_NUMBER: _ClassVar[int]
+    ROLE_FIELD_NUMBER: _ClassVar[int]
+    account: Account
+    role: Role
+    def __init__(self, account: _Optional[_Union[Account, _Mapping]] = ..., role: _Optional[_Union[Role, str]] = ...) -> None: ...
+
 class ListAccountsResponse(_message.Message):
-    __slots__ = ("accounts",)
+    __slots__ = ("accounts", "items")
     ACCOUNTS_FIELD_NUMBER: _ClassVar[int]
+    ITEMS_FIELD_NUMBER: _ClassVar[int]
     accounts: _containers.RepeatedCompositeFieldContainer[Account]
-    def __init__(self, accounts: _Optional[_Iterable[_Union[Account, _Mapping]]] = ...) -> None: ...
+    items: _containers.RepeatedCompositeFieldContainer[AccountMembership]
+    def __init__(self, accounts: _Optional[_Iterable[_Union[Account, _Mapping]]] = ..., items: _Optional[_Iterable[_Union[AccountMembership, _Mapping]]] = ...) -> None: ...
 
 class GetAccountRequest(_message.Message):
     __slots__ = ("id",)

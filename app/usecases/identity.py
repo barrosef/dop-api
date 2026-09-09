@@ -161,18 +161,20 @@ async def list_accounts() -> list[AccountSummary]:
         metadata=core.metadata(),
         timeout=_deadline(),
     )
+    # `items` carries the account AND the caller's role in it. Before it existed
+    # this function could only report the role of the ACTIVE account and left
+    # every other one empty, because inventing a role would have been lying
+    # cheaply — the selector then could not tell an owner from a viewer until
+    # after switching into each account.
     return [
         AccountSummary(
-            id=a.id,
-            handle=a.handle,
-            display_name=a.display_name,
-            kind=account_kind_name(a.kind),
-            # The role is only known for the ACTIVE account — that is the one
-            # the resolver queried. Inventing a role for the others would be
-            # lying cheaply.
-            role=ctx.role if a.id == ctx.account_id else "",
+            id=it.account.id,
+            handle=it.account.handle,
+            display_name=it.account.display_name,
+            kind=account_kind_name(it.account.kind),
+            role=role_name(it.role),
         )
-        for a in resp.accounts
+        for it in resp.items
     ]
 
 

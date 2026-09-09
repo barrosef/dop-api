@@ -104,8 +104,15 @@ class FakeCore:
             display_name="ACME",
         )
         self.EnsureUser = FakeCall(identity_pb2.User(id=user_id, email="dev@dop.local"))
+        # Both fields, the way the real core answers: `accounts` is deprecated
+        # but still filled (the resolver proves membership with it), and `items`
+        # is what carries the role per account. A fake that filled only one of
+        # them would let a mapping read the wrong field and still pass.
         self.ListAccounts = FakeCall(
-            identity_pb2.ListAccountsResponse(accounts=[account])
+            identity_pb2.ListAccountsResponse(
+                accounts=[account],
+                items=[identity_pb2.AccountMembership(account=account, role=role)],
+            )
         )
         self.ListMemberships = FakeCall(
             identity_pb2.ListMembershipsResponse(
