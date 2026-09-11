@@ -47,7 +47,7 @@ class TestHappyPath:
         assert me.role == bff.ROLE_ADMIN
         assert list(me.providers) == ["email", "password"]
 
-    async def test_list_accounts_aggregates_the_role_in_the_active_account(self, stub_grpc):
+    async def test_list_accounts_carries_the_role_of_each_account(self, stub_grpc):
         resp = await stub_grpc.ListAccounts(bff.ListAccountsRequest(), metadata=ACCOUNT)
         assert len(resp.accounts) == 1
         account = resp.accounts[0]
@@ -56,8 +56,8 @@ class TestHappyPath:
         assert account.display_name == "ACME"
         assert account.kind == bff.AccountSummary.KIND_ORGANIZATION
         # A role does not exist on the core's Account — it comes from the
-        # membership. Joining the two is what this edge contract does
-        # differently.
+        # membership, and the core now sends the pair. This used to be filled
+        # only for the ACTIVE account and empty for every other one.
         assert account.role == bff.ROLE_ADMIN
 
     async def test_list_members_translates_the_role_into_an_enum(self, stub_grpc):

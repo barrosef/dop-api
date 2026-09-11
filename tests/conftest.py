@@ -38,14 +38,14 @@ from app.settings import settings
 PROJECT = "dop-local"
 
 
-def token_for(subject="sub-1", email="dev@dop.local", name="Dev"):
+def token_for(subject="sub-1", email="dev@dop.local", name="Dev", email_verified=True):
     """The emulator's token: it is not signed, but it normalizes just like production's."""
     payload = {
         "sub": subject,
         "aud": PROJECT,
         "exp": time.time() + 3600,
         "email": email,
-        "email_verified": True,
+        "email_verified": email_verified,
         "name": name,
         "firebase": {"sign_in_provider": "password", "identities": {"email": [email]}},
     }
@@ -104,8 +104,18 @@ class FakeCore:
             display_name="ACME",
         )
         self.EnsureUser = FakeCall(identity_pb2.User(id=user_id, email="dev@dop.local"))
+        # Both fields, the way the real core answers: `accounts` is deprecated
+        # but still filled (the resolver proves membership with it), and `items`
+        # is what carries the role per account. A fake that filled only one of
+        # them would let a mapping read the wrong field and still pass.
         self.ListAccounts = FakeCall(
-            identity_pb2.ListAccountsResponse(accounts=[account])
+            identity_pb2.ListAccountsResponse(
+                accounts=[account],
+                items=[identity_pb2.AccountMembership(account=account, role=role)],
+            )
+        )
+        self.SendEmailVerification = FakeCall(
+            identity_pb2.SendEmailVerificationResponse()
         )
         self.ListMemberships = FakeCall(
             identity_pb2.ListMembershipsResponse(
@@ -138,6 +148,9 @@ class FakeCore:
         the role means changing what that RPC answers, not a shortcut in the
         context. Testing through the shortcut would prove less than it seems.
         """
+        self.SendEmailVerification = FakeCall(
+            identity_pb2.SendEmailVerificationResponse()
+        )
         self.ListMemberships = FakeCall(
             identity_pb2.ListMembershipsResponse(
                 memberships=[

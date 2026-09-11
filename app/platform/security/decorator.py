@@ -16,12 +16,58 @@ from starlette.requests import Request
 from app.platform.context import auth_ctx
 
 _PUBLIC_PATTERNS: list[tuple[str, re.Pattern]] = []
+_TOKEN_ONLY_PATTERNS: list[tuple[str, re.Pattern]] = []
 
 
 def public(func):
     """Marks the handler as exempt from authentication."""
     func.__is_public__ = True
     return func
+
+
+def token_only(func):
+    """The token is verified; NOTHING is resolved from the core.
+
+    There is a narrow set of routes that need to know who is asking and cannot
+    ask the core who that is — because the core does not know yet. Sign-up by
+    e-mail and password is the case: the core refuses an unverified password
+    credential before creating anything (spec SP-0 D-5), so resolving the user
+    would answer 412 to the very request that exists to fix it.
+
+    It is NOT @public. @public skips authentication entirely, and a route that
+    mails a link to an address must know the address belongs to whoever is
+    asking. Here the token is verified exactly as everywhere else; only the trip
+    to the core is skipped.
+    """
+    func.__is_token_only__ = True
+    return func
+
+
+def _flatten(routes):
+    """Yields the leaf routes, walking into included routers.
+
+    FastAPI does not necessarily flatten `include_router` into `app.routes`:
+    depending on the version, what lands there is a wrapper holding its own
+    `.routes`. Sweeping only the top level then finds NO endpoint at all, and
+    every marker registered by this module silently registers nothing.
+
+    It fails closed — a @public route merely goes on demanding a token — which
+    is why it can sit there unnoticed. `/healthz` kept working the whole time
+    because the middleware also carries a hardcoded list of paths, so the one
+    symptom anybody would have looked for was absent.
+    """
+    for route in routes:
+        # Two shapes, because the wrapper's name for its children has changed
+        # between FastAPI versions: `.routes` on some, `.original_router.routes`
+        # on others. Reading both is cheaper than pinning a version over it.
+        nested = getattr(route, "routes", None)
+        if nested is None:
+            inner = getattr(route, "original_router", None)
+            nested = getattr(inner, "routes", None) if inner is not None else None
+        if nested:
+            yield from _flatten(nested)
+        else:
+            yield route
 
 
 def register_public_routes(routes) -> None:
@@ -31,21 +77,33 @@ def register_public_routes(routes) -> None:
     is recognized at request time. Call it ONCE, after registering everything.
     """
     _PUBLIC_PATTERNS.clear()
-    for route in routes:
+    _TOKEN_ONLY_PATTERNS.clear()
+    for route in _flatten(routes):
         endpoint = getattr(route, "endpoint", None)
-        if endpoint is None or not getattr(endpoint, "__is_public__", False):
+        if endpoint is None:
+            continue
+        if getattr(endpoint, "__is_public__", False):
+            target = _PUBLIC_PATTERNS
+        elif getattr(endpoint, "__is_token_only__", False):
+            target = _TOKEN_ONLY_PATTERNS
+        else:
             continue
         path = getattr(route, "path", "")
         if not path:
             continue
         pattern = re.compile("^" + re.sub(r"\{[^}]+\}", "[^/]+", path) + "$")
         for method in getattr(route, "methods", set()):
-            _PUBLIC_PATTERNS.append((method.upper(), pattern))
+            target.append((method.upper(), pattern))
 
 
 def is_public(request: Request) -> bool:
     path, method = request.url.path, request.method.upper()
     return any(m == method and p.match(path) for m, p in _PUBLIC_PATTERNS)
+
+
+def is_token_only(request: Request) -> bool:
+    path, method = request.url.path, request.method.upper()
+    return any(m == method and p.match(path) for m, p in _TOKEN_ONLY_PATTERNS)
 
 
 def _ctx_or_401():

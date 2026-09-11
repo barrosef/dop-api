@@ -12,6 +12,7 @@ authorization pinned to the router would hold for REST alone.
 
 from fastapi import APIRouter
 
+from app.platform.security.decorator import token_only
 from app.usecases import identity as uc
 from app.usecases.identity import (
     AcceptedInvite,
@@ -24,6 +25,7 @@ from app.usecases.identity import (
     MeResponse,
     NewAccount,
     NewInvite,
+    VerificationRequested,
 )
 
 # Re-exported for whoever already imported the models from here — they are the
@@ -39,6 +41,7 @@ __all__ = [
     "MeResponse",
     "NewAccount",
     "NewInvite",
+    "VerificationRequested",
     "router",
 ]
 
@@ -49,6 +52,17 @@ router = APIRouter(prefix="/api/v1", tags=["identity"])
 async def me() -> MeResponse:
     """Who I am, in the active account."""
     return await uc.me()
+
+
+@router.post("/verification/email", response_model=VerificationRequested)
+@token_only
+async def send_email_verification() -> VerificationRequested:
+    """Sends the message that proves this credential's e-mail.
+
+    It takes NO body: the address comes from the verified token. See the use
+    case for why that is not a convenience.
+    """
+    return await uc.send_email_verification()
 
 
 @router.get("/accounts", response_model=list[AccountSummary])

@@ -197,6 +197,46 @@ class TestListings:
             }
         ]
 
+    def test_every_account_carries_its_own_role_not_just_the_active_one(
+        self, client, core
+    ):
+        """The regression this endpoint existed with for a while.
+
+        The role used to be filled only for the ACTIVE account, because the core
+        sent no role at all and the edge refused to invent one. Every other
+        account came back with "" — so the account selector could not tell an
+        owner from a viewer until after switching into each one.
+        """
+        active = identity_pb2.Account(
+            id="acct-1", kind=identity_pb2.Account.KIND_ORGANIZATION,
+            handle="acme", display_name="ACME",
+        )
+        other = identity_pb2.Account(
+            id="acct-2", kind=identity_pb2.Account.KIND_PERSONAL,
+            handle="ana", display_name="Ana",
+        )
+        core.ListAccounts.returns(
+            identity_pb2.ListAccountsResponse(
+                accounts=[active, other],
+                items=[
+                    identity_pb2.AccountMembership(
+                        account=active, role=identity_pb2.ROLE_ADMIN
+                    ),
+                    identity_pb2.AccountMembership(
+                        account=other, role=identity_pb2.ROLE_OWNER
+                    ),
+                ],
+            )
+        )
+
+        r = client.get("/api/v1/accounts", headers=ACCOUNT)
+
+        assert r.status_code == 200
+        assert {a["id"]: a["role"] for a in r.json()} == {
+            "acct-1": "admin",
+            "acct-2": "owner",  # not the active account, and it still knows
+        }
+
     def test_members_translates_the_role_into_a_string(self, client):
         r = client.get("/api/v1/accounts/current/members", headers=ACCOUNT)
         assert r.status_code == 200

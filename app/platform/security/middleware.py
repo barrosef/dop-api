@@ -6,7 +6,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.platform.context import AuthContext, auth_ctx
-from app.platform.security.decorator import is_public
+from app.platform.security.decorator import is_public, is_token_only
 from app.platform.security.firebase import FirebaseVerifier, InvalidToken
 
 
@@ -38,7 +38,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         account_id = request.headers.get("x-account-id", "")
 
         user_id, role, grants = "", "", {}
-        if self.resolver is not None:
+        # A @token_only route stops here: the token is verified, and the core is
+        # not asked who this is. Asking would answer 412 to the request that
+        # exists precisely to make the answer possible (see the decorator).
+        if self.resolver is not None and not is_token_only(request):
             try:
                 user_id, role, grants = await self.resolver(
                     principal, account_id, raw.removeprefix("Bearer ").strip()

@@ -4,6 +4,7 @@ import grpc
 import warnings
 
 from app.coreclient.gen.dop.v1 import workflow_pb2 as dop_dot_v1_dot_workflow__pb2
+from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
 GRPC_GENERATED_VERSION = '1.83.1'
 GRPC_VERSION = grpc.__version__
@@ -69,6 +70,46 @@ class WorkflowServiceStub:
                 request_serializer=dop_dot_v1_dot_workflow__pb2.PromoteFlowRequest.SerializeToString,
                 response_deserializer=dop_dot_v1_dot_workflow__pb2.Flow.FromString,
                 _registered_method=True)
+        self.PublishFlow = channel.unary_unary(
+                '/dop.v1.WorkflowService/PublishFlow',
+                request_serializer=dop_dot_v1_dot_workflow__pb2.PublishFlowRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_workflow__pb2.FlowPublication.FromString,
+                _registered_method=True)
+        self.WithdrawFlow = channel.unary_unary(
+                '/dop.v1.WorkflowService/WithdrawFlow',
+                request_serializer=dop_dot_v1_dot_workflow__pb2.WithdrawFlowRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.GrantFlow = channel.unary_unary(
+                '/dop.v1.WorkflowService/GrantFlow',
+                request_serializer=dop_dot_v1_dot_workflow__pb2.GrantFlowRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_workflow__pb2.FlowGrant.FromString,
+                _registered_method=True)
+        self.RevokeFlowGrant = channel.unary_unary(
+                '/dop.v1.WorkflowService/RevokeFlowGrant',
+                request_serializer=dop_dot_v1_dot_workflow__pb2.RevokeFlowGrantRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.DeriveFlow = channel.unary_unary(
+                '/dop.v1.WorkflowService/DeriveFlow',
+                request_serializer=dop_dot_v1_dot_workflow__pb2.DeriveFlowRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_workflow__pb2.Flow.FromString,
+                _registered_method=True)
+        self.BumpFlowPin = channel.unary_unary(
+                '/dop.v1.WorkflowService/BumpFlowPin',
+                request_serializer=dop_dot_v1_dot_workflow__pb2.BumpFlowPinRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.ListFlowShares = channel.unary_unary(
+                '/dop.v1.WorkflowService/ListFlowShares',
+                request_serializer=dop_dot_v1_dot_workflow__pb2.ListFlowSharesRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_workflow__pb2.ListFlowSharesResponse.FromString,
+                _registered_method=True)
+        self.ListFlowAdoptions = channel.unary_unary(
+                '/dop.v1.WorkflowService/ListFlowAdoptions',
+                request_serializer=dop_dot_v1_dot_workflow__pb2.ListFlowAdoptionsRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_workflow__pb2.ListFlowAdoptionsResponse.FromString,
+                _registered_method=True)
 
 
 class WorkflowServiceServicer:
@@ -117,6 +158,59 @@ class WorkflowServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PublishFlow(self, request, context):
+        """── sharing: publish, grant, derive, pin (flow sharing spec) ──────────────
+
+        Nothing here is live — every RPC below is request/response, never a
+        stream, matching ADR-0017 convention 1: server-side streaming is reserved
+        for what actually changes while the client is looking at it.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WithdrawFlow(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GrantFlow(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RevokeFlowGrant(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeriveFlow(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BumpFlowPin(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListFlowShares(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListFlowAdoptions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_WorkflowServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -154,6 +248,46 @@ def add_WorkflowServiceServicer_to_server(servicer, server):
                     servicer.PromoteFlow,
                     request_deserializer=dop_dot_v1_dot_workflow__pb2.PromoteFlowRequest.FromString,
                     response_serializer=dop_dot_v1_dot_workflow__pb2.Flow.SerializeToString,
+            ),
+            'PublishFlow': grpc.unary_unary_rpc_method_handler(
+                    servicer.PublishFlow,
+                    request_deserializer=dop_dot_v1_dot_workflow__pb2.PublishFlowRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_workflow__pb2.FlowPublication.SerializeToString,
+            ),
+            'WithdrawFlow': grpc.unary_unary_rpc_method_handler(
+                    servicer.WithdrawFlow,
+                    request_deserializer=dop_dot_v1_dot_workflow__pb2.WithdrawFlowRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'GrantFlow': grpc.unary_unary_rpc_method_handler(
+                    servicer.GrantFlow,
+                    request_deserializer=dop_dot_v1_dot_workflow__pb2.GrantFlowRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_workflow__pb2.FlowGrant.SerializeToString,
+            ),
+            'RevokeFlowGrant': grpc.unary_unary_rpc_method_handler(
+                    servicer.RevokeFlowGrant,
+                    request_deserializer=dop_dot_v1_dot_workflow__pb2.RevokeFlowGrantRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'DeriveFlow': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeriveFlow,
+                    request_deserializer=dop_dot_v1_dot_workflow__pb2.DeriveFlowRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_workflow__pb2.Flow.SerializeToString,
+            ),
+            'BumpFlowPin': grpc.unary_unary_rpc_method_handler(
+                    servicer.BumpFlowPin,
+                    request_deserializer=dop_dot_v1_dot_workflow__pb2.BumpFlowPinRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'ListFlowShares': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListFlowShares,
+                    request_deserializer=dop_dot_v1_dot_workflow__pb2.ListFlowSharesRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_workflow__pb2.ListFlowSharesResponse.SerializeToString,
+            ),
+            'ListFlowAdoptions': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListFlowAdoptions,
+                    request_deserializer=dop_dot_v1_dot_workflow__pb2.ListFlowAdoptionsRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_workflow__pb2.ListFlowAdoptionsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -345,6 +479,222 @@ class WorkflowService:
             '/dop.v1.WorkflowService/PromoteFlow',
             dop_dot_v1_dot_workflow__pb2.PromoteFlowRequest.SerializeToString,
             dop_dot_v1_dot_workflow__pb2.Flow.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PublishFlow(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.WorkflowService/PublishFlow',
+            dop_dot_v1_dot_workflow__pb2.PublishFlowRequest.SerializeToString,
+            dop_dot_v1_dot_workflow__pb2.FlowPublication.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def WithdrawFlow(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.WorkflowService/WithdrawFlow',
+            dop_dot_v1_dot_workflow__pb2.WithdrawFlowRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GrantFlow(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.WorkflowService/GrantFlow',
+            dop_dot_v1_dot_workflow__pb2.GrantFlowRequest.SerializeToString,
+            dop_dot_v1_dot_workflow__pb2.FlowGrant.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RevokeFlowGrant(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.WorkflowService/RevokeFlowGrant',
+            dop_dot_v1_dot_workflow__pb2.RevokeFlowGrantRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeriveFlow(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.WorkflowService/DeriveFlow',
+            dop_dot_v1_dot_workflow__pb2.DeriveFlowRequest.SerializeToString,
+            dop_dot_v1_dot_workflow__pb2.Flow.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BumpFlowPin(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.WorkflowService/BumpFlowPin',
+            dop_dot_v1_dot_workflow__pb2.BumpFlowPinRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListFlowShares(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.WorkflowService/ListFlowShares',
+            dop_dot_v1_dot_workflow__pb2.ListFlowSharesRequest.SerializeToString,
+            dop_dot_v1_dot_workflow__pb2.ListFlowSharesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListFlowAdoptions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.WorkflowService/ListFlowAdoptions',
+            dop_dot_v1_dot_workflow__pb2.ListFlowAdoptionsRequest.SerializeToString,
+            dop_dot_v1_dot_workflow__pb2.ListFlowAdoptionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

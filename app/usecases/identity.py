@@ -13,6 +13,9 @@ The response models are plain Pydantic — no FastAPI — precisely so the gRPC
 servicer can consume them without dragging the web framework along.
 """
 
+import logging
+
+from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from app.coreclient import stubs
@@ -27,6 +30,7 @@ from app.coreclient.gen.dop.v1 import common_pb2, identity_pb2
 from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
+from app.platform.security.firebase_admin import FirebaseAdmin, LinkNotGenerated
 from app.settings import settings
 
 
@@ -64,6 +68,16 @@ class AccountSummary(BaseModel):
     display_name: str
     kind: str
     role: str
+
+
+class VerificationRequested(BaseModel):
+    """What came back is the address it went to, and nothing else.
+
+    Deliberately not "whether the account exists": answering that would turn
+    this endpoint into a way of asking whether an address is registered here.
+    """
+
+    email: str
 
 
 class NewAccount(BaseModel):
@@ -161,18 +175,20 @@ async def list_accounts() -> list[AccountSummary]:
         metadata=core.metadata(),
         timeout=_deadline(),
     )
+    # `items` carries the account AND the caller's role in it. Before it existed
+    # this function could only report the role of the ACTIVE account and left
+    # every other one empty, because inventing a role would have been lying
+    # cheaply — the selector then could not tell an owner from a viewer until
+    # after switching into each account.
     return [
         AccountSummary(
-            id=a.id,
-            handle=a.handle,
-            display_name=a.display_name,
-            kind=account_kind_name(a.kind),
-            # The role is only known for the ACTIVE account — that is the one
-            # the resolver queried. Inventing a role for the others would be
-            # lying cheaply.
-            role=ctx.role if a.id == ctx.account_id else "",
+            id=it.account.id,
+            handle=it.account.handle,
+            display_name=it.account.display_name,
+            kind=account_kind_name(it.account.kind),
+            role=role_name(it.role),
         )
-        for a in resp.accounts
+        for it in resp.items
     ]
 
 
@@ -373,3 +389,59 @@ async def remove_member(membership_id: str) -> bool:
         timeout=_deadline(),
     )
     return True
+
+
+_firebase_admin: FirebaseAdmin | None = None
+
+
+def firebase_admin() -> FirebaseAdmin:
+    """One instance per process, so the metadata token is cached rather than
+    fetched on every sign-up."""
+    global _firebase_admin
+    if _firebase_admin is None:
+        _firebase_admin = FirebaseAdmin(
+            settings.firebase_project, settings.firebase_auth_emulator_host
+        )
+    return _firebase_admin
+
+
+@log
+async def send_email_verification() -> VerificationRequested:
+    """Sends the message that proves the address of a password credential.
+
+    The route is @token_only, not @account_scoped and not @public: the token
+    says who is asking, and the core is NOT asked to resolve them — it would refuse with the
+    very 412 this request exists to lift (spec SP-0 D-5, US-2).
+
+    The address comes from the TOKEN, never from a body. Taking it from a body
+    would let anybody with any valid token post a DOP-branded message to an
+    address of their choosing, which is a phishing kit with our logo on it.
+    """
+    ctx = auth_ctx.get()
+    email = (ctx.principal.email or "").strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="this credential carries no e-mail")
+    if ctx.principal.email_verified:
+        # Not an error: asking twice is a person clicking twice, and a 4xx here
+        # would show them a failure for something that is already true.
+        return VerificationRequested(email=email)
+
+    try:
+        link = await firebase_admin().verification_link(email)
+    except LinkNotGenerated as exc:
+        logging.getLogger("dop-api").warning("verification link not generated: %s", exc)
+        raise HTTPException(
+            status_code=503, detail="could not generate the verification link"
+        ) from exc
+
+    await stubs.identity_stub().SendEmailVerification(
+        identity_pb2.SendEmailVerificationRequest(
+            email=email,
+            subject=ctx.principal.subject,
+            link=link,
+            display_name=ctx.principal.name or "",
+        ),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return VerificationRequested(email=email)
