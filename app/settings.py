@@ -28,6 +28,10 @@ class Settings(BaseSettings):
 
     firebase_project: str = "dop-local"
     firebase_auth_emulator_host: str = ""
+    # The host the e-mail action links are rewritten to (auth.qa.dop-t.com).
+    # Empty leaves the links on <project>.firebaseapp.com, which is what Identity
+    # Platform mints. See firebase_admin.on_our_domain for why this exists.
+    firebase_auth_domain: str = ""
     firebase_storage_emulator_host: str = ""
     storage_emulator_host: str = ""
 

@@ -23,6 +23,7 @@ needs no credential at all.
 """
 
 import time
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -112,4 +113,30 @@ class FirebaseAdmin:
         return link
 
 
-__all__ = ["FirebaseAdmin", "LinkNotGenerated", "InvalidToken"]
+def on_our_domain(link: str, auth_domain: str) -> str:
+    """Moves an action link from `<project>.firebaseapp.com` to our own host.
+
+    Identity Platform mints links on its default domain, and the console's
+    "customize action URL" — which is the supported way to change that — is
+    refused on this project with EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED, in the UI
+    and in the API alike. Firebase locks template edits on some projects to
+    curb phishing and does not say which.
+
+    It does not matter, because what the link carries is the `oobCode`; the host
+    only has to serve the `/__/auth/action` handler, and Firebase Hosting serves
+    it on every custom domain of the project. Swapping the host is exactly what
+    the console setting does underneath.
+
+    Only the default domain is touched. A link that is already somewhere else —
+    the emulator's, a future custom one — comes back untouched, so a
+    misconfiguration cannot point real people at a host that serves nothing.
+    """
+    if not auth_domain:
+        return link
+    parts = urlsplit(link)
+    if not parts.hostname or not parts.hostname.endswith(".firebaseapp.com"):
+        return link
+    return urlunsplit((parts.scheme, auth_domain, parts.path, parts.query, parts.fragment))
+
+
+__all__ = ["FirebaseAdmin", "LinkNotGenerated", "InvalidToken", "on_our_domain"]

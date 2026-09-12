@@ -30,7 +30,11 @@ from app.coreclient.gen.dop.v1 import common_pb2, identity_pb2
 from app.platform.context import auth_ctx
 from app.platform.logging.decorator import log
 from app.platform.security.decorator import account_scoped, require_role
-from app.platform.security.firebase_admin import FirebaseAdmin, LinkNotGenerated
+from app.platform.security.firebase_admin import (
+    FirebaseAdmin,
+    LinkNotGenerated,
+    on_our_domain,
+)
 from app.settings import settings
 
 
@@ -427,7 +431,9 @@ async def send_email_verification() -> VerificationRequested:
         return VerificationRequested(email=email)
 
     try:
-        link = await firebase_admin().verification_link(email)
+        link = on_our_domain(
+            await firebase_admin().verification_link(email), settings.firebase_auth_domain
+        )
     except LinkNotGenerated as exc:
         logging.getLogger("dop-api").warning("verification link not generated: %s", exc)
         raise HTTPException(
