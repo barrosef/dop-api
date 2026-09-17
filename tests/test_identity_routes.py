@@ -85,7 +85,7 @@ class TestContextPropagation:
         assert md["x-request-id"] == "trace-1"  # the same trail from the BFF to the core
 
     def test_ensure_user_carries_the_persons_token(self, client, core):
-        """The core stopped believing the request body (ADR-0029, D-10).
+        """The core stopped believing the request body (ADR-0022, D-10).
 
         It now reads who the person is from the token it verified itself, and
         refuses when there is none. If this header stops going out, every login
@@ -102,7 +102,7 @@ class TestContextPropagation:
         """The reverse of what this test used to assert — and that is the point.
 
         Every request used to carry a `CallContext ctx = 1` that the core
-        ignored: it authorizes by the metadata (ADR-0017, convention 5). A field
+        ignored: it authorizes by the metadata (ADR-0013, convention 5). A field
         with no effect teaches the wrong thing to whoever reads the contract, and
         it was already being copied into each new proto. Number 1 is reserved;
         this test is what stops it coming back.
@@ -254,7 +254,7 @@ class TestWrites:
         req = core.CreateAccount.last["request"]
         assert req.kind == identity_pb2.Account.KIND_ORGANIZATION
         assert req.handle == "acme"
-        assert req.idempotency_key  # repeating must not duplicate (ADR-0017)
+        assert req.idempotency_key  # repeating must not duplicate (ADR-0013)
 
     def test_creating_an_organization_requires_an_active_account(self, client):
         r = client.post(

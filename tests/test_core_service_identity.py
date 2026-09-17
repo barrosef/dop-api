@@ -2,7 +2,7 @@
 
 The header is the whole point. Cloud Run reads the invoker's token from
 `Authorization`, and on the way to the core that header already carries the
-PERSON's token (ADR-0029). Sending the service token there would overwrite the
+PERSON's token (ADR-0022). Sending the service token there would overwrite the
 person's, and the failure is silent: every call arrives unauthenticated and
 nothing errors at the edge.
 """

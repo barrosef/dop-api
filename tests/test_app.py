@@ -55,7 +55,7 @@ def test_the_log_goes_out_as_valid_json(capsys):
 
 
 class TestTheProofSentToTheCore:
-    """ADR-0029 — the edge proves who is calling instead of asserting it."""
+    """ADR-0022 — the edge proves who is calling instead of asserting it."""
 
     VECTOR = (
         "YmZmfHVzci0xfHVzZXJ8YWNjdC05fHNlc3MtM3wxODAwMDAwMDYw"

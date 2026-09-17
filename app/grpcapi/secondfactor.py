@@ -2,7 +2,7 @@
 
 Symmetric to `app/routers/secondfactor.py`: it receives a message, calls the
 SAME function, returns another message. No decision happens here — the rule is
-in the core (ADR-0027) and the translation is in the use case.
+in the core (ADR-0020) and the translation is in the use case.
 """
 
 from google.protobuf.timestamp_pb2 import Timestamp

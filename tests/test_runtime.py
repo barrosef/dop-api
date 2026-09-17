@@ -1,6 +1,6 @@
 """The turn-running edge — and the invariant that it holds no secret.
 
-The runtime was moved to the core (ADR-0023). What is left here is translation,
+The runtime was moved to the core (ADR-0016). What is left here is translation,
 and the tests reflect that: the providers' contract suite lives in dop-core, in
 `test/contract/agentprovider.go`, next to the code it exercises.
 
@@ -39,7 +39,7 @@ class AgenteFalso:
                     model="claude-sonnet",
                     effort="medium",
                     effort_applied="medium",
-                    reason="ADR-0011 §3 (a draft — calibrate with telemetry, P-7): forensics",
+                    reason="ADR-0008 §3 (a draft — calibrate with telemetry, P-7): forensics",
                 ),
                 reply="The slowness comes from the missing index.",
                 message_ids=["m-1", "m-2"],
@@ -115,12 +115,12 @@ class TestTranslation:
         assert u["cache_creation_known"] is False
 
     def test_the_routing_justification_goes_whole(self, client_rt):
-        """It is the only auditable part of the decision (ADR-0011 §3)."""
+        """It is the only auditable part of the decision (ADR-0008 §3)."""
         r = client_rt.post(
             "/api/v1/demands/dem-1/threads/th-1/turns",
             headers=HEADERS, json={"text": "hi"},
         )
-        assert "ADR-0011 §3" in r.json()["routing"]["reason"]
+        assert "ADR-0008 §3" in r.json()["routing"]["reason"]
 
     def test_the_turns_deadline_is_longer_than_the_normal_one(self, client_rt, agent):
         """A turn takes minutes; the core's normal deadline would drop them all."""
@@ -158,7 +158,7 @@ class TestGRPC:
 
 
 class TestTheBffHoldsNoSecret:
-    """The invariant that motivated ADR-0023, turned into a test (P-22).
+    """The invariant that motivated ADR-0016, turned into a test (P-22).
 
     A sibling of "the BFF has no database": this layer is the one exposed to the
     internet, and compromising it must not hand over anybody's credential.
@@ -187,12 +187,12 @@ class TestTheBffHoldsNoSecret:
                     findings.append(f"{py.relative_to(app)}: {term}")
         assert not findings, (
             "the BFF must hold no secret and must not talk to a model provider "
-            f"(ADR-0023): {findings}"
+            f"(ADR-0016): {findings}"
         )
 
     def test_the_runtime_has_not_come_back_here(self):
         app = pathlib.Path(__file__).resolve().parent.parent / "app"
         assert not (app / "runtime").exists(), (
-            "app/runtime/ came back: the runtime lives in the CORE (ADR-0023), "
+            "app/runtime/ came back: the runtime lives in the CORE (ADR-0016), "
             "where the credential crosses no network"
         )

@@ -1,6 +1,6 @@
 """Delivery on both transports, against a fake core.
 
-This file's centre is the **refusal for want of green** (ADR-0007): the core
+This file's centre is the **refusal for want of green** (ADR-0005): the core
 refuses the entry into the queue saying, item by item, what is missing, and that
 list is the useful part of the response. The tests cover the three ways of
 ruining it — losing it (turning it into a "no"), flattening it (turning it into a
@@ -32,9 +32,9 @@ REST_HEADERS = {"authorization": token_for(), "x-account-id": "acct-1"}
 # The exact sentence the core writes when refusing an entry into the queue
 # (internal/domain/delivery/service.go + Evidence.Missing).
 REFUSAL = (
-    "the merge queue refuses an entry with no evidence of green for commit abc1234 (ADR-0007): "
-    "no passed acceptance run for commit abc1234 (ADR-0007 §1); "
-    "the critic's opinion for commit abc1234 (ADR-0007 §3) is missing"
+    "the merge queue refuses an entry with no evidence of green for commit abc1234 (ADR-0005): "
+    "no passed acceptance run for commit abc1234 (ADR-0005 §1); "
+    "the critic's opinion for commit abc1234 (ADR-0005 §3) is missing"
 )
 
 
@@ -172,8 +172,8 @@ class TestWithoutGreen:
         assert r.status_code == 412
         detalhe = r.json()["detail"]
         assert detalhe["missing"] == [
-            "no passed acceptance run for commit abc1234 (ADR-0007 §1)",
-            "the critic's opinion for commit abc1234 (ADR-0007 §3) is missing",
+            "no passed acceptance run for commit abc1234 (ADR-0005 §1)",
+            "the critic's opinion for commit abc1234 (ADR-0005 §3) is missing",
         ]
         # The reason keeps the commit: without it, "green is missing" does not
         # say WHICH code is being talked about — and green is always about a
@@ -182,7 +182,7 @@ class TestWithoutGreen:
 
     async def test_grpc_returns_the_refusal_as_a_response(self, stub_ent, deliveries):
         """For the agent, 'not yet, this is missing' is work to do, not a failure
-        (ADR-0007 §2) — that is why the refusal is a field, and not an error
+        (ADR-0005 §2) — that is why the refusal is a field, and not an error
         status."""
         deliveries.sem_verde()
         resp = await stub_ent.EnqueueMerge(
@@ -286,7 +286,7 @@ class TestREST:
         assert deliveries.EnqueueMerge.requests[0].idempotency_key != ""
 
     def test_the_directives_payload_crosses_whole(self, client_del):
-        """Each directive kind's shape is the techlead's (ADR-0015): the edge
+        """Each directive kind's shape is the techlead's (ADR-0011): the edge
         passes it on, it does not interpret it."""
         d = client_del.get(
             "/api/v1/directives?project_id=prj-1", headers=REST_HEADERS

@@ -38,16 +38,16 @@ class RuntimeServiceStub:
     round's result: context → routing → model → measurement → messages →
     finding. The loop of N turns belongs to the caller, and that is precisely
     why the budget manages to interrupt between one round and the next — the
-    demand PAUSES (ADR-0011 §2) instead of being cut in the middle of one.
+    demand PAUSES (ADR-0008 §2) instead of being cut in the middle of one.
 
     2. **There is no streaming here, on purpose.** Live following is the SSE that
     already exists (StreamService.WatchDemand): every published message
-    becomes an event in the core (ADR-0006) and reaches the cockpit on its
+    becomes an event in the core (ADR-0004) and reaches the cockpit on its
     own. A second streaming path would be a second source of truth for the
     SAME timeline, and the two would diverge on the first reconnect.
 
     3. **The agent provider is a per-REQUEST choice.** A provider is a resource
-    of category `agent` (ADR-0013), per account and per project — several
+    of category `agent` (ADR-0009), per account and per project — several
     coexist in the same process. That is why `provider` is a field of the
     request and not boot configuration. Empty = the installation's default.
 
@@ -57,7 +57,7 @@ class RuntimeServiceStub:
     — it is the difference between "nothing was written to the cache" and
     "this provider does not count that", and between "the call was free" and
     "there is no price table". A budget fed with consolation zeroes is the
-    fiction ADR-0011 exists to prevent.
+    fiction ADR-0008 exists to prevent.
 
     """
 
@@ -87,16 +87,16 @@ class RuntimeServiceServicer:
     round's result: context → routing → model → measurement → messages →
     finding. The loop of N turns belongs to the caller, and that is precisely
     why the budget manages to interrupt between one round and the next — the
-    demand PAUSES (ADR-0011 §2) instead of being cut in the middle of one.
+    demand PAUSES (ADR-0008 §2) instead of being cut in the middle of one.
 
     2. **There is no streaming here, on purpose.** Live following is the SSE that
     already exists (StreamService.WatchDemand): every published message
-    becomes an event in the core (ADR-0006) and reaches the cockpit on its
+    becomes an event in the core (ADR-0004) and reaches the cockpit on its
     own. A second streaming path would be a second source of truth for the
     SAME timeline, and the two would diverge on the first reconnect.
 
     3. **The agent provider is a per-REQUEST choice.** A provider is a resource
-    of category `agent` (ADR-0013), per account and per project — several
+    of category `agent` (ADR-0009), per account and per project — several
     coexist in the same process. That is why `provider` is a field of the
     request and not boot configuration. Empty = the installation's default.
 
@@ -106,7 +106,7 @@ class RuntimeServiceServicer:
     — it is the difference between "nothing was written to the cache" and
     "this provider does not count that", and between "the call was free" and
     "there is no price table". A budget fed with consolation zeroes is the
-    fiction ADR-0011 exists to prevent.
+    fiction ADR-0008 exists to prevent.
 
     """
 
@@ -145,16 +145,16 @@ class RuntimeService:
     round's result: context → routing → model → measurement → messages →
     finding. The loop of N turns belongs to the caller, and that is precisely
     why the budget manages to interrupt between one round and the next — the
-    demand PAUSES (ADR-0011 §2) instead of being cut in the middle of one.
+    demand PAUSES (ADR-0008 §2) instead of being cut in the middle of one.
 
     2. **There is no streaming here, on purpose.** Live following is the SSE that
     already exists (StreamService.WatchDemand): every published message
-    becomes an event in the core (ADR-0006) and reaches the cockpit on its
+    becomes an event in the core (ADR-0004) and reaches the cockpit on its
     own. A second streaming path would be a second source of truth for the
     SAME timeline, and the two would diverge on the first reconnect.
 
     3. **The agent provider is a per-REQUEST choice.** A provider is a resource
-    of category `agent` (ADR-0013), per account and per project — several
+    of category `agent` (ADR-0009), per account and per project — several
     coexist in the same process. That is why `provider` is a field of the
     request and not boot configuration. Empty = the installation's default.
 
@@ -164,7 +164,7 @@ class RuntimeService:
     — it is the difference between "nothing was written to the cache" and
     "this provider does not count that", and between "the call was free" and
     "there is no price table". A budget fed with consolation zeroes is the
-    fiction ADR-0011 exists to prevent.
+    fiction ADR-0008 exists to prevent.
 
     """
 

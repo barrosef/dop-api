@@ -1,6 +1,6 @@
 """Running an agent turn — a thin call to the core.
 
-**The runtime does NOT live here** (ADR-0023). It used to, and it was moved: the
+**The runtime does NOT live here** (ADR-0016). It used to, and it was moved: the
 turn needs the agent provider's credential, which lives in the vault, and the
 BFF is the layer exposed to the internet. Giving this layer access to the vault
 would mean that compromising it would hand over EVERY account's agent
@@ -44,7 +44,7 @@ class RunTurn(BaseModel):
     task_kind: str = Field(default="implementation", min_length=1)
     # Which agent integration to use. Empty = the account's only one; if there
     # is more than one, the core REFUSES with the list instead of choosing
-    # (ADR-0013).
+    # (ADR-0009).
     resource_id: str = ""
     # The OPERATOR's instruction, coming from the attention box. It goes in
     # through the provider's authority channel, never as user text.
@@ -69,7 +69,7 @@ class TurnUsage(BaseModel):
 
 
 class RoutingView(BaseModel):
-    """The core's decision, with the WHOLE justification (ADR-0011 §3)."""
+    """The core's decision, with the WHOLE justification (ADR-0008 §3)."""
 
     task_kind: str = ""
     model: str = ""

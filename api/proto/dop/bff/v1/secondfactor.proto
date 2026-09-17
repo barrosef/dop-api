@@ -3,7 +3,7 @@ package dop.bff.v1;
 
 import "google/protobuf/timestamp.proto";
 
-// The second factor at the EDGE (ADR-0027).
+// The second factor at the EDGE (ADR-0020).
 //
 // It mirrors, RPC by RPC, the use cases that already exist in REST — the same
 // function, a second door into the same room.

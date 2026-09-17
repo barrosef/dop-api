@@ -180,7 +180,7 @@ def watch_account_events(
     `since_event_id` is the resume cursor and crosses INTACT into the core: it is
     the core that drains the log from there and splices into the live stream with
     no gap and no duplicate. The edge keeps nobody's read position — if it did,
-    it would have state, and the BFF has no state (ADR-0016).
+    it would have state, and the BFF has no state (ADR-0012).
 
     A plain function (not an `async def`) returning the generator: that way
     `@account_scoped` refuses at the moment of opening, and not at the first

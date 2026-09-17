@@ -1,11 +1,11 @@
-"""Knowledge use cases — rules, index and memory (ADR-0009).
+"""Knowledge use cases — rules, index and memory (ADR-0006).
 
 The same discipline as `identity` and `hierarchy`: the rule lives here, the
 router and the servicer translate. See `app/usecases/identity.py`'s docstring
 for why the decorators live in the use case and not in the adapter.
 
 **The rule that structures this module: what was DROPPED is first-class
-information.** The context package is selected by a token budget (ADR-0012), and
+information.** The context package is selected by a token budget (ADR-0008), and
 what did not fit does not quietly vanish — the screen has to be able to say "the
 context was truncated". Hence `ContextPackageSummary.dropped` being
 `None`-able and never zeroed out of convenience: `None` is "the core did not
@@ -46,7 +46,7 @@ _NAME_BY_KIND = {v: k for k, v in _KIND_BY_NAME.items()}
 _META_BODY = "dop.body"
 _META_SCOPE = "dop.scope"
 
-# The context package's layers (ADR-0009 §1), in the order the token budget cuts
+# The context package's layers (ADR-0006 §1), in the order the token budget cuts
 # them. They are the keys of the core's `map<string,int32> dropped` — written
 # here once, so the translation neither depends on a map's iteration order nor
 # repeats a literal in four places.
@@ -81,7 +81,7 @@ class ArtifactSummary(BaseModel):
 
 
 class DroppedCounts(BaseModel):
-    """What was LEFT OUT of the package, per layer (ADR-0012).
+    """What was LEFT OUT of the package, per layer (ADR-0008).
 
     `truncated` is derived — it is the only field the screen has to consult to
     say "the context was truncated". It is derived here, and not in each client,
@@ -123,7 +123,7 @@ class MemoryHit(BaseModel):
 
 
 class NewArtifact(BaseModel):
-    """A write into the knowledge base — the cycle's way back (ADR-0009 §4).
+    """A write into the knowledge base — the cycle's way back (ADR-0006 §4).
 
     The content arrives in base64 because in the core's contract it is `bytes`:
     a knowledge artifact is markdown, JSON or a generated map, in UTF-8 or not,
@@ -206,7 +206,7 @@ def _drops(package: knowledge_pb2.ContextPackage) -> DroppedCounts | None:
     `truncated` derives from ALL the map's values, not only the four known
     layers: if the core starts dropping in a new layer, its number has no field
     here yet, but "the context was truncated" is still true — and that is the
-    sentence the screen needs to say (ADR-0012).
+    sentence the screen needs to say (ADR-0008).
     """
     d = package.dropped
     if not d:
@@ -224,7 +224,7 @@ async def get_context_package(demand_id: str) -> ContextPackageSummary:
     """The agent's carry-on luggage for a demand, in a single response.
 
     The edge does NOT redo the curation nor recompute `estimated_tokens`: what
-    goes into the package is the core's decision (ADR-0009 §3), and a second
+    goes into the package is the core's decision (ADR-0006 §3), and a second
     cutting criterion here would diverge from the first at the first budget
     adjustment. What the edge adds is what the screen needs and protobuf does not
     give for free: the drops as an explicit fact, and not as silence.
@@ -248,7 +248,7 @@ async def get_context_package(demand_id: str) -> ContextPackageSummary:
 @log
 @account_scoped
 async def search_memory(project_id: str, query: str, limit: int = 0) -> list[MemoryHit]:
-    """What did not fit in the package comes in through here (ADR-0009 §3).
+    """What did not fit in the package comes in through here (ADR-0006 §3).
 
     The core returns artifacts and scores in PARALLEL lists; the edge PAIRS
     them. It is not decoration: two lists the client has to index in parallel is
@@ -311,7 +311,7 @@ async def list_rules(project_id: str) -> list[str]:
 @log
 @account_scoped
 async def put_artifact(body: NewArtifact, idempotency_key: str = "") -> ArtifactSummary:
-    """Writes knowledge — the cycle's way back (ADR-0009 §4).
+    """Writes knowledge — the cycle's way back (ADR-0006 §4).
 
     The idempotency key here is not redundant with a database UNIQUE: rewriting
     the same name in the same scope is a legitimate operation (it bumps the

@@ -30,7 +30,7 @@ class AgentMetricsServiceStub:
 
     Who calls this is NOT the edge: it is the collector, a container beside the
     agent in the sandbox's pod, pushing what Claude Code writes to disk. It signs
-    its calls as the caller `collector` (ADR-0029), and the core lets that caller
+    its calls as the caller `collector` (ADR-0022), and the core lets that caller
     reach THIS service and nothing else — a stolen collector key is worth
     polluting telemetry, never reading an account.
 
@@ -62,7 +62,7 @@ class AgentMetricsServiceServicer:
 
     Who calls this is NOT the edge: it is the collector, a container beside the
     agent in the sandbox's pod, pushing what Claude Code writes to disk. It signs
-    its calls as the caller `collector` (ADR-0029), and the core lets that caller
+    its calls as the caller `collector` (ADR-0022), and the core lets that caller
     reach THIS service and nothing else — a stolen collector key is worth
     polluting telemetry, never reading an account.
 
@@ -115,7 +115,7 @@ class AgentMetricsService:
 
     Who calls this is NOT the edge: it is the collector, a container beside the
     agent in the sandbox's pod, pushing what Claude Code writes to disk. It signs
-    its calls as the caller `collector` (ADR-0029), and the core lets that caller
+    its calls as the caller `collector` (ADR-0022), and the core lets that caller
     reach THIS service and nothing else — a stolen collector key is worth
     polluting telemetry, never reading an account.
 

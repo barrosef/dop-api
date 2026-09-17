@@ -9,7 +9,7 @@ import "google/protobuf/struct.proto";
 // in the demand's cockpit are the SAME thing seen from two places.
 import "dop/bff/v1/demand.proto";
 
-// Knowledge at the EDGE: the project's rules, index and memory (ADR-0009).
+// Knowledge at the EDGE: the project's rules, index and memory (ADR-0006).
 //
 // The same discipline as identity.proto: identity comes from the token in
 // `authorization: Bearer <token>`, the active account from the `x-account-id`
@@ -17,7 +17,7 @@ import "dop/bff/v1/demand.proto";
 //
 // **The decision that structures this contract: what was DROPPED is
 // first-class information.** The context package is SELECTED by a token budget
-// (ADR-0012), and a truncated package presenting itself as complete makes the
+// (ADR-0008), and a truncated package presenting itself as complete makes the
 // screen lie to the dev: they read "the agent has the index" when half the
 // index was left out. That is why `ContextPackage.dropped` exists — and why it
 // is a MESSAGE and not four loose counters: absent means "the core did not
@@ -34,7 +34,7 @@ import "dop/bff/v1/demand.proto";
 //     remains is the AUTHOR's. Leaking an internal convention to the screen
 //     creates coupling nobody can undo later.
 
-// ADR-0009 §1's three layers. The same suffixes and the same NUMBERS as
+// ADR-0006 §1's three layers. The same suffixes and the same NUMBERS as
 // dop.v1.KnowledgeArtifact.Kind — the conversion between the two ends is the
 // identity.
 enum KnowledgeKind {
@@ -80,7 +80,7 @@ message DroppedCounts {
   bool  truncated = 5;
 }
 
-// The agent's carry-on luggage for a demand (ADR-0009 §3).
+// The agent's carry-on luggage for a demand (ADR-0006 §3).
 message ContextPackage {
   string demand_id = 1;
   repeated string rules = 2;
@@ -117,7 +117,7 @@ service KnowledgeService {
 }
 
 // It takes no token budget, on purpose: the package's ceiling is cost policy
-// (ADR-0011), and letting the client choose its own ceiling would turn the
+// (ADR-0008), and letting the client choose its own ceiling would turn the
 // governance into a suggestion. The core decides; the edge shows the result AND
 // what was dropped.
 message GetContextPackageRequest { string demand_id = 1; }
@@ -138,7 +138,7 @@ message SearchMemoryResponse { repeated MemoryHit hits = 1; }
 // out-of-date one.
 message ReadIndexRequest { string project_id = 1; string repo = 2; }
 
-// The cycle's write-back (ADR-0009 §4): today's finding is tomorrow's demand's
+// The cycle's write-back (ADR-0006 §4): today's finding is tomorrow's demand's
 // context.
 message PutArtifactRequest {
   KnowledgeKind kind       = 1;
@@ -151,7 +151,7 @@ message PutArtifactRequest {
   bytes         content    = 4;
   google.protobuf.Struct meta = 5;
 
-  // Every write carries an idempotency key (ADR-0017). Here it is NOT redundant
+  // Every write carries an idempotency key (ADR-0013). Here it is NOT redundant
   // with a UNIQUE: rewriting the same name in the same scope is a legitimate
   // operation (it bumps the version), so without the key a network retry would
   // silently become a new version. Empty = the BFF generates one, which is what

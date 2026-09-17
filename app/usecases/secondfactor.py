@@ -1,13 +1,13 @@
 """Second factor use cases — called by REST and by gRPC, with no duplication.
 
-The rule lives in the CORE (ADR-0027): the seed is in the vault, the code is
+The rule lives in the CORE (ADR-0020): the seed is in the vault, the code is
 checked there, and the step-up is recorded there. What is here is the edge's
 work — translating, and refusing early what does not need a round trip.
 
 Two things this module deliberately does NOT do:
 
   - it does not keep the code, the seed or the challenge. The BFF has no
-    database and no secret (ADR-0023), and a cache "just for the challenge"
+    database and no secret (ADR-0016), and a cache "just for the challenge"
     would be the second place where a live credential exists;
   - it does not decide who may enrol what. The policy is the account's, read in
     the core: duplicating it here would be the second ruler this platform keeps

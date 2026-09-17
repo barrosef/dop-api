@@ -1,6 +1,6 @@
 """SSE routes — the core's gRPC streaming converted for the browser.
 
-ADR-0017 (convention 1) commands: *server-side streaming for everything live;
+ADR-0013 (convention 1) commands: *server-side streaming for everything live;
 the BFF converts it into SSE for the browser*. This module is that conversion.
 Zero business decisions here — the rule is in `app/usecases/stream.py`.
 

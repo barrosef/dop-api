@@ -5,7 +5,7 @@ running the handler. It returns the triple `(user_id, role, grants)` that makes
 up the AuthContext.
 
 The rule this module defends: the BFF does NOT decide permission. It asks. Roles
-and grants live in the core, next to the state that justifies them (ADR-0016).
+and grants live in the core, next to the state that justifies them (ADR-0012).
 If a role table ever appears here, the boundary has fallen.
 """
 
@@ -62,7 +62,7 @@ class CoreResolver:
         """Idempotent by design — it runs on EVERY login, not only the first.
 
         It carries the person's TOKEN and not only the edge's assertion,
-        because since ADR-0029 the core reads who the person is from the
+        because since ADR-0022 the core reads who the person is from the
         signature it verified itself rather than from this request's body.
         Without the header the core refuses, and it refuses on every request,
         not only the first.

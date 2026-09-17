@@ -48,9 +48,9 @@ COST_MICROS = 12_345_678
 COST_AS_DECIMAL = "12.345678"
 
 # The justification as the core builds it: provenance + the row's why.
-PROVENANCE = "ADR-0011 §3 (draft — calibrate with telemetry, P-7)"
+PROVENANCE = "ADR-0008 §3 (draft — calibrate with telemetry, P-7)"
 REASON = (
-    "you do not save on the critic — it is the brake (ADR-0007); saving on the "
+    "you do not save on the critic — it is the brake (ADR-0005); saving on the "
     "brake returns the cost as a rejected PR, the most expensive rework in the flow"
 )
 JUSTIFICATION = f"{PROVENANCE}: {REASON}"
@@ -321,7 +321,7 @@ class TestTheRoutingJustification:
 
 
 class TestABlownBudget:
-    """A SOFT cut (ADR-0011 §2): it pauses and asks, not a bare error."""
+    """A SOFT cut (ADR-0008 §2): it pauses and asks, not a bare error."""
 
     def test_an_overrun_is_not_an_error_and_the_consumption_stays_recorded(self, client_cost, cost):
         cost.estourou()
@@ -344,7 +344,7 @@ class TestABlownBudget:
             json={"model": "claude-opus", "demand_id": "dem-1", "cost_micros": 1},
         ).json()
         assert "PAUSES" in body["notice"]
-        assert "ADR-0011" in body["notice"]
+        assert "ADR-0008" in body["notice"]
         # And the numbers the human decides with come along.
         assert [b["scope"] for b in body["budgets"]] == ["demand", "account"]
         assert body["budgets"][0]["spent"]["amount_micros"] == 12_000_000

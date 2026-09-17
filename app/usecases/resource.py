@@ -60,7 +60,7 @@ class NewResource(BaseModel):
     name: str = Field(min_length=1)
     # The category and the provider go here: the category is a lowercase string
     # (git | task_manager | agent) because the one that rules the vocabulary is
-    # the provider, not the platform (ADR-0013).
+    # the provider, not the platform (ADR-0009).
     config: dict = Field(default_factory=dict)
 
 
@@ -202,7 +202,7 @@ async def set_credential(resource_id: str, body: NewCredential) -> ResourceSumma
 @require_role("owner", "admin")
 async def grant_resource(body: NewGrant) -> GrantSummary:
     """A grant is always explicit — a credentialed resource is closed by
-    default, and there is no default that opens it (ADR-0013)."""
+    default, and there is no default that opens it (ADR-0009)."""
     g = await stubs.resource_stub().GrantResource(
         resource_pb2.GrantResourceRequest(
             resource_id=body.resource_id,

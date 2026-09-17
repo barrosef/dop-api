@@ -39,7 +39,7 @@ enum Role {
 }
 
 // A grant over a resource, composed IN THE INVITE — with no defaults
-// (ADR-0013). Here the resource is the raw id, and not a ResourceRef: the edge
+// (ADR-0009). Here the resource is the raw id, and not a ResourceRef: the edge
 // already knows which account it is talking about (it comes from the metadata),
 // and a one-field wrapper would cost more client lines than it conveys.
 message ResourceGrantSpec {
@@ -115,7 +115,7 @@ message InviteSummary {
   Status status = 4;
   google.protobuf.Timestamp expires_at = 5;
 
-  // There is no token here because the invite HAS no token (ADR-0026). The
+  // There is no token here because the invite HAS no token (ADR-0019). The
   // `id` is what the e-mail's link carries, and on its own it grants nothing:
   // acceptance requires the session's VERIFIED e-mail to be the invite's. That
   // is what lets the id travel in the event, in the timeline and in the
@@ -203,7 +203,7 @@ message CreateAccountRequest {
   string display_name = 2;
   string legal_id     = 3;  // the company's registration number
 
-  // Every write carries an idempotency key (ADR-0017): repeating the call must
+  // Every write carries an idempotency key (ADR-0013): repeating the call must
   // not duplicate the effect. The one that sends it is the CLIENT, because it is
   // the one that knows whether it is retrying or asking for something else.
   // Empty = the BFF generates one, which is what REST does — it protects against

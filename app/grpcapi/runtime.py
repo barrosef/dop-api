@@ -1,6 +1,6 @@
 """The turn-running gRPC servicer — a protobuf adapter, nothing more.
 
-The runtime does NOT live in the BFF (ADR-0023): this servicer calls the same
+The runtime does NOT live in the BFF (ADR-0016): this servicer calls the same
 function from `app/usecases/runtime.py` the REST route calls, and that one calls
 the core.
 
@@ -27,7 +27,7 @@ def _outcome(o: uc.TurnOutcome) -> bff.TurnOutcome:
             effort=o.routing.effort,
             effort_applied=o.routing.effort_applied,
             # The justification goes WHOLE, with the provenance up front: it is
-            # the only auditable part of the routing decision (ADR-0011 §3).
+            # the only auditable part of the routing decision (ADR-0008 §3).
             reason=o.routing.reason,
             from_agent_card=o.routing.from_agent_card,
         ),

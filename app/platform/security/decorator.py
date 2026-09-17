@@ -3,7 +3,7 @@
     @public                       exempt from authentication
     @account_scoped               requires an active account (SP-0's rule)
     @require_role("admin")        a role in the active account
-    @require_grant("use")         a grant over a resource (ADR-0013)
+    @require_grant("use")         a grant over a resource (ADR-0009)
 """
 
 import asyncio

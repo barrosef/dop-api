@@ -3,7 +3,7 @@ package dop.bff.v1;
 
 import "google/protobuf/timestamp.proto";
 
-// LLM cost at the EDGE: measurement, budget and routing (ADR-0011).
+// LLM cost at the EDGE: measurement, budget and routing (ADR-0008).
 //
 // The same discipline as identity.proto: identity comes from the token in
 // `authorization: Bearer <token>`, the active account from the `x-account-id`
@@ -19,7 +19,7 @@ import "google/protobuf/timestamp.proto";
 //    does not divide by 1,000,000 to "make the screen's life easier" — the one
 //    that formats is the screen, which knows the locale.
 //
-// 2. **A blown budget is not an error.** ADR-0011 §2 chose a SOFT cut: the
+// 2. **A blown budget is not an error.** ADR-0008 §2 chose a SOFT cut: the
 //    demand pauses and asks (the attention box), it never dies halfway nor
 //    keeps burning. A 402/RESOURCE_EXHAUSTED here would be the hard cut the ADR
 //    refused — and it would erase the measurement precisely when it matters
@@ -44,7 +44,7 @@ message BudgetView {
   // "the core did not say".
   Money  limit    = 3;
   Money  spent    = 4;
-  // ABSENT = a scope with NO CEILING (a zero limit, ADR-0011). Zero would mean
+  // ABSENT = a scope with NO CEILING (a zero limit, ADR-0008). Zero would mean
   // "the money ran out", which is the opposite. It is the same discipline as
   // Project.task_manager in hierarchy.proto.
   Money  remaining = 5;
@@ -53,7 +53,7 @@ message BudgetView {
 // task → (model, effort), WITH the why.
 //
 // `reason` arrives from the core already prefixed by the policy's PROVENANCE —
-// "ADR-0011 §3 (draft — calibrate with telemetry, P-7): …". The edge passes it
+// "ADR-0008 §3 (draft — calibrate with telemetry, P-7): …". The edge passes it
 // on whole, and that is a rule, not carelessness:
 //   - without it nobody audits "why did this demand run on the expensive
 //     model?";
@@ -82,7 +82,7 @@ message UsageEvent {
   int64  input_tokens  = 5;
   int64  output_tokens = 6;
   // Zeroed on a prefix that should be stable = a silent cache invalidator = an
-  // alert (ADR-0012 §1). The one who classifies is whoever has the telemetry;
+  // alert (ADR-0008 §1). The one who classifies is whoever has the telemetry;
   // the edge delivers the number.
   int64  cache_read_tokens     = 7;
   int64  cache_creation_tokens = 8;

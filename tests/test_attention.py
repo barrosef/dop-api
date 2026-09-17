@@ -533,7 +533,7 @@ class TestSSE:
         )
 
     def test_last_event_id_becomes_the_cores_cursor(self, core, monkeypatch):
-        """The link ADR-0017 asks for: the SSE header → `since_event_id`."""
+        """The link ADR-0013 asks for: the SSE header → `since_event_id`."""
         fake = with_stream(monkeypatch, [opened(QUEUE[0])])
         with TestClient(_app_with_routes()) as c:
             c.get(

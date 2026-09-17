@@ -52,7 +52,7 @@ async def list_pull_requests(demand_id: str = "", project_id: str = "") -> list[
 
 @router.get("/repos/{repo_id}/merge-queue", response_model=list[MergeQueueEntry])
 async def get_merge_queue(repo_id: str) -> list[MergeQueueEntry]:
-    """ONE repository's queue — it is the repository that serializes (ADR-0008)."""
+    """ONE repository's queue — it is the repository that serializes (ADR-0005)."""
     return await uc.get_merge_queue(repo_id)
 
 
@@ -76,7 +76,7 @@ async def enqueue_merge(
     FAILED_PRECONDITION becomes on any other route (`app/platform/errors.py`) —
     but with the body carrying `missing` item by item, instead of a single
     sentence. It is that list that tells the dev what to arrange in order to get
-    in (ADR-0007).
+    in (ADR-0005).
     """
     attempt = await uc.enqueue_merge(repo_id, body, idempotency_key)
     if attempt.refusal is not None:
@@ -97,5 +97,5 @@ async def decide_directive(
     body: DirectiveDecision,
     idempotency_key: str = Header(default="", alias="Idempotency-Key"),
 ) -> Directive:
-    """The coordination decision is the dev's; the techlead recommends (ADR-0015)."""
+    """The coordination decision is the dev's; the techlead recommends (ADR-0011)."""
     return await uc.decide_directive(directive_id, body, idempotency_key)

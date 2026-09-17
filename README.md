@@ -7,7 +7,7 @@ The DOP platform's BFF. Two doors in, a single core behind them:
 
 ## The rule that defines this process
 
-**The BFF has no database** (ADR-0016). No connection to Postgres — not even
+**The BFF has no database** (ADR-0012). No connection to Postgres — not even
 "just for a quick query". Two owners of the schema is how the boundary dies in
 three weeks. When it needs state, it **calls the core**, which writes the state
 and the event in the same transaction.
@@ -64,7 +64,7 @@ concern stays invisible in the business code.
 | `@public` | exempts from authentication (registered by a route sweep at boot) |
 | `@account_scoped` | requires an active account and **refuses a request without one** — SP-0's rule |
 | `@require_role("admin")` | a role in the active account |
-| `@require_grant("use")` | a grant over a resource (ADR-0013) |
+| `@require_grant("use")` | a grant over a resource (ADR-0009) |
 
 They stack in the order log → scope → permission:
 

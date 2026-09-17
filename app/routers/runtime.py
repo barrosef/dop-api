@@ -1,6 +1,6 @@
 """The turn-running route — an HTTP translation, nothing more.
 
-The runtime does NOT live in the BFF (ADR-0023): this route calls the core,
+The runtime does NOT live in the BFF (ADR-0016): this route calls the core,
 which is the one that reads the provider's credential, from the vault, in the
 same process.
 """
@@ -24,13 +24,13 @@ async def run_turn(
 ) -> TurnOutcome:
     """Runs one agent turn on this thread.
 
-    **It answers 200 even when the budget is blown.** ADR-0011 §2's cut is soft:
+    **It answers 200 even when the budget is blown.** ADR-0008 §2's cut is soft:
     the demand pauses and becomes an item in the attention box, and the turn that
     already ran comes back whole — the reply was published on the thread and so
     was the finding. `paused` and `notice` bring what the human needs to decide.
 
     **Live following does not come out through here.** The published messages
-    are events (ADR-0006) and arrive through the SSE that already exists
+    are events (ADR-0004) and arrive through the SSE that already exists
     (`GET /api/v1/stream/demands/{demand_id}`). This route returns the
     consolidated result; a second streaming path would be a second source of
     truth for the same timeline.

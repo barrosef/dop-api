@@ -8,7 +8,7 @@ case — authorization pinned to the router would leave the gRPC door open.
 
 What this module delivers to the client is the **provenance**: the effective
 flow is the result of the chain `platform ◁ account ◁ workspace ◁ project ◁
-demand` (ADR-0014 §3), and "why did this demand follow this flow?" is the
+demand` (ADR-0010 §3), and "why did this demand follow this flow?" is the
 question that reaches support.
 
 The core returns that in two ways, and the edge uses the right one.
@@ -110,7 +110,7 @@ def _idempotency(key: str = "") -> str:
 class StageSpec(BaseModel):
     key: str = Field(min_length=1)
     name: str = ""
-    # The platform's CLOSED vocabulary (ADR-0014 §1): a new type requires the
+    # The platform's CLOSED vocabulary (ADR-0010 §1): a new type requires the
     # platform to evolve. Composing stages, that is free.
     type: str = "generic"
     artifacts: list[str] = Field(default_factory=list)
@@ -129,7 +129,7 @@ class Flow(BaseModel):
 
 
 class NewFlow(BaseModel):
-    """The flow goes in whole — v1 has no per-stage editing (ADR-0014 §2)."""
+    """The flow goes in whole — v1 has no per-stage editing (ADR-0010 §2)."""
 
     name: str = Field(min_length=1)
     description: str = ""
@@ -305,7 +305,7 @@ async def resolve_flow(scope: str, scope_id: str = "") -> EffectiveFlow:
 @require_role("owner", "admin", "developer")
 async def create_flow(body: NewFlow, idempotency_key: str = "") -> Flow:
     """A flow is KNOWLEDGE, not a credential: open within the account
-    (ADR-0014 §6). That is why a developer composes their own project's flow —
+    (ADR-0010 §6). That is why a developer composes their own project's flow —
     what requires management is PROMOTING, which changes the way of working of
     people who did not ask."""
     f = await stubs.workflow_stub().CreateFlow(
@@ -328,7 +328,7 @@ async def update_flow(flow_id: str, body: NewFlow) -> Flow:
     No idempotency_key on purpose: the one that versions is the core, and the
     call does not create a second aggregate if repeated — it produces another
     version of the same one, which is the requested effect. Demands under way
-    carry on with the version they froze (ADR-0014 §4).
+    carry on with the version they froze (ADR-0010 §4).
     """
     f = await stubs.workflow_stub().UpdateFlow(
         workflow_pb2.UpdateFlowRequest(flow=_flow_for_the_core(body, flow_id)),
@@ -358,7 +358,7 @@ async def validate_flow(body: NewFlow) -> ValidationReport:
 async def promote_flow(flow_id: str, body: PromotionTarget) -> Flow:
     """Promoting changes the process of people who did not ask — hence requiring management.
 
-    ADR-0014 §5 asks for `manage` over the flow; until the core exposes a
+    ADR-0010 §5 asks for `manage` over the flow; until the core exposes a
     per-flow grant to the BFF, owner and admin (who have implicit manage over
     every resource) are the conservative approximation: one refusal too many,
     never one too few.

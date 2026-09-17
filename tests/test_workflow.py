@@ -309,7 +309,7 @@ class TestREST:
         assert request.flow.stages[0].gate == workflow_pb2.GATE_HUMAN
 
     def test_a_developer_composes_a_flow(self, client_flow, core):
-        """A flow is knowledge, open within the account (ADR-0014 §6)."""
+        """A flow is knowledge, open within the account (ADR-0010 §6)."""
         core.demote_to_developer()
         r = client_flow.post(
             "/api/v1/flows",

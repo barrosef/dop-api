@@ -1,6 +1,6 @@
 """The core's gRPC client: deadline, retry and context propagation.
 
-The ADR-0016 rule this module materializes: the BFF has NO database. Everything
+The ADR-0012 rule this module materializes: the BFF has NO database. Everything
 that needs state goes through here. If somebody adds a Postgres driver to the
 BFF, the boundary dies in three weeks.
 """
@@ -20,7 +20,7 @@ from app.settings import settings
 DEFAULT_DEADLINE_S = float(os.getenv("CORE_DEADLINE_S", "10"))
 
 # Retry on the channel: only for REALLY retryable errors. Writes carry an
-# idempotency_key (ADR-0017), so repeating is safe.
+# idempotency_key (ADR-0013), so repeating is safe.
 _RETRY_POLICY = {
     "methodConfig": [
         {
@@ -44,7 +44,7 @@ class _ServiceIdentity(grpc.AuthMetadataPlugin):
     permission the request is refused at the platform, and nothing of ours
     executes. It answers "may this caller invoke this service" — a different
     question from the person's token (who is this human) and from the signed
-    assertion (which component is asserting). ADR-0029 keeps all three.
+    assertion (which component is asserting). ADR-0022 keeps all three.
 
     The header is X-Serverless-Authorization, not Authorization, and that is the
     whole reason this class exists rather than gRPC's built-in call credentials.
@@ -160,7 +160,7 @@ class CoreClient:
         no active account and the core's interceptor would refuse it.
         """
         md = [("x-request-id", current_request_id() or uuid.uuid4().hex)]
-        # The PROOF (ADR-0029). It goes on every call, including the ones with
+        # The PROOF (ADR-0022). It goes on every call, including the ones with
         # no actor yet — the resolver's — because what it proves there is that
         # the caller is the edge, which is the question those calls raise.
         key = settings.call_auth_key
@@ -187,10 +187,10 @@ class CoreClient:
                 # authorship from here, and the whole platform starts from "the
                 # dev is a manager of agents": recording the agent's answer as
                 # the human's speech corrupts the event log, which is the truth
-                # (ADR-0006).
+                # (ADR-0004).
                 ("x-actor-kind", actor_kind),
                 ("x-actor-name", actor_name),
-                # The SESSION, for the second factor's step-up (ADR-0027 §5).
+                # The SESSION, for the second factor's step-up (ADR-0020 §5).
                 # It travels like every other field here — with the limit P-18
                 # describes, which this feature makes load-bearing.
                 ("x-session-id", session_id),

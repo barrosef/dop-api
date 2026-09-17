@@ -1,4 +1,4 @@
-"""REST for the second factor (ADR-0027).
+"""REST for the second factor (ADR-0020).
 
 Note which routes are NOT here: there is no reading of the seed, no reading of a
 code, and no route that manages somebody else's factor. The three absences are

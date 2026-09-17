@@ -20,7 +20,7 @@ import "google/protobuf/struct.proto";
 //
 // The refusal comes as a RESPONSE, not as an error: for the agent asking to
 // enter the queue, "not yet, this is missing" is an answer with work to do, not
-// an exception (ADR-0007 §2). In REST it comes out as a 412 with the same body,
+// an exception (ADR-0005 §2). In REST it comes out as a 412 with the same body,
 // because there the status code is part of the response.
 
 message Reviewer {
@@ -49,7 +49,7 @@ message PullRequest {
 }
 
 // A queue per repository: rebase → re-verification → merge, one at a time
-// (ADR-0008). It is the repository that serializes — two PRs in different
+// (ADR-0005). It is the repository that serializes — two PRs in different
 // repositories do not invalidate each other, and that is why there is no "the
 // queue" in the singular.
 message MergeQueueEntry {
@@ -71,7 +71,7 @@ message MergeQueueEntry {
 }
 
 // The dev's decision about a cross-cutting concern, applied by the agents
-// (ADR-0015).
+// (ADR-0011).
 message Directive {
   enum Kind {
     KIND_UNSPECIFIED    = 0;
@@ -88,10 +88,10 @@ message Directive {
   string decided_by_name = 6;
 }
 
-// The queue's refusal, item by item (ADR-0007).
+// The queue's refusal, item by item (ADR-0005).
 message MergeRefusal {
   // The core's sentence without the detail — "the merge queue refuses entry
-  // with no evidence of green for commit abc1234 (ADR-0007)".
+  // with no evidence of green for commit abc1234 (ADR-0005)".
   string reason = 1;
   // What is missing, one item per line, in the order the core listed them.
   // Empty when the refusal is not about green (an already merged PR, a

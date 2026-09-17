@@ -27,7 +27,7 @@ class Principal:
     providers: list[str] = field(default_factory=list)
     # session_id identifies THIS sign-in, and it exists for the second factor:
     # the step-up is per (user, session), because two open sessions are two
-    # doors and one of them answering must not open the other (ADR-0027 §5).
+    # doors and one of them answering must not open the other (ADR-0020 §5).
     #
     # It is DERIVED, not stored: the subject plus the instant the person
     # authenticated, hashed. It survives the token refresh (auth_time does not
@@ -43,7 +43,7 @@ class AuthContext:
 
     principal: Principal
     # The token the person presented, whole. It is forwarded to the core so the
-    # core can verify it ITSELF (ADR-0029) instead of taking our word for who
+    # core can verify it ITSELF (ADR-0022) instead of taking our word for who
     # the actor is. It is not a credential of ours and it is never stored.
     raw_token: str = ""
     user_id: str = ""

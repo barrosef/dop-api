@@ -32,13 +32,13 @@ __all__ = [
 
 @router.get("/demands/{demand_id}/context-package", response_model=ContextPackageSummary)
 async def get_context_package(demand_id: str) -> ContextPackageSummary:
-    """The agent's carry-on luggage for this demand (ADR-0009 §3).
+    """The agent's carry-on luggage for this demand (ADR-0006 §3).
 
     `dropped` is the field that matters in this response: **`null` means the core
     did not report the drops** (today the `dop.v1` contract does not carry them),
     and not "nothing was dropped". When it comes filled in, `dropped.truncated`
     says in a single field whether the context fitted whole — the screen has to be
-    able to warn that it did not (ADR-0012).
+    able to warn that it did not (ADR-0008).
     """
     return await uc.get_context_package(demand_id)
 

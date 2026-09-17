@@ -15,16 +15,16 @@ import "dop/bff/v1/cost.proto";
 //    round's result: context → routing → model → measurement → messages →
 //    finding. The loop of N turns belongs to the caller, and that is precisely
 //    why the budget manages to interrupt between one round and the next — the
-//    demand PAUSES (ADR-0011 §2) instead of being cut in the middle of one.
+//    demand PAUSES (ADR-0008 §2) instead of being cut in the middle of one.
 //
 // 2. **There is no streaming here, on purpose.** Live following is the SSE that
 //    already exists (StreamService.WatchDemand): every published message
-//    becomes an event in the core (ADR-0006) and reaches the cockpit on its
+//    becomes an event in the core (ADR-0004) and reaches the cockpit on its
 //    own. A second streaming path would be a second source of truth for the
 //    SAME timeline, and the two would diverge on the first reconnect.
 //
 // 3. **The agent provider is a per-REQUEST choice.** A provider is a resource
-//    of category `agent` (ADR-0013), per account and per project — several
+//    of category `agent` (ADR-0009), per account and per project — several
 //    coexist in the same process. That is why `provider` is a field of the
 //    request and not boot configuration. Empty = the installation's default.
 //
@@ -34,7 +34,7 @@ import "dop/bff/v1/cost.proto";
 //    — it is the difference between "nothing was written to the cache" and
 //    "this provider does not count that", and between "the call was free" and
 //    "there is no price table". A budget fed with consolation zeroes is the
-//    fiction ADR-0011 exists to prevent.
+//    fiction ADR-0008 exists to prevent.
 
 service RuntimeService {
   rpc RunTurn (RunTurnRequest) returns (TurnOutcome);
@@ -54,14 +54,14 @@ message RunTurnRequest {
   // Empty = the installation's default provider. See the header's decision 3.
   // Which agent integration to use. Empty = the account's only one; if there is
   // more than one, the core REFUSES with the list instead of choosing
-  // (ADR-0013).
+  // (ADR-0009).
   string resource_id = 5;
   // The OPERATOR's instruction, coming from the attention box. It goes in
   // through the provider's authority channel (a `system`/`developer` message
   // AFTER the history), never as user text: it is the difference between an
   // instruction that authorizes and a text anybody can write. It also preserves
   // the cached prefix, instead of rewriting the top of the prompt
-  // (ADR-0012 §1).
+  // (ADR-0008 §1).
   string operator_note = 6;
   // 0 = the BFF's default.
   int32 max_output_tokens = 7;
@@ -77,19 +77,19 @@ message RunTurnRequest {
 message RoutingView {
   string task_kind = 1;
   // The model's CONCRETE name at the active provider. The core decides the
-  // CLASS (ADR-0011 §3); the catalogue that translates class → name is per
+  // CLASS (ADR-0008 §3); the catalogue that translates class → name is per
   // provider, and it lives on the edge's side — the same policy × catalogue
   // separation as internal/domain/cost/router.go.
   string model = 2;
   // The effort ASKED FOR (the core's vocabulary: low|medium|high|xhigh|max).
   string effort = 3;
   // The effort ACTUALLY applied. It may be lower: not every provider has all
-  // five levels, and pretending it applied `max` on a critical task (ADR-0007)
+  // five levels, and pretending it applied `max` on a critical task (ADR-0005)
   // would be hiding a product decision inside an adapter.
   string effort_applied = 4;
   // The justification with the provenance up front, whole. See cost.proto.
   string reason = 5;
-  // True when the thread's BRIEF (ADR-0010 §2) beat the router: the brief is
+  // True when the thread's BRIEF (ADR-0007 §2) beat the router: the brief is
   // that thread's frozen contract, and changing its model halfway would
   // invalidate the cached prefix of every previous turn.
   bool from_agent_card = 6;
@@ -135,19 +135,19 @@ message TurnOutcome {
   bool concluded = 7;
   FindingRef finding = 8;
   TurnUsage usage = 9;
-  // The context package came back TRUNCATED by the token budget (ADR-0012). It
+  // The context package came back TRUNCATED by the token budget (ADR-0008). It
   // is not only signalled here: it becomes a message on the thread, because the
   // human needs to know the answer was produced without part of the material.
   bool context_truncated = 10;
   // The budget was blown: the demand PAUSES and becomes an item for a decision
-  // (ADR-0011 §2). It is NOT an error, and the turn that already ran comes back
+  // (ADR-0008 §2). It is NOT an error, and the turn that already ran comes back
   // whole — the reply was published and so was the finding. What does not go
   // out is the NEXT turn.
   bool paused = 11;
   // A ready-made sentence for the attention box; empty when it did not pause.
   string notice = 12;
   // The blown budgets — the numbers with which the human decides.
-  reserved 13, 14;  // budgets/warnings: they lived in the BFF's runtime (ADR-0023)
+  reserved 13, 14;  // budgets/warnings: they lived in the BFF's runtime (ADR-0016)
   // Readable warnings: an effort downgraded by the provider, a reply cut at the
   // token limit, a conclusion refused for want of a finding, a provider with no
   // cache accounting. Empty on the happy path.

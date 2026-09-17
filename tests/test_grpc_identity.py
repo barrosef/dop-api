@@ -91,7 +91,7 @@ class TestHappyPath:
         await stub_grpc.CreateAccount(
             bff.CreateAccountRequest(handle="acme", display_name="ACME"), metadata=ACCOUNT
         )
-        assert core.CreateAccount.last["request"].idempotency_key  # ADR-0017
+        assert core.CreateAccount.last["request"].idempotency_key  # ADR-0013
 
     async def test_create_invite_carries_the_role_and_the_grants(self, stub_grpc, core):
         invite = await stub_grpc.CreateInvite(

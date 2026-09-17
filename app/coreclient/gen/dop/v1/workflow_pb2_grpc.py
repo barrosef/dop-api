@@ -162,7 +162,7 @@ class WorkflowServiceServicer:
         """── sharing: publish, grant, derive, pin (flow sharing spec) ──────────────
 
         Nothing here is live — every RPC below is request/response, never a
-        stream, matching ADR-0017 convention 1: server-side streaming is reserved
+        stream, matching ADR-0013 convention 1: server-side streaming is reserved
         for what actually changes while the client is looking at it.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

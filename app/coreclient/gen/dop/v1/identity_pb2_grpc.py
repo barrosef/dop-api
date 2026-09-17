@@ -155,7 +155,7 @@ class IdentityServiceServicer:
 
         Read it as what it would be if it were open — an endpoint that mails
         arbitrary text to an arbitrary address is a relay. It is not open: only a
-        caller the core verified reaches it (ADR-0029), and the per-address ceiling
+        caller the core verified reaches it (ADR-0022), and the per-address ceiling
         is the second line for the day the first one has a hole.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

@@ -1,4 +1,4 @@
-"""How the edge PROVES to the core who is calling (ADR-0029).
+"""How the edge PROVES to the core who is calling (ADR-0022).
 
 Until this existed the edge simply stated it — `x-actor-id` in a header — and
 the core believed. The metadata is text: whoever could reach the core's gRPC

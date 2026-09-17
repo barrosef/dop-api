@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # core's normal deadline would kill every real turn.
     agent_turn_deadline_s: float = 600.0
 
-    # The key the edge signs its assertions to the core with (ADR-0029). Empty
+    # The key the edge signs its assertions to the core with (ADR-0022). Empty
     # means the edge signs nothing — which only works while the core runs in
     # `permissive`, and is exactly what the migration needs.
     call_auth_key: str = ""

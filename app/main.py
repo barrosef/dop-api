@@ -5,7 +5,7 @@ Two doors in, a single core behind them:
   gRPC        → dop-cli and the sandboxes' agents
 
 What this process does NOT do: talk to a database. All state comes from dop-core
-(ADR-0016).
+(ADR-0012).
 """
 
 import os
@@ -48,7 +48,7 @@ def _bridge_storage_emulator() -> None:
     """The STORAGE_EMULATOR_HOST ↔ FIREBASE_STORAGE_EMULATOR_HOST bridge.
 
     The Cloud Storage SDK reads the first; the Firebase CLI exposes the second.
-    Without this bridge, a local upload goes to the REAL bucket (ADR-0020 §4).
+    Without this bridge, a local upload goes to the REAL bucket (ADR-0015 §4).
     """
     fb = os.getenv("FIREBASE_STORAGE_EMULATOR_HOST")
     if fb and not os.getenv("STORAGE_EMULATOR_HOST"):
@@ -131,7 +131,7 @@ def create_app() -> FastAPI:
     # The order matters: logging opens the context, auth fills in the principal.
     # The resolver is the one that asks the CORE for the user_id, the role and
     # the grants — the BFF does not decide permission, it translates the core's
-    # decision (ADR-0016).
+    # decision (ADR-0012).
     app.add_middleware(AuthMiddleware, verifier=verifier, resolver=CoreResolver())
     app.add_middleware(LoggingMiddleware)
     app.add_middleware(

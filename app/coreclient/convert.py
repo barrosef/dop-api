@@ -59,11 +59,11 @@ ACTOR_KIND_BY_NAME = {
 # call_context / call_context_from USED TO LIVE HERE.
 #
 # They built the `CallContext ctx = 1` that every request carried and the core
-# ignored: authorization reads the metadata (ADR-0017, convention 5). The field
+# ignored: authorization reads the metadata (ADR-0013, convention 5). The field
 # left the contract, and with it the only reason to build one.
 #
 # What they carried that mattered — WHO, in WHICH account, and above all the
 # actor's KIND — already travels in `metadata_for`: `x-actor-id`,
 # `x-account-id`, `x-actor-kind` and `x-session-id`. The kind is the one worth
 # naming here: recording an agent's answer as the human's speech corrupts the
-# event log, which is the demand's truth (ADR-0006).
+# event log, which is the demand's truth (ADR-0004).

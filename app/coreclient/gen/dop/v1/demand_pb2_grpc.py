@@ -155,7 +155,7 @@ class DemandServiceServicer:
 
         The read existed only in the Go domain, and the edge had no way to show the
         board of findings — which is what stops an agent (or a human) from redoing
-        an investigation another has already concluded (ADR-0009). Reading through
+        an investigation another has already concluded (ADR-0006). Reading through
         the context package does not do: that one is truncated by token budget and
         its assembly records a measurement event, so opening a screen would become a
         cost line.
@@ -165,7 +165,7 @@ class DemandServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def WatchDemand(self, request, context):
-        """Streaming: the BFF converts it into SSE (ADR-0017).
+        """Streaming: the BFF converts it into SSE (ADR-0013).
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

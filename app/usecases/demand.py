@@ -360,7 +360,7 @@ async def list_threads(demand_id: str) -> list[Thread]:
 async def list_findings(demand_id: str, thread_id: str = "") -> list[Finding]:
     """The demand's board of findings; with `thread_id`, only one thread's.
 
-    It is the durable record of each concluded investigation (ADR-0009) — and it
+    It is the durable record of each concluded investigation (ADR-0006) — and it
     is what stops an agent, or a human, from redoing what another already
     finished.
 
@@ -413,7 +413,7 @@ async def get_cockpit(demand_id: str) -> DemandCockpit:
 @account_scoped
 @require_role("owner", "admin", "developer")
 async def start_demand(body: NewDemand, idempotency_key: str = "") -> Demand:
-    """Starting RESOLVES and FREEZES the flow (ADR-0014 §4).
+    """Starting RESOLVES and FREEZES the flow (ADR-0010 §4).
 
     That is why it is a write with an idempotency key and not a GET-or-create:
     the channel's retry with no key would open two demands for the same card.
@@ -481,7 +481,7 @@ async def decide_gate(
 @account_scoped
 @require_role("owner", "admin", "developer")
 async def create_thread(demand_id: str, body: NewThread, idempotency_key: str = "") -> Thread:
-    """Launches a thread (a subagent) on the demand — ADR-0010."""
+    """Launches a thread (a subagent) on the demand — ADR-0007."""
     request = demand_pb2.CreateThreadRequest(
         demand_id=demand_id,
         key=body.key,
@@ -514,7 +514,7 @@ async def post_message(
     idempotency_key: str = "",
     actor_kind: str = "user",
 ) -> Message:
-    """A message on the thread. Every message is an event (ADR-0006).
+    """A message on the thread. Every message is an event (ADR-0004).
 
     `actor_kind` decides the AUTHORSHIP in the log. The default is human because
     the REST route and the servicer are only called by people; the runtime

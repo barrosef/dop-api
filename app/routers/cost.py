@@ -39,7 +39,7 @@ async def route_model(
 ) -> RoutingDecision:
     """Which model and which effort for this kind of work — and WHY.
 
-    `reason` comes whole, with the policy's provenance up front ("ADR-0011 §3
+    `reason` comes whole, with the policy's provenance up front ("ADR-0008 §3
     (draft — calibrate with telemetry, P-7): …"). It is not noise: it is what
     makes auditing the choice and recalibrating the table possible. A client that
     truncates that string is throwing away the only auditable part of the answer.
@@ -78,7 +78,7 @@ async def record_usage(
 ) -> RecordUsageOutcome:
     """Records model consumption.
 
-    **A blown budget answers 200, not a 4xx.** ADR-0011 §2's cut is soft: the
+    **A blown budget answers 200, not a 4xx.** ADR-0008 §2's cut is soft: the
     demand pauses and asks, and consumption keeps being measured. The response
     brings `budget_exceeded`, the `notice` ready for the attention box and the
     blown budgets with the decision's numbers.

@@ -7,17 +7,17 @@ the use case (see `app/usecases/identity.py`'s docstring).
 
 What this module adds to the core:
 
-1. **The refusal for want of green, item by item.** The core enforces ADR-0007
+1. **The refusal for want of green, item by item.** The core enforces ADR-0005
    at the queue's door and refuses with FAILED_PRECONDITION plus a sentence that
    LISTS what is missing ("no approved acceptance run for commit abc1234
-   (ADR-0007 §1); the critic's verdict is missing…"). That list is the useful
+   (ADR-0005 §1); the critic's verdict is missing…"). That list is the useful
    part of the answer — it is the recipe for what to do to get in. Passing it on
    as a string would force every client to split it on semicolons to show a
    list; so it is split ONCE, here, into `MergeRefusal.missing`.
 
    And the refusal becomes a RESPONSE, not an exception: for the agent asking to
    enter the queue, "not yet, this is missing" is work to do, not a failure
-   (ADR-0007 §2). REST returns the same thing with a 412, because there the
+   (ADR-0005 §2). REST returns the same thing with a 412, because there the
    status is part of the response.
 
 2. **The delivery board in one call.** The project's PRs and directives are two
@@ -28,7 +28,7 @@ What this module adds to the core:
    spoken yet. Counting it in each client is the same rule written three times.
 
 None of this decides about green: green is derived from the verification runs,
-in the core, over a specific commit (ADR-0007/ADR-0008). The edge neither
+in the core, over a specific commit (ADR-0005/ADR-0005). The edge neither
 recomputes nor caches that conclusion — yesterday's green is not now's green,
 and a second judge of the same fact is how the two ends start disagreeing.
 """
@@ -152,7 +152,7 @@ class NewMergeEntry(BaseModel):
 
 class DirectiveDecision(BaseModel):
     """The decision is a free payload: each directive kind's shape is the
-    techlead's (ADR-0015), and typing it here would freeze what is still being
+    techlead's (ADR-0011), and typing it here would freeze what is still being
     discovered."""
 
     decision: dict = Field(default_factory=dict)
@@ -263,7 +263,7 @@ async def get_board(project_id: str) -> DeliveryBoard:
 @log
 @account_scoped
 async def get_merge_queue(repo_id: str) -> list[MergeQueueEntry]:
-    """ONE repository's queue — there is no "the queue" in the singular (ADR-0008).
+    """ONE repository's queue — there is no "the queue" in the singular (ADR-0005).
 
     It is the repository that serializes: two PRs in different repositories do
     not invalidate each other, and a global queue would be an invented
@@ -316,7 +316,7 @@ async def enqueue_merge(
 async def decide_directive(
     directive_id: str, body: DirectiveDecision, idempotency_key: str = ""
 ) -> Directive:
-    """The coordination decision is the DEV's (ADR-0015) — the techlead recommends."""
+    """The coordination decision is the DEV's (ADR-0011) — the techlead recommends."""
     decision = struct_pb2.Struct()
     decision.update(body.decision)
     d = await stubs.delivery_stub().DecideDirective(

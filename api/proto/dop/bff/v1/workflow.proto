@@ -2,7 +2,7 @@ syntax = "proto3";
 package dop.bff.v1;
 
 // The workflow at the EDGE — the demand's cycle, resolved by the chain
-// platform ◁ account ◁ workspace ◁ project ◁ demand (ADR-0014).
+// platform ◁ account ◁ workspace ◁ project ◁ demand (ADR-0010).
 //
 // The same discipline as identity.proto: identity does NOT travel in the body —
 // it comes from the token in `authorization: Bearer <token>`, and the active
@@ -32,7 +32,7 @@ package dop.bff.v1;
 // The stage's semantic type: it decides the renderer on the screen and the
 // agent's behaviour. The same names and the same numbers as dop.v1.StageType —
 // a new type requires the platform to evolve, a new composition does not
-// (ADR-0014 §1).
+// (ADR-0010 §1).
 enum StageType {
   STAGE_TYPE_UNSPECIFIED      = 0;
   STAGE_TYPE_CONTEXT          = 1;
@@ -56,7 +56,7 @@ enum ArtifactKind {
 }
 
 // The stage's gate: who closes it. GATE_HUMAN is what stops the platform from
-// approving on a person's behalf (ADR-0014, and the core refuses an agent in
+// approving on a person's behalf (ADR-0010, and the core refuses an agent in
 // DecideGate).
 enum Gate {
   GATE_UNSPECIFIED = 0;
@@ -150,7 +150,7 @@ message CreateFlowRequest {
 
 // UpdateFlow in the core produces a NEW VERSION — the past is not rewritten,
 // because demands under way froze the version they were following
-// (ADR-0014 §4).
+// (ADR-0010 §4).
 message UpdateFlowRequest { string id = 1; Flow flow = 2; }
 
 // A dry run: it returns the report, not an error. The screen needs the list to

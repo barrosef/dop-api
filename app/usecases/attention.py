@@ -29,7 +29,7 @@ model drowns the dev — the two rise together or neither rises (risk R-2).
    a badge that goes down on its own is a badge nobody trusts.
 
 3. **It does not close an item.** There is no "mark as read" nor "dismiss",
-   neither here nor in the edge's contract. The box is a PROJECTION (ADR-0006):
+   neither here nor in the edge's contract. The box is a PROJECTION (ADR-0004):
    an item is born of an event and dies of an event, and what closes it is the
    FACT — the gate decided, the thread unblocked. An item that disappears with
    the problem unsolved is a comfortable lie, and a box that lies becomes a box
@@ -271,7 +271,7 @@ def watch_attention(since_event_id: str = "") -> AsyncIterator[AttentionUpdate]:
     `since_event_id` crosses INTACT into the core, which drains the log from
     there and splices into the live stream. The edge keeps nobody's read
     position — if it did, it would have state, and the BFF has no state
-    (ADR-0016).
+    (ADR-0012).
     """
     call = stubs.attention_stub().WatchAttention(
         attention_pb2.WatchAttentionRequest(since_event_id=since_event_id),

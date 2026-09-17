@@ -17,7 +17,7 @@ import "google/protobuf/timestamp.proto";
 // account from the `x-account-id` metadata. There is no CallContext here.
 //
 // **What this contract deliberately does NOT offer: marking as read, or
-// dismissing.** The box is a PROJECTION, not a system (ADR-0006): every item is
+// dismissing.** The box is a PROJECTION, not a system (ADR-0004): every item is
 // born of an event and dies of another, and what closes an item is the FACT —
 // the gate decided, the thread unblocked, the directive resolved. An item that
 // disappears without the problem having been solved is a comfortable lie, and a
@@ -44,18 +44,18 @@ import "google/protobuf/timestamp.proto";
 // The same numbers and the same order as dop.v1.AttentionItem.Kind.
 enum AttentionKind {
   ATTENTION_KIND_UNSPECIFIED = 0;
-  // A thread blocked waiting for the human's answer (ADR-0010).
+  // A thread blocked waiting for the human's answer (ADR-0007).
   ATTENTION_KIND_THREAD_BLOCKED = 1;
   // A stage stopped at a human gate — a spec awaiting approval.
   ATTENTION_KIND_GATE_PENDING = 2;
-  // A PR awaiting review, with the evidence alongside (ADR-0007).
+  // A PR awaiting review, with the evidence alongside (ADR-0005).
   ATTENTION_KIND_PR_REVIEW = 3;
-  // A conflict the merge queue escalated to a human decision (ADR-0008).
+  // A conflict the merge queue escalated to a human decision (ADR-0005).
   ATTENTION_KIND_MERGE_CONFLICT = 4;
   // A cross-cutting concern detected by the techlead, with options and a
-  // recommendation (ADR-0015).
+  // recommendation (ADR-0011).
   ATTENTION_KIND_DIRECTIVE = 5;
-  // A demand paused by a budget overrun (ADR-0011).
+  // A demand paused by a budget overrun (ADR-0008).
   ATTENTION_KIND_BUDGET_EXCEEDED = 6;
   // A broken account integration — the work stops until somebody reconnects it.
   ATTENTION_KIND_INTEGRATION_BROKEN = 7;

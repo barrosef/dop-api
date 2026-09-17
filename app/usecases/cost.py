@@ -1,4 +1,4 @@
-"""LLM cost use cases — measurement, budget and routing (ADR-0011).
+"""LLM cost use cases — measurement, budget and routing (ADR-0008).
 
 The same discipline as `identity` and `hierarchy`: the rule lives here, the
 router and the servicer translate. See `app/usecases/identity.py`'s docstring
@@ -14,7 +14,7 @@ at the end-of-month reconciliation. The arithmetic that exists here
 (`remaining`) is integer to integer. The one that formats is the screen, which
 knows the locale.
 
-**2. A blown budget is NOT an error.** ADR-0011 §2 chose a SOFT cut: the demand
+**2. A blown budget is NOT an error.** ADR-0008 §2 chose a SOFT cut: the demand
 pauses and asks (the attention box), it never dies halfway nor keeps burning.
 Returning a 402/RESOURCE_EXHAUSTED here would be the hard cut the ADR refused —
 and, worse, it would erase the measurement just when it matters most. So
@@ -66,7 +66,7 @@ class BudgetView(BaseModel):
     scope_id: str = ""
     limit: Money
     spent: Money
-    # None = a scope with NO CEILING (a zero limit, ADR-0011). Zero would mean
+    # None = a scope with NO CEILING (a zero limit, ADR-0008). Zero would mean
     # "the money ran out", which is the opposite — the same absent ≠ zeroed
     # discipline `hierarchy.ProjectSummary.task_manager` applies.
     remaining: Money | None = None
@@ -207,7 +207,7 @@ def _overrun_notice(scopes: list[BudgetView]) -> str:
     targets = ", ".join(f"{b.scope}:{b.scope_id}" for b in scopes) or "the active account"
     return (
         f"Budget exceeded ({targets}). The demand PAUSES and becomes an item in "
-        "the attention box (ADR-0011 §2): it is not cut off halfway nor does it "
+        "the attention box (ADR-0008 §2): it is not cut off halfway nor does it "
         "keep burning. A human decides — raise the ceiling, cut scope or close "
         "it. Consumption keeps being measured meanwhile."
     )
@@ -222,7 +222,7 @@ async def route_model(task_kind: str, demand_id: str = "") -> RoutingDecision:
     """The task → (model, effort) decision, WITH the justification and the provenance.
 
     `reason` arrives from the core already prefixed by the policy's provenance —
-    "ADR-0011 §3 (draft — calibrate with telemetry, P-7): …" — and crosses
+    "ADR-0008 §3 (draft — calibrate with telemetry, P-7): …" — and crosses
     WHOLE. It looks verbose and that is exactly its value:
 
       - it is what makes auditing possible ("why did this demand run on the
@@ -267,7 +267,7 @@ async def get_budget(scope: str = "", scope_id: str = "") -> BudgetView:
 async def set_budget(body: NewBudget) -> BudgetView:
     """Sets the scope's ceiling, preserving the accumulated spend.
 
-    A role is required because a budget is GOVERNANCE (ADR-0011): the one who
+    A role is required because a budget is GOVERNANCE (ADR-0008): the one who
     spends is not the one who decides how much may be spent. Lowering the ceiling
     below the current spend is allowed on purpose — whoever finds a demand
     burning money has to close the tap now, and the lowering is an overrun like
@@ -300,7 +300,7 @@ async def set_budget(body: NewBudget) -> BudgetView:
 async def record_usage(body: NewUsage, idempotency_key: str = "") -> RecordUsageOutcome:
     """Records model consumption — and, if it blew the budget, explains what that means.
 
-    The overrun does NOT become an error (ADR-0011 §2, a soft cut). It becomes an
+    The overrun does NOT become an error (ADR-0008 §2, a soft cut). It becomes an
     OK response with `budget_exceeded`, the attention box's sentence and the
     blown budgets — which are the numbers with which the human decides. A bare
     RESOURCE_EXHAUSTED here would have three defects at once: it would contradict

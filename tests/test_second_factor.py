@@ -1,4 +1,4 @@
-"""The second factor at the edge (ADR-0027).
+"""The second factor at the edge (ADR-0020).
 
 What is tested here is the EDGE, not the rule: the rule lives in the core, and
 the double that answers here is what lets us ask "what does the BFF do with what
@@ -250,7 +250,7 @@ class TestTheSessionTravelsToTheCore:
         self, client_2fa, two_factor
     ):
         """Without `x-session-id` the core cannot tell one open session from
-        another, and one of them answering would open every door (ADR-0027 §5)."""
+        another, and one of them answering would open every door (ADR-0020 §5)."""
         client_2fa.get("/api/v1/me/second-factor", headers=HEADERS)
         md = dict(two_factor.GetSecondFactorState.last["metadata"])
         assert md["x-session-id"]

@@ -43,7 +43,7 @@ def _deadline() -> float:
 
 
 def _idempotency(key: str = "") -> str:
-    """The client's idempotency key, or one of ours (ADR-0017).
+    """The client's idempotency key, or one of ours (ADR-0013).
 
     The gRPC contract lets the client send its own — it is the one that knows
     whether it is retrying or asking for something else. REST has nowhere to
@@ -104,7 +104,7 @@ class GrantSpec(BaseModel):
 class NewInvite(BaseModel):
     email: str = Field(min_length=3)
     role: str = "developer"
-    # Grants composed IN THE INVITE — with no defaults (ADR-0013).
+    # Grants composed IN THE INVITE — with no defaults (ADR-0009).
     grants: list[GrantSpec] = Field(default_factory=list)
 
 
@@ -120,7 +120,7 @@ class InvitePreview(BaseModel):
     """What whoever OPENS the link sees.
 
     It does NOT carry the invitee's e-mail: whoever finds the link must not
-    learn an address from it (ADR-0026).
+    learn an address from it (ADR-0019).
     """
 
     id: str
@@ -327,7 +327,7 @@ async def get_invite(invite_id: str) -> InvitePreview:
 async def accept_invite(invite_id: str, idempotency_key: str = "") -> AcceptedInvite:
     """Accepts. The core requires the session's VERIFIED e-mail to be the
     invite's — the two refusals it can give are different walls, and the cockpit
-    shows different texts for them (ADR-0026)."""
+    shows different texts for them (ADR-0019)."""
     ctx = auth_ctx.get()
     membership = await stubs.identity_stub().AcceptInvite(
         identity_pb2.AcceptInviteRequest(

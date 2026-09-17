@@ -96,7 +96,7 @@ class CostServicer(bff_grpc.CostServiceServicer):
             currency=u.cost.currency,
         )
         out = await uc.record_usage(body, request.idempotency_key)
-        # An overrun does NOT become a `context.abort`: ADR-0011 §2's cut is
+        # An overrun does NOT become a `context.abort`: ADR-0008 §2's cut is
         # soft, and a RESOURCE_EXHAUSTED here would make the caller think the
         # consumption was not recorded — it was.
         return bff.RecordUsageOutcome(

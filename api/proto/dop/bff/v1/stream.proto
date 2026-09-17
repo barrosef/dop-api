@@ -6,7 +6,7 @@ import "google/protobuf/timestamp.proto";
 
 // Streaming at the EDGE — the SAME stream the cockpit receives as SSE.
 //
-// ADR-0017 (convention 1) commands: server-side streaming for everything live,
+// ADR-0013 (convention 1) commands: server-side streaming for everything live,
 // and the BFF converts it into SSE for the browser. The browser is ONE of the
 // consumers; `dop-cli` and the sandboxes' agents speak gRPC and should not be
 // forced to implement `text/event-stream` to follow the same thing. That is why

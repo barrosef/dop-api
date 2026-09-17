@@ -2,7 +2,7 @@
 
 `AcceptInvite` existed in the core and nothing reached it: the e-mail went out
 with a link to a 404. What is tested here is the path being closed, and the two
-properties that make the link safe to send (ADR-0026):
+properties that make the link safe to send (ADR-0019):
 
   - the preview does NOT say who the invite was for;
   - reading it requires a session, but NOT an active account.
@@ -135,7 +135,7 @@ class TestAccepting:
 
     def test_the_two_refusals_come_back_distinguishable(self, client_inv, invites):
         """'Confirm your e-mail' and 'this invite is not yours' send the person to
-        do different things — and the cockpit shows different texts (ADR-0026)."""
+        do different things — and the cockpit shows different texts (ADR-0019)."""
         invites.AcceptInvite.fails_with(
             grpc.StatusCode.FAILED_PRECONDITION, "acceptance requires a verified email"
         )

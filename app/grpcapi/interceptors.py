@@ -296,7 +296,7 @@ class AuthInterceptor(_Interceptor):
     def __init__(self, verifier: FirebaseVerifier, resolver=None):
         self.verifier = verifier
         # resolver(principal, account_id, raw_token="") -> (user_id, role, grants)
-        # The one that decides roles and grants is the CORE (ADR-0016); the BFF
+        # The one that decides roles and grants is the CORE (ADR-0012); the BFF
         # asks.
         self.resolver = resolver
 
@@ -368,7 +368,7 @@ class AuthInterceptor(_Interceptor):
         """Token → Principal, the raw token, and the active account. Common to both forms.
 
         The raw token comes back too because the core verifies it itself
-        (ADR-0029): the edge proves WHO by forwarding the proof, not by
+        (ADR-0022): the edge proves WHO by forwarding the proof, not by
         asserting the conclusion.
         """
         # Identity comes from the TOKEN, not from the message's body. That is

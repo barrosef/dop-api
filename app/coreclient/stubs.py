@@ -78,7 +78,7 @@ def attention_stub() -> attention_pb2_grpc.AttentionServiceStub:
 
 
 def agent_stub() -> agent_pb2_grpc.AgentServiceStub:
-    """The agent runtime — it lives in the CORE (ADR-0023).
+    """The agent runtime — it lives in the CORE (ADR-0016).
 
     The BFF does not run a turn and does not see a provider credential: it is
     the layer exposed to the internet, and compromising it must not hand over

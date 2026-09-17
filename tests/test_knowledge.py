@@ -2,7 +2,7 @@
 
 Two tests carry this file:
 
-  - the DROPS one: the context package is selected by a budget (ADR-0012), and
+  - the DROPS one: the context package is selected by a budget (ADR-0008), and
     the edge has to be able to say "not everything fitted". The core reports the
     drops in a `map<string,int32>` per layer, and always fills it in — an EMPTY
     map is a silent core, and becomes `null`, not zeroes, which would ASSERT
@@ -235,7 +235,7 @@ class TestContextDrops:
         The core always fills the map in, with all four keys. An empty map is
         the core from before the field — and filling it with zeroes would make the
         screen assert that the context fitted whole, which is precisely the lie
-        ADR-0012 wants to prevent.
+        ADR-0008 wants to prevent.
         """
         knowledge.BuildContextPackage.returns(
             package_with_drops(knowledge.package)
@@ -265,7 +265,7 @@ class TestContextDrops:
     ):
         """A new layer in the core has no field here — but it truncates all the same.
 
-        Its number is lost (the edge only publishes ADR-0009 §1's four layers),
+        Its number is lost (the edge only publishes ADR-0006 §1's four layers),
         and that is acceptable. What is NOT acceptable is the screen saying
         "everything fitted" because of a key the edge did not know how to read.
         """

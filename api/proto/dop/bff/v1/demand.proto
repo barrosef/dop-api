@@ -78,7 +78,7 @@ message Demand {
   string    card_type       = 5;   // dynamic, the provider's
   string    provider_status = 6;   // raw, the provider's — not ours
   DopStatus dop_status      = 7;
-  // The flow's version, FROZEN when it started (ADR-0014 §4): a demand under
+  // The flow's version, FROZEN when it started (ADR-0010 §4): a demand under
   // way does not change process halfway through.
   string    flow_id      = 8;
   int32     flow_version = 9;
@@ -101,7 +101,7 @@ message AgentCard {
   int64  budget_micros = 5;
 }
 
-// One thread per agent — the dev talks without mixing timelines (ADR-0010).
+// One thread per agent — the dev talks without mixing timelines (ADR-0007).
 message Thread {
   string id      = 1;
   string key     = 2;   // main, db-forensics, logs

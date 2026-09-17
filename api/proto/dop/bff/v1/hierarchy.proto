@@ -27,7 +27,7 @@ message TaskManagerBinding {
   string external_space_id   = 2;
   string external_project_id = 3;
   // Dynamic: the one that rules the card vocabulary is the provider
-  // (ADR-0013).
+  // (ADR-0009).
   repeated string card_types = 4;
 }
 
