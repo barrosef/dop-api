@@ -2,6 +2,8 @@
 
 The DOP platform's BFF. Two doors in, a single core behind them:
 
+Part of the [DOP platform](https://dop-t.com) — what it is, how it is built and where it stands: **[dop-t.com](https://dop-t.com)**.
+
 - **REST + SSE** → the cockpit (`dop-app`)
 - **gRPC** → `dop-cli` and the sandboxes' agents
 
