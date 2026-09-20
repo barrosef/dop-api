@@ -17,6 +17,11 @@ dependencies = [
     "grpcio-reflection>=1.83.1",
     "pyjwt[crypto]>=2.13.0",
     # The Anthropic agent provider SDK — used ONLY by the adapter
+    "opentelemetry-sdk>=1.30",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.30",
+    "opentelemetry-instrumentation-fastapi>=0.65b0",
+    "opentelemetry-instrumentation-grpc>=0.65b0",
+    "opentelemetry-exporter-gcp-trace>=1.15.0",
 ]
 
 [dependency-groups]

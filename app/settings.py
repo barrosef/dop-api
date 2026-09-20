@@ -7,7 +7,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_name: str = "dop-api"
+    version: str = "dev"
     log_level: str = "info"
+    # Tracing (ADR-0024 §4): "" | otlp | gcp; the OTLP endpoint; the ratio.
+    trace_backend: str = ""
+    otel_exporter_otlp_endpoint: str = ""
+    trace_gcp_project: str = ""
+    trace_sample_ratio: float = 1.0
     http_port: int = 8000
     grpc_port: int = 9095  # the gRPC server for the CLI and the sandbox
     # Turning the gRPC port off is for the tests (which create the server

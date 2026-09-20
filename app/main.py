@@ -18,6 +18,7 @@ from grpc.aio import AioRpcError
 from app.coreclient.client import core
 from app.coreclient.resolver import CoreResolver
 from app.grpcapi.server import GrpcServer
+from app.platform import tracing
 from app.platform.errors import grpc_exception_handler
 from app.platform.logging.config import configure as configure_logging
 from app.platform.logging.config import get_logger
@@ -62,6 +63,11 @@ async def lifespan(app: FastAPI):
     _bridge_storage_emulator()
     log = get_logger()
 
+    # Traces before the channel to the core exists, so the client
+    # instrumentation covers it from the first call (ADR-0024 §4).
+    tracing.setup()
+    tracing.instrument_grpc()
+
     await core.start()
     log.info("core connected", target=core.target)
 
@@ -94,6 +100,7 @@ async def lifespan(app: FastAPI):
     if grpc_server is not None:
         await grpc_server.stop()
     await core.stop()
+    tracing.shutdown()
     log.info("dop-api stopped")
 
 
@@ -136,6 +143,9 @@ def create_app() -> FastAPI:
     # decision (ADR-0012).
     app.add_middleware(AuthMiddleware, verifier=verifier, resolver=CoreResolver())
     app.add_middleware(LoggingMiddleware)
+    # The FastAPI instrumentation wraps the whole ASGI app, so its server span
+    # is the parent of everything the middlewares log.
+    tracing.instrument_app(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

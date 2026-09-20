@@ -62,6 +62,14 @@ def _add_context(_logger, _method, event_dict: dict) -> dict:
     if auth := auth_ctx.get():
         event_dict.setdefault(FIELD_ACCOUNT_ID, auth.account_id)
         event_dict.setdefault(FIELD_ACTOR_ID, auth.user_id)
+    # The span's ids, when there is one (ADR-0024 §4): the line joins the
+    # trace without the call site knowing a span exists.
+    from app.platform.tracing import ids
+
+    trace_id, span_id = ids()
+    if trace_id:
+        event_dict.setdefault("trace_id", trace_id)
+        event_dict.setdefault("span_id", span_id)
     return event_dict
 
 
