@@ -59,6 +59,9 @@ enum AttentionKind {
   ATTENTION_KIND_BUDGET_EXCEEDED = 6;
   // A broken account integration — the work stops until somebody reconnects it.
   ATTENTION_KIND_INTEGRATION_BROKEN = 7;
+  // A reminder about the person: the contact phone never confirmed
+  // (onboarding spec 2026-09-20 D-8).
+  ATTENTION_KIND_CONTACT_PHONE_UNVERIFIED = 8;
 }
 
 message AttentionItem {

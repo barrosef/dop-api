@@ -20,6 +20,7 @@ class AttentionKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ATTENTION_KIND_DIRECTIVE: _ClassVar[AttentionKind]
     ATTENTION_KIND_BUDGET_EXCEEDED: _ClassVar[AttentionKind]
     ATTENTION_KIND_INTEGRATION_BROKEN: _ClassVar[AttentionKind]
+    ATTENTION_KIND_CONTACT_PHONE_UNVERIFIED: _ClassVar[AttentionKind]
 
 class AttentionChange(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -34,6 +35,7 @@ ATTENTION_KIND_MERGE_CONFLICT: AttentionKind
 ATTENTION_KIND_DIRECTIVE: AttentionKind
 ATTENTION_KIND_BUDGET_EXCEEDED: AttentionKind
 ATTENTION_KIND_INTEGRATION_BROKEN: AttentionKind
+ATTENTION_KIND_CONTACT_PHONE_UNVERIFIED: AttentionKind
 ATTENTION_CHANGE_UNSPECIFIED: AttentionChange
 ATTENTION_CHANGE_OPENED: AttentionChange
 ATTENTION_CHANGE_RESOLVED: AttentionChange

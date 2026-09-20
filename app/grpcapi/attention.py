@@ -32,6 +32,7 @@ ENUM_BY_KIND: dict[str, int] = {
     "directive": bff.ATTENTION_KIND_DIRECTIVE,
     "budget_exceeded": bff.ATTENTION_KIND_BUDGET_EXCEEDED,
     "integration_broken": bff.ATTENTION_KIND_INTEGRATION_BROKEN,
+    "contact_phone_unverified": bff.ATTENTION_KIND_CONTACT_PHONE_UNVERIFIED,
 }
 
 ENUM_BY_CHANGE: dict[str, int] = {

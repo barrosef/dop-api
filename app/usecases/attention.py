@@ -74,6 +74,7 @@ _KIND_BY_ENUM: dict[int, str] = {
     attention_pb2.AttentionItem.KIND_DIRECTIVE: "directive",
     attention_pb2.AttentionItem.KIND_BUDGET_EXCEEDED: "budget_exceeded",
     attention_pb2.AttentionItem.KIND_INTEGRATION_BROKEN: "integration_broken",
+    attention_pb2.AttentionItem.KIND_CONTACT_PHONE_UNVERIFIED: "contact_phone_unverified",
 }
 
 _CHANGE_BY_ENUM: dict[int, str] = {

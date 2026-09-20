@@ -23,6 +23,7 @@ class AttentionItem(_message.Message):
         KIND_DIRECTIVE: _ClassVar[AttentionItem.Kind]
         KIND_BUDGET_EXCEEDED: _ClassVar[AttentionItem.Kind]
         KIND_INTEGRATION_BROKEN: _ClassVar[AttentionItem.Kind]
+        KIND_CONTACT_PHONE_UNVERIFIED: _ClassVar[AttentionItem.Kind]
     KIND_UNSPECIFIED: AttentionItem.Kind
     KIND_THREAD_BLOCKED: AttentionItem.Kind
     KIND_GATE_PENDING: AttentionItem.Kind
@@ -31,6 +32,7 @@ class AttentionItem(_message.Message):
     KIND_DIRECTIVE: AttentionItem.Kind
     KIND_BUDGET_EXCEEDED: AttentionItem.Kind
     KIND_INTEGRATION_BROKEN: AttentionItem.Kind
+    KIND_CONTACT_PHONE_UNVERIFIED: AttentionItem.Kind
     ID_FIELD_NUMBER: _ClassVar[int]
     ACCOUNT_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]

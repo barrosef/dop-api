@@ -26,7 +26,7 @@ from app.coreclient.gen.dop.v1 import common_pb2 as dop_dot_v1_dot_common__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x64op/v1/attention.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8e\x04\n\rAttentionItem\x12\n\n\x02id\x18\x01 \x01(\t\x12#\n\x07\x61\x63\x63ount\x18\x02 \x01(\x0b\x32\x12.dop.v1.AccountRef\x12(\n\x04kind\x18\x03 \x01(\x0e\x32\x1a.dop.v1.AttentionItem.Kind\x12\x13\n\x0btarget_kind\x18\x04 \x01(\t\x12\x11\n\ttarget_id\x18\x05 \x01(\t\x12!\n\x06\x64\x65mand\x18\x06 \x01(\x0b\x32\x11.dop.v1.DemandRef\x12\r\n\x05title\x18\x07 \x01(\t\x12\x0f\n\x07summary\x18\x08 \x01(\t\x12\x10\n\x08priority\x18\t \x01(\x05\x12-\n\topened_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0bresolved_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xc4\x01\n\x04Kind\x12\x14\n\x10KIND_UNSPECIFIED\x10\x00\x12\x17\n\x13KIND_THREAD_BLOCKED\x10\x01\x12\x15\n\x11KIND_GATE_PENDING\x10\x02\x12\x12\n\x0eKIND_PR_REVIEW\x10\x03\x12\x17\n\x13KIND_MERGE_CONFLICT\x10\x04\x12\x12\n\x0eKIND_DIRECTIVE\x10\x05\x12\x18\n\x14KIND_BUDGET_EXCEEDED\x10\x06\x12\x1b\n\x17KIND_INTEGRATION_BROKEN\x10\x07\"|\n\x14ListAttentionRequest\x12\x18\n\x10include_resolved\x18\x02 \x01(\x08\x12!\n\x06\x64\x65mand\x18\x03 \x01(\x0b\x32\x11.dop.v1.DemandRef\x12!\n\x04page\x18\x04 \x01(\x0b\x32\x13.dop.v1.PageRequestJ\x04\x08\x01\x10\x02\"u\n\x15ListAttentionResponse\x12$\n\x05items\x18\x01 \x03(\x0b\x32\x15.dop.v1.AttentionItem\x12\"\n\x04page\x18\x02 \x01(\x0b\x32\x14.dop.v1.PageResponse\x12\x12\n\nopen_total\x18\x03 \x01(\x05\"5\n\x15WatchAttentionRequest\x12\x16\n\x0esince_event_id\x18\x02 \x01(\tJ\x04\x08\x01\x10\x02\"\xc2\x01\n\x0f\x41ttentionUpdate\x12.\n\x06\x63hange\x18\x01 \x01(\x0e\x32\x1e.dop.v1.AttentionUpdate.Change\x12#\n\x04item\x18\x02 \x01(\x0b\x32\x15.dop.v1.AttentionItem\x12\x10\n\x08\x65vent_id\x18\x03 \x01(\t\"H\n\x06\x43hange\x12\x16\n\x12\x43HANGE_UNSPECIFIED\x10\x00\x12\x11\n\rCHANGE_OPENED\x10\x01\x12\x13\n\x0f\x43HANGE_RESOLVED\x10\x02\x32\xac\x01\n\x10\x41ttentionService\x12L\n\rListAttention\x12\x1c.dop.v1.ListAttentionRequest\x1a\x1d.dop.v1.ListAttentionResponse\x12J\n\x0eWatchAttention\x12\x1d.dop.v1.WatchAttentionRequest\x1a\x17.dop.v1.AttentionUpdate0\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x64op/v1/attention.proto\x12\x06\x64op.v1\x1a\x13\x64op/v1/common.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb1\x04\n\rAttentionItem\x12\n\n\x02id\x18\x01 \x01(\t\x12#\n\x07\x61\x63\x63ount\x18\x02 \x01(\x0b\x32\x12.dop.v1.AccountRef\x12(\n\x04kind\x18\x03 \x01(\x0e\x32\x1a.dop.v1.AttentionItem.Kind\x12\x13\n\x0btarget_kind\x18\x04 \x01(\t\x12\x11\n\ttarget_id\x18\x05 \x01(\t\x12!\n\x06\x64\x65mand\x18\x06 \x01(\x0b\x32\x11.dop.v1.DemandRef\x12\r\n\x05title\x18\x07 \x01(\t\x12\x0f\n\x07summary\x18\x08 \x01(\t\x12\x10\n\x08priority\x18\t \x01(\x05\x12-\n\topened_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0bresolved_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xe7\x01\n\x04Kind\x12\x14\n\x10KIND_UNSPECIFIED\x10\x00\x12\x17\n\x13KIND_THREAD_BLOCKED\x10\x01\x12\x15\n\x11KIND_GATE_PENDING\x10\x02\x12\x12\n\x0eKIND_PR_REVIEW\x10\x03\x12\x17\n\x13KIND_MERGE_CONFLICT\x10\x04\x12\x12\n\x0eKIND_DIRECTIVE\x10\x05\x12\x18\n\x14KIND_BUDGET_EXCEEDED\x10\x06\x12\x1b\n\x17KIND_INTEGRATION_BROKEN\x10\x07\x12!\n\x1dKIND_CONTACT_PHONE_UNVERIFIED\x10\x08\"|\n\x14ListAttentionRequest\x12\x18\n\x10include_resolved\x18\x02 \x01(\x08\x12!\n\x06\x64\x65mand\x18\x03 \x01(\x0b\x32\x11.dop.v1.DemandRef\x12!\n\x04page\x18\x04 \x01(\x0b\x32\x13.dop.v1.PageRequestJ\x04\x08\x01\x10\x02\"u\n\x15ListAttentionResponse\x12$\n\x05items\x18\x01 \x03(\x0b\x32\x15.dop.v1.AttentionItem\x12\"\n\x04page\x18\x02 \x01(\x0b\x32\x14.dop.v1.PageResponse\x12\x12\n\nopen_total\x18\x03 \x01(\x05\"5\n\x15WatchAttentionRequest\x12\x16\n\x0esince_event_id\x18\x02 \x01(\tJ\x04\x08\x01\x10\x02\"\xc2\x01\n\x0f\x41ttentionUpdate\x12.\n\x06\x63hange\x18\x01 \x01(\x0e\x32\x1e.dop.v1.AttentionUpdate.Change\x12#\n\x04item\x18\x02 \x01(\x0b\x32\x15.dop.v1.AttentionItem\x12\x10\n\x08\x65vent_id\x18\x03 \x01(\t\"H\n\x06\x43hange\x12\x16\n\x12\x43HANGE_UNSPECIFIED\x10\x00\x12\x11\n\rCHANGE_OPENED\x10\x01\x12\x13\n\x0f\x43HANGE_RESOLVED\x10\x02\x32\xac\x01\n\x10\x41ttentionService\x12L\n\rListAttention\x12\x1c.dop.v1.ListAttentionRequest\x1a\x1d.dop.v1.ListAttentionResponse\x12J\n\x0eWatchAttention\x12\x1d.dop.v1.WatchAttentionRequest\x1a\x17.dop.v1.AttentionUpdate0\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,19 +34,19 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'dop.v1.attention_pb2', _glo
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_ATTENTIONITEM']._serialized_start=89
-  _globals['_ATTENTIONITEM']._serialized_end=615
+  _globals['_ATTENTIONITEM']._serialized_end=650
   _globals['_ATTENTIONITEM_KIND']._serialized_start=419
-  _globals['_ATTENTIONITEM_KIND']._serialized_end=615
-  _globals['_LISTATTENTIONREQUEST']._serialized_start=617
-  _globals['_LISTATTENTIONREQUEST']._serialized_end=741
-  _globals['_LISTATTENTIONRESPONSE']._serialized_start=743
-  _globals['_LISTATTENTIONRESPONSE']._serialized_end=860
-  _globals['_WATCHATTENTIONREQUEST']._serialized_start=862
-  _globals['_WATCHATTENTIONREQUEST']._serialized_end=915
-  _globals['_ATTENTIONUPDATE']._serialized_start=918
-  _globals['_ATTENTIONUPDATE']._serialized_end=1112
-  _globals['_ATTENTIONUPDATE_CHANGE']._serialized_start=1040
-  _globals['_ATTENTIONUPDATE_CHANGE']._serialized_end=1112
-  _globals['_ATTENTIONSERVICE']._serialized_start=1115
-  _globals['_ATTENTIONSERVICE']._serialized_end=1287
+  _globals['_ATTENTIONITEM_KIND']._serialized_end=650
+  _globals['_LISTATTENTIONREQUEST']._serialized_start=652
+  _globals['_LISTATTENTIONREQUEST']._serialized_end=776
+  _globals['_LISTATTENTIONRESPONSE']._serialized_start=778
+  _globals['_LISTATTENTIONRESPONSE']._serialized_end=895
+  _globals['_WATCHATTENTIONREQUEST']._serialized_start=897
+  _globals['_WATCHATTENTIONREQUEST']._serialized_end=950
+  _globals['_ATTENTIONUPDATE']._serialized_start=953
+  _globals['_ATTENTIONUPDATE']._serialized_end=1147
+  _globals['_ATTENTIONUPDATE_CHANGE']._serialized_start=1075
+  _globals['_ATTENTIONUPDATE_CHANGE']._serialized_end=1147
+  _globals['_ATTENTIONSERVICE']._serialized_start=1150
+  _globals['_ATTENTIONSERVICE']._serialized_end=1322
 # @@protoc_insertion_point(module_scope)
