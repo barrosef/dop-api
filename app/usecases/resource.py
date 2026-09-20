@@ -64,6 +64,20 @@ class NewResource(BaseModel):
     config: dict = Field(default_factory=dict)
 
 
+class CheckResult(BaseModel):
+    """What checking a credential answers.
+
+    `operated` false is the honest case: the platform has no adapter for that
+    provider yet, the credential is stored, nothing was tried. `ok` means
+    something only when `operated` is true.
+    """
+
+    operated: bool
+    ok: bool = False
+    identity: str = ""
+    message: str = ""
+
+
 class NewCredential(BaseModel):
     """The secret arrives in base64 — bytes in the core's contract.
 
@@ -242,3 +256,19 @@ async def revoke_grant(grant_id: str) -> bool:
         timeout=_deadline(),
     )
     return resp.revoked
+
+
+@log
+@account_scoped
+async def check_resource(resource_id: str) -> CheckResult:
+    """Asks the core to probe the integration's credential with the provider.
+
+    The secret never reaches this process: the core resolves it from the vault
+    and uses it there (ADR-0016).
+    """
+    r = await stubs.resource_stub().CheckResource(
+        resource_pb2.CheckResourceRequest(id=resource_id),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return CheckResult(operated=r.operated, ok=r.ok, identity=r.identity, message=r.message)

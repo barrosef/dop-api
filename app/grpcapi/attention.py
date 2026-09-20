@@ -61,18 +61,14 @@ def _item(i: uc.AttentionItem) -> bff.AttentionItem:
 
 
 class AttentionServicer(bff_grpc.AttentionServiceServicer):
-    async def ListAttention(
-        self, request: bff.ListAttentionRequest, context
-    ) -> bff.AttentionBox:
+    async def ListAttention(self, request: bff.ListAttentionRequest, context) -> bff.AttentionBox:
         box = await uc.list_attention(
             request.include_resolved, request.demand_id, request.page_size
         )
         return bff.AttentionBox(
             items=[_item(i) for i in box.items],
             groups=[
-                bff.AttentionGroup(
-                    demand_id=g.demand_id, items=[_item(i) for i in g.items]
-                )
+                bff.AttentionGroup(demand_id=g.demand_id, items=[_item(i) for i in g.items])
                 for g in box.groups
             ],
             open_total=box.open_total,
@@ -85,8 +81,6 @@ class AttentionServicer(bff_grpc.AttentionServiceServicer):
         source = uc.watch_attention(since_event_id=request.since_event_id)
         async for update in source:
             yield bff.AttentionUpdate(
-                change=ENUM_BY_CHANGE.get(
-                    update.change, bff.ATTENTION_CHANGE_UNSPECIFIED
-                ),
+                change=ENUM_BY_CHANGE.get(update.change, bff.ATTENTION_CHANGE_UNSPECIFIED),
                 item=_item(update.item),
             )

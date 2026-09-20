@@ -54,9 +54,7 @@ def _sandbox(s: uc.SandboxSummary) -> bff.Sandbox:
 
 
 class ExecutionServicer(bff_grpc.ExecutionServiceServicer):
-    async def ProvisionSandbox(
-        self, request: bff.ProvisionSandboxRequest, context
-    ) -> bff.Sandbox:
+    async def ProvisionSandbox(self, request: bff.ProvisionSandboxRequest, context) -> bff.Sandbox:
         body = uc.NewSandbox(
             demand_id=request.demand_id,
             # UNSPECIFIED becomes "" and the model refuses. It is the `get` with
@@ -66,19 +64,13 @@ class ExecutionServicer(bff_grpc.ExecutionServiceServicer):
         )
         return _sandbox(await uc.provision_sandbox(body, request.idempotency_key))
 
-    async def DescribeSandbox(
-        self, request: bff.DescribeSandboxRequest, context
-    ) -> bff.Sandbox:
+    async def DescribeSandbox(self, request: bff.DescribeSandboxRequest, context) -> bff.Sandbox:
         return _sandbox(await uc.describe_sandbox(request.id))
 
-    async def SuspendSandbox(
-        self, request: bff.SuspendSandboxRequest, context
-    ) -> bff.Sandbox:
+    async def SuspendSandbox(self, request: bff.SuspendSandboxRequest, context) -> bff.Sandbox:
         return _sandbox(await uc.suspend_sandbox(request.id))
 
-    async def ResumeSandbox(
-        self, request: bff.ResumeSandboxRequest, context
-    ) -> bff.Sandbox:
+    async def ResumeSandbox(self, request: bff.ResumeSandboxRequest, context) -> bff.Sandbox:
         return _sandbox(await uc.resume_sandbox(request.id))
 
     async def DestroySandbox(

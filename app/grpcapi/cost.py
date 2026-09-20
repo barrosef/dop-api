@@ -54,9 +54,7 @@ def _usage(u: uc.UsageEventSummary) -> bff.UsageEvent:
 
 
 class CostServicer(bff_grpc.CostServiceServicer):
-    async def RouteModel(
-        self, request: bff.RouteModelRequest, context
-    ) -> bff.RoutingDecision:
+    async def RouteModel(self, request: bff.RouteModelRequest, context) -> bff.RoutingDecision:
         d = await uc.route_model(request.task_kind, request.demand_id)
         return bff.RoutingDecision(
             task_kind=d.task_kind,
@@ -80,9 +78,7 @@ class CostServicer(bff_grpc.CostServiceServicer):
         )
         return _budget(await uc.set_budget(body))
 
-    async def RecordUsage(
-        self, request: bff.RecordUsageRequest, context
-    ) -> bff.RecordUsageOutcome:
+    async def RecordUsage(self, request: bff.RecordUsageRequest, context) -> bff.RecordUsageOutcome:
         u = request.usage
         body = uc.NewUsage(
             model=u.model,
@@ -106,9 +102,7 @@ class CostServicer(bff_grpc.CostServiceServicer):
             budgets=[_budget(b) for b in out.budgets],
         )
 
-    async def SummarizeCost(
-        self, request: bff.SummarizeCostRequest, context
-    ) -> bff.CostSummary:
+    async def SummarizeCost(self, request: bff.SummarizeCostRequest, context) -> bff.CostSummary:
         s = await uc.summarize_cost(request.scope, request.scope_id)
         return bff.CostSummary(
             total=_money(s.total),

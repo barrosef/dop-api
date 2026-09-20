@@ -204,3 +204,21 @@ class SetCredentialResponse(_message.Message):
     CREDENTIAL_REF_FIELD_NUMBER: _ClassVar[int]
     credential_ref: str
     def __init__(self, credential_ref: _Optional[str] = ...) -> None: ...
+
+class CheckResourceRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class CheckResult(_message.Message):
+    __slots__ = ("operated", "ok", "identity", "message")
+    OPERATED_FIELD_NUMBER: _ClassVar[int]
+    OK_FIELD_NUMBER: _ClassVar[int]
+    IDENTITY_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    operated: bool
+    ok: bool
+    identity: str
+    message: str
+    def __init__(self, operated: _Optional[bool] = ..., ok: _Optional[bool] = ..., identity: _Optional[str] = ..., message: _Optional[str] = ...) -> None: ...

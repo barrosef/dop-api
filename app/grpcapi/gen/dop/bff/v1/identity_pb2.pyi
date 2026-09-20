@@ -32,7 +32,7 @@ class ResourceGrantSpec(_message.Message):
     def __init__(self, resource_id: _Optional[str] = ..., level: _Optional[str] = ...) -> None: ...
 
 class Me(_message.Message):
-    __slots__ = ("subject", "user_id", "email", "name", "providers", "account_id", "role")
+    __slots__ = ("subject", "user_id", "email", "name", "providers", "account_id", "role", "avatar_url", "locale", "timezone", "phone", "phone_verified", "email_verified", "birth_date", "onboarded")
     SUBJECT_FIELD_NUMBER: _ClassVar[int]
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     EMAIL_FIELD_NUMBER: _ClassVar[int]
@@ -40,6 +40,14 @@ class Me(_message.Message):
     PROVIDERS_FIELD_NUMBER: _ClassVar[int]
     ACCOUNT_ID_FIELD_NUMBER: _ClassVar[int]
     ROLE_FIELD_NUMBER: _ClassVar[int]
+    AVATAR_URL_FIELD_NUMBER: _ClassVar[int]
+    LOCALE_FIELD_NUMBER: _ClassVar[int]
+    TIMEZONE_FIELD_NUMBER: _ClassVar[int]
+    PHONE_FIELD_NUMBER: _ClassVar[int]
+    PHONE_VERIFIED_FIELD_NUMBER: _ClassVar[int]
+    EMAIL_VERIFIED_FIELD_NUMBER: _ClassVar[int]
+    BIRTH_DATE_FIELD_NUMBER: _ClassVar[int]
+    ONBOARDED_FIELD_NUMBER: _ClassVar[int]
     subject: str
     user_id: str
     email: str
@@ -47,10 +55,18 @@ class Me(_message.Message):
     providers: _containers.RepeatedScalarFieldContainer[str]
     account_id: str
     role: Role
-    def __init__(self, subject: _Optional[str] = ..., user_id: _Optional[str] = ..., email: _Optional[str] = ..., name: _Optional[str] = ..., providers: _Optional[_Iterable[str]] = ..., account_id: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ...) -> None: ...
+    avatar_url: str
+    locale: str
+    timezone: str
+    phone: str
+    phone_verified: bool
+    email_verified: bool
+    birth_date: str
+    onboarded: bool
+    def __init__(self, subject: _Optional[str] = ..., user_id: _Optional[str] = ..., email: _Optional[str] = ..., name: _Optional[str] = ..., providers: _Optional[_Iterable[str]] = ..., account_id: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., avatar_url: _Optional[str] = ..., locale: _Optional[str] = ..., timezone: _Optional[str] = ..., phone: _Optional[str] = ..., phone_verified: _Optional[bool] = ..., email_verified: _Optional[bool] = ..., birth_date: _Optional[str] = ..., onboarded: _Optional[bool] = ...) -> None: ...
 
 class AccountSummary(_message.Message):
-    __slots__ = ("id", "kind", "handle", "display_name", "role")
+    __slots__ = ("id", "kind", "handle", "display_name", "role", "plan_key")
     class Kind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         KIND_UNSPECIFIED: _ClassVar[AccountSummary.Kind]
@@ -64,12 +80,14 @@ class AccountSummary(_message.Message):
     HANDLE_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     ROLE_FIELD_NUMBER: _ClassVar[int]
+    PLAN_KEY_FIELD_NUMBER: _ClassVar[int]
     id: str
     kind: AccountSummary.Kind
     handle: str
     display_name: str
     role: Role
-    def __init__(self, id: _Optional[str] = ..., kind: _Optional[_Union[AccountSummary.Kind, str]] = ..., handle: _Optional[str] = ..., display_name: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ...) -> None: ...
+    plan_key: str
+    def __init__(self, id: _Optional[str] = ..., kind: _Optional[_Union[AccountSummary.Kind, str]] = ..., handle: _Optional[str] = ..., display_name: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., plan_key: _Optional[str] = ...) -> None: ...
 
 class MemberSummary(_message.Message):
     __slots__ = ("id", "user_id", "role")
@@ -122,6 +140,98 @@ class InvitePreview(_message.Message):
     expires_at: _timestamp_pb2.Timestamp
     usable: bool
     def __init__(self, id: _Optional[str] = ..., account_name: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., status: _Optional[_Union[InviteSummary.Status, str]] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., usable: _Optional[bool] = ...) -> None: ...
+
+class UpdateProfileRequest(_message.Message):
+    __slots__ = ("name", "birth_date", "locale", "timezone", "phone")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    BIRTH_DATE_FIELD_NUMBER: _ClassVar[int]
+    LOCALE_FIELD_NUMBER: _ClassVar[int]
+    TIMEZONE_FIELD_NUMBER: _ClassVar[int]
+    PHONE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    birth_date: str
+    locale: str
+    timezone: str
+    phone: str
+    def __init__(self, name: _Optional[str] = ..., birth_date: _Optional[str] = ..., locale: _Optional[str] = ..., timezone: _Optional[str] = ..., phone: _Optional[str] = ...) -> None: ...
+
+class GetOnboardingRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class OnboardingStep(_message.Message):
+    __slots__ = ("step", "status")
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    step: str
+    status: str
+    def __init__(self, step: _Optional[str] = ..., status: _Optional[str] = ...) -> None: ...
+
+class OnboardingState(_message.Message):
+    __slots__ = ("steps", "current", "complete", "email_verified", "phone", "phone_verified", "code_connections", "task_connections", "plan_key", "personal_account_id")
+    STEPS_FIELD_NUMBER: _ClassVar[int]
+    CURRENT_FIELD_NUMBER: _ClassVar[int]
+    COMPLETE_FIELD_NUMBER: _ClassVar[int]
+    EMAIL_VERIFIED_FIELD_NUMBER: _ClassVar[int]
+    PHONE_FIELD_NUMBER: _ClassVar[int]
+    PHONE_VERIFIED_FIELD_NUMBER: _ClassVar[int]
+    CODE_CONNECTIONS_FIELD_NUMBER: _ClassVar[int]
+    TASK_CONNECTIONS_FIELD_NUMBER: _ClassVar[int]
+    PLAN_KEY_FIELD_NUMBER: _ClassVar[int]
+    PERSONAL_ACCOUNT_ID_FIELD_NUMBER: _ClassVar[int]
+    steps: _containers.RepeatedCompositeFieldContainer[OnboardingStep]
+    current: str
+    complete: bool
+    email_verified: bool
+    phone: str
+    phone_verified: bool
+    code_connections: int
+    task_connections: int
+    plan_key: str
+    personal_account_id: str
+    def __init__(self, steps: _Optional[_Iterable[_Union[OnboardingStep, _Mapping]]] = ..., current: _Optional[str] = ..., complete: _Optional[bool] = ..., email_verified: _Optional[bool] = ..., phone: _Optional[str] = ..., phone_verified: _Optional[bool] = ..., code_connections: _Optional[int] = ..., task_connections: _Optional[int] = ..., plan_key: _Optional[str] = ..., personal_account_id: _Optional[str] = ...) -> None: ...
+
+class RecordOnboardingStepRequest(_message.Message):
+    __slots__ = ("step", "status")
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    step: str
+    status: str
+    def __init__(self, step: _Optional[str] = ..., status: _Optional[str] = ...) -> None: ...
+
+class CompleteOnboardingRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class CheckHandleRequest(_message.Message):
+    __slots__ = ("handle",)
+    HANDLE_FIELD_NUMBER: _ClassVar[int]
+    handle: str
+    def __init__(self, handle: _Optional[str] = ...) -> None: ...
+
+class HandleAvailability(_message.Message):
+    __slots__ = ("handle", "available", "suggestion")
+    HANDLE_FIELD_NUMBER: _ClassVar[int]
+    AVAILABLE_FIELD_NUMBER: _ClassVar[int]
+    SUGGESTION_FIELD_NUMBER: _ClassVar[int]
+    handle: str
+    available: bool
+    suggestion: str
+    def __init__(self, handle: _Optional[str] = ..., available: _Optional[bool] = ..., suggestion: _Optional[str] = ...) -> None: ...
+
+class UpdatePersonalAccountRequest(_message.Message):
+    __slots__ = ("handle", "display_name")
+    HANDLE_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    handle: str
+    display_name: str
+    def __init__(self, handle: _Optional[str] = ..., display_name: _Optional[str] = ...) -> None: ...
+
+class SetPlanRequest(_message.Message):
+    __slots__ = ("plan_key",)
+    PLAN_KEY_FIELD_NUMBER: _ClassVar[int]
+    plan_key: str
+    def __init__(self, plan_key: _Optional[str] = ...) -> None: ...
 
 class ListInvitesRequest(_message.Message):
     __slots__ = ()

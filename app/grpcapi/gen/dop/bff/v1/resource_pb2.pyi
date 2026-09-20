@@ -108,3 +108,21 @@ class RevokeGrantResponse(_message.Message):
     REVOKED_FIELD_NUMBER: _ClassVar[int]
     revoked: bool
     def __init__(self, revoked: _Optional[bool] = ...) -> None: ...
+
+class CheckResourceRequest(_message.Message):
+    __slots__ = ("resource_id",)
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    resource_id: str
+    def __init__(self, resource_id: _Optional[str] = ...) -> None: ...
+
+class CheckResult(_message.Message):
+    __slots__ = ("operated", "ok", "identity", "message")
+    OPERATED_FIELD_NUMBER: _ClassVar[int]
+    OK_FIELD_NUMBER: _ClassVar[int]
+    IDENTITY_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    operated: bool
+    ok: bool
+    identity: str
+    message: str
+    def __init__(self, operated: _Optional[bool] = ..., ok: _Optional[bool] = ..., identity: _Optional[str] = ..., message: _Optional[str] = ...) -> None: ...

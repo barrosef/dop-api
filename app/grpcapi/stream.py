@@ -31,9 +31,7 @@ from app.usecases import stream as uc
 
 
 def _event(e: uc.StreamEvent) -> bff.StreamEvent:
-    msg = bff.StreamEvent(
-        id=e.id, type=e.type, aggregate=e.aggregate, aggregate_id=e.aggregate_id
-    )
+    msg = bff.StreamEvent(id=e.id, type=e.type, aggregate=e.aggregate, aggregate_id=e.aggregate_id)
     # It only fills in what exists: an absent message field and a zeroed one are
     # different things, and an empty payload assigned would invent content where
     # there is none.

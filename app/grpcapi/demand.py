@@ -131,9 +131,7 @@ class DemandServicer(bff_grpc.DemandServiceServicer):
     async def ListDemands(
         self, request: bff.ListDemandsRequest, context
     ) -> bff.ListDemandsResponse:
-        pagina = await uc.list_demands(
-            request.project_id, request.page_size, request.page_token
-        )
+        pagina = await uc.list_demands(request.project_id, request.page_size, request.page_token)
         return bff.ListDemandsResponse(
             demands=[_demand(d) for d in pagina.demands],
             next_page_token=pagina.next_page_token,
@@ -153,9 +151,7 @@ class DemandServicer(bff_grpc.DemandServiceServicer):
         )
 
     async def StartDemand(self, request: bff.StartDemandRequest, context) -> bff.Demand:
-        body = uc.NewDemand(
-            project_id=request.project_id, external_key=request.external_key
-        )
+        body = uc.NewDemand(project_id=request.project_id, external_key=request.external_key)
         return _demand(await uc.start_demand(body, request.idempotency_key))
 
     async def AdvanceStage(self, request: bff.AdvanceStageRequest, context) -> bff.Stage:
@@ -200,14 +196,10 @@ class DemandServicer(bff_grpc.DemandServiceServicer):
         body = uc.NewMessage(text=request.text)
         return _message(await uc.post_message(request.thread_id, body, request.idempotency_key))
 
-    async def PublishFinding(
-        self, request: bff.PublishFindingRequest, context
-    ) -> bff.Finding:
+    async def PublishFinding(self, request: bff.PublishFindingRequest, context) -> bff.Finding:
         body = uc.NewFinding(
             thread_id=request.thread_id,
             title=request.title,
             payload=MessageToDict(request.payload) if request.HasField("payload") else {},
         )
-        return _finding(
-            await uc.publish_finding(request.demand_id, body, request.idempotency_key)
-        )
+        return _finding(await uc.publish_finding(request.demand_id, body, request.idempotency_key))

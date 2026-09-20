@@ -34,9 +34,7 @@ __all__ = [
 
 
 @router.get("/routing", response_model=RoutingDecision)
-async def route_model(
-    task_kind: str = Query(min_length=1), demand_id: str = ""
-) -> RoutingDecision:
+async def route_model(task_kind: str = Query(min_length=1), demand_id: str = "") -> RoutingDecision:
     """Which model and which effort for this kind of work — and WHY.
 
     `reason` comes whole, with the policy's provenance up front ("ADR-0008 §3

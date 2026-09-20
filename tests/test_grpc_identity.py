@@ -289,6 +289,7 @@ class TestParityBetweenTransports:
             "display_name": account.display_name,
             "kind": KIND_PARA_NOME.get(account.kind, ""),
             "role": convert.role_name(account.role),
+            "plan_key": account.plan_key,
         }
 
     async def test_list_accounts_gives_the_same_result_on_both_ports(
@@ -314,6 +315,14 @@ class TestParityBetweenTransports:
             "providers": list(me.providers),
             "account_id": me.account_id,
             "role": convert.role_name(me.role),
+            "avatar_url": me.avatar_url,
+            "locale": me.locale,
+            "timezone": me.timezone,
+            "phone": me.phone,
+            "phone_verified": me.phone_verified,
+            "email_verified": me.email_verified,
+            "birth_date": me.birth_date,
+            "onboarded": me.onboarded,
         } == rest
 
     async def test_members_gives_the_same_result_on_both_ports(self, client, stub_grpc):

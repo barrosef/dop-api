@@ -120,9 +120,7 @@ class WorkflowServicer(bff_grpc.WorkflowServiceServicer):
         self, request: bff.ValidateFlowRequest, context
     ) -> bff.ValidateFlowResponse:
         rel = await uc.validate_flow(_new_flow(request.flow))
-        return bff.ValidateFlowResponse(
-            valid=rel.valid, errors=rel.errors, warnings=rel.warnings
-        )
+        return bff.ValidateFlowResponse(valid=rel.valid, errors=rel.errors, warnings=rel.warnings)
 
     async def ResolveFlow(self, request: bff.ResolveFlowRequest, context) -> bff.EffectiveFlow:
         eff = await uc.resolve_flow(request.scope, request.scope_id)
@@ -130,9 +128,7 @@ class WorkflowServicer(bff_grpc.WorkflowServiceServicer):
         msg = bff.EffectiveFlow(
             provenance=bff.Provenance(
                 contributors=p.contributors,
-                origins=[
-                    bff.StageOrigin(stage_key=o.stage_key, scope=o.scope) for o in p.origins
-                ],
+                origins=[bff.StageOrigin(stage_key=o.stage_key, scope=o.scope) for o in p.origins],
                 sentence=p.sentence,
                 truncated=p.truncated,
             )
@@ -144,7 +140,5 @@ class WorkflowServicer(bff_grpc.WorkflowServiceServicer):
         return msg
 
     async def PromoteFlow(self, request: bff.PromoteFlowRequest, context) -> bff.Flow:
-        alvo = uc.PromotionTarget(
-            target_scope=request.target_scope, target_id=request.target_id
-        )
+        alvo = uc.PromotionTarget(target_scope=request.target_scope, target_id=request.target_id)
         return _flow(await uc.promote_flow(request.flow_id, alvo))

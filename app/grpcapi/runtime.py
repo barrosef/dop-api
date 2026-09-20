@@ -63,7 +63,5 @@ class RuntimeServicer(bff_grpc.RuntimeServiceServicer):
             max_output_tokens=request.max_output_tokens or 8192,
         )
         return _outcome(
-            await uc.run_turn(
-                request.demand_id, request.thread_id, body, request.idempotency_key
-            )
+            await uc.run_turn(request.demand_id, request.thread_id, body, request.idempotency_key)
         )

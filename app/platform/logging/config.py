@@ -44,9 +44,7 @@ def _mask_processor(_logger, _method, event_dict: dict) -> dict:
 
     def walk(value):
         if isinstance(value, dict):
-            return {
-                k: (REDACTED if k.lower() in AUTO_MASK else walk(v)) for k, v in value.items()
-            }
+            return {k: (REDACTED if k.lower() in AUTO_MASK else walk(v)) for k, v in value.items()}
         if isinstance(value, list):
             return [walk(v) for v in value]
         return value

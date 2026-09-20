@@ -80,9 +80,7 @@ async def enqueue_merge(
     """
     attempt = await uc.enqueue_merge(repo_id, body, idempotency_key)
     if attempt.refusal is not None:
-        return JSONResponse(
-            status_code=412, content={"detail": attempt.refusal.model_dump()}
-        )
+        return JSONResponse(status_code=412, content={"detail": attempt.refusal.model_dump()})
     return JSONResponse(status_code=201, content=attempt.entry.model_dump())
 
 

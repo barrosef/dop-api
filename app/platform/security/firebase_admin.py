@@ -30,8 +30,7 @@ import httpx
 from app.platform.security.firebase import InvalidToken
 
 _METADATA_TOKEN = (
-    "http://metadata.google.internal/computeMetadata/v1/"
-    "instance/service-accounts/default/token"
+    "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
 )
 # Renewed inside this margin rather than at expiry: a token that dies mid-flight
 # fails the call, and the caller cannot tell that from a permission problem.
@@ -62,9 +61,7 @@ class FirebaseAdmin:
         if self._token and now < self._expires_at - _SKEW:
             return self._token
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(
-                _METADATA_TOKEN, headers={"Metadata-Flavor": "Google"}
-            )
+            resp = await client.get(_METADATA_TOKEN, headers={"Metadata-Flavor": "Google"})
         resp.raise_for_status()
         body = resp.json()
         self._token = body["access_token"]

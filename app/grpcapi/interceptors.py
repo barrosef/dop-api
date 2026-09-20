@@ -159,7 +159,6 @@ class LoggingInterceptor(_Interceptor):
 
         return behavior
 
-
     def _wrap_stream(self, inner, details):
         """The same logging context; what changes is WHAT is measured.
 
@@ -252,7 +251,6 @@ class ErrorInterceptor(_Interceptor):
             await context.abort(code, detail)
 
         return behavior
-
 
     def _wrap_stream(self, inner, details):
         """An error AFTER the first item is still translatable — and this is where it is done.

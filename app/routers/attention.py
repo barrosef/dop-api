@@ -88,7 +88,5 @@ async def stream_attention(
     as a real 400, with a JSON body, and not as a 200 that dies at the first
     frame.
     """
-    source = uc.watch_attention(
-        since_event_id=_cursor(last_event_id, since_event_id)
-    )
+    source = uc.watch_attention(since_event_id=_cursor(last_event_id, since_event_id))
     return _response(source, name=ATTENTION)

@@ -174,9 +174,7 @@ async def _sse_events(source, *, name: str):
                 last_id = event_id
             yield ServerSentEvent(event=name, id=event_id, data=_json(data))
     except AioRpcError as exc:
-        get_logger().warning(
-            "stream interrupted by the core", code=str(exc.code()), stream=name
-        )
+        get_logger().warning("stream interrupted by the core", code=str(exc.code()), stream=name)
         yield _error(exc, last_id)
     except Exception as exc:  # noqa: BLE001 - see the comment
         # A failure of ours. The same treatment as the ErrorInterceptor: whole in
@@ -198,9 +196,7 @@ async def _sse_events(source, *, name: str):
 
 
 def _response(source, *, name: str) -> EventSourceResponse:
-    return EventSourceResponse(
-        _sse_events(source, name=name), ping=settings.sse_ping_s
-    )
+    return EventSourceResponse(_sse_events(source, name=name), ping=settings.sse_ping_s)
 
 
 def _cursor(last_event_id: str, since_event_id: str) -> str:
@@ -261,7 +257,5 @@ async def stream_sandbox_logs(
     test_type: str = "",
 ) -> EventSourceResponse:
     """A sandbox's log tail. Also with no cursor, for the same reason."""
-    source = uc.tail_sandbox_logs(
-        sandbox_id, source=source, service=service, test_type=test_type
-    )
+    source = uc.tail_sandbox_logs(sandbox_id, source=source, service=service, test_type=test_type)
     return _response(source, name=LOG)

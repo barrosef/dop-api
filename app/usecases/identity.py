@@ -64,6 +64,16 @@ class MeResponse(BaseModel):
     providers: list[str]
     account_id: str
     role: str
+    # The profile as the CORE keeps it (onboarding spec 2026-09-20): the token
+    # says who the person is, the core says what they told us since.
+    avatar_url: str = ""
+    locale: str = ""
+    timezone: str = ""
+    phone: str = ""
+    phone_verified: bool = False
+    email_verified: bool = False
+    birth_date: str = ""
+    onboarded: bool = False
 
 
 class AccountSummary(BaseModel):
@@ -72,6 +82,59 @@ class AccountSummary(BaseModel):
     display_name: str
     kind: str
     role: str
+    plan_key: str = ""
+
+
+class ProfilePatch(BaseModel):
+    """A partial update: an absent field is untouched.
+
+    An empty string clears phone, locale and timezone and is refused for the
+    name; an empty birth_date clears it. The rules are the core's — this model
+    only carries the shape.
+    """
+
+    name: str | None = None
+    birth_date: str | None = None
+    locale: str | None = None
+    timezone: str | None = None
+    phone: str | None = None
+
+
+class OnboardingStep(BaseModel):
+    step: str
+    status: str  # done | skipped | pending
+
+
+class OnboardingState(BaseModel):
+    steps: list[OnboardingStep]
+    current: str
+    complete: bool
+    email_verified: bool
+    phone: str
+    phone_verified: bool
+    code_connections: int
+    task_connections: int
+    plan_key: str
+    personal_account_id: str
+
+
+class StepUpdate(BaseModel):
+    status: str = Field(pattern="^(done|skipped)$")
+
+
+class HandleAvailability(BaseModel):
+    handle: str
+    available: bool
+    suggestion: str = ""
+
+
+class AccountPatch(BaseModel):
+    handle: str = ""
+    display_name: str = ""
+
+
+class PlanChoice(BaseModel):
+    plan_key: str = Field(min_length=1)
 
 
 class VerificationRequested(BaseModel):
@@ -153,17 +216,147 @@ async def me() -> MeResponse:
 
     The `user_id` is NOT the identity provider's subject: it is the user's id in
     the core, resolved by EnsureUser during authentication.
+
+    The token names the person; the core's row carries what they told us since
+    (the name they chose, the phone, the journey). One round trip, so that a
+    screen reading `/me` sees the same profile the journey wrote.
     """
     ctx = auth_ctx.get()
+    u = await stubs.identity_stub().GetUser(
+        identity_pb2.GetUserRequest(id=ctx.user_id),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return _user_summary(u, ctx)
+
+
+def _user_summary(u: identity_pb2.User, ctx) -> MeResponse:
     return MeResponse(
         subject=ctx.principal.subject,
         user_id=ctx.user_id,
         email=ctx.principal.email,
-        name=ctx.principal.name,
+        name=u.name or ctx.principal.name,
         providers=ctx.principal.providers,
         account_id=ctx.account_id,
         role=ctx.role,
+        avatar_url=u.avatar_url,
+        locale=u.locale,
+        timezone=u.timezone,
+        phone=u.phone,
+        phone_verified=u.phone_verified,
+        email_verified=u.email_verified,
+        birth_date=u.birth_date,
+        onboarded=u.onboarded,
     )
+
+
+def _onboarding(st: identity_pb2.OnboardingState) -> OnboardingState:
+    return OnboardingState(
+        steps=[OnboardingStep(step=s.step, status=s.status) for s in st.steps],
+        current=st.current,
+        complete=st.complete,
+        email_verified=st.email_verified,
+        phone=st.phone,
+        phone_verified=st.phone_verified,
+        code_connections=st.code_connections,
+        task_connections=st.task_connections,
+        plan_key=st.plan_key,
+        personal_account_id=st.personal_account_id,
+    )
+
+
+def _account_summary(a: identity_pb2.Account, role: str) -> AccountSummary:
+    return AccountSummary(
+        id=a.id,
+        handle=a.handle,
+        display_name=a.display_name,
+        kind=account_kind_name(a.kind),
+        role=role,
+        plan_key=a.plan_key,
+    )
+
+
+# ── the onboarding journey (spec 2026-09-20) ────────────────────────────────
+# Session required, active account NOT: the journey runs before the cockpit has
+# picked one, and every operation is about the actor alone.
+
+
+@log
+async def update_profile(body: ProfilePatch) -> MeResponse:
+    ctx = auth_ctx.get()
+    req = identity_pb2.UpdateProfileRequest()
+    # `optional` fields: set only what arrived, so an absent field stays untouched.
+    for field in ("name", "birth_date", "locale", "timezone", "phone"):
+        value = getattr(body, field)
+        if value is not None:
+            setattr(req, field, value)
+    u = await stubs.identity_stub().UpdateProfile(
+        req, metadata=core.metadata(), timeout=_deadline()
+    )
+    return _user_summary(u, ctx)
+
+
+@log
+async def onboarding() -> OnboardingState:
+    st = await stubs.identity_stub().GetOnboarding(
+        identity_pb2.GetOnboardingRequest(),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return _onboarding(st)
+
+
+@log
+async def record_step(step: str, body: StepUpdate) -> OnboardingState:
+    st = await stubs.identity_stub().RecordOnboardingStep(
+        identity_pb2.RecordOnboardingStepRequest(step=step, status=body.status),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return _onboarding(st)
+
+
+@log
+async def complete_onboarding() -> OnboardingState:
+    st = await stubs.identity_stub().CompleteOnboarding(
+        identity_pb2.CompleteOnboardingRequest(),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return _onboarding(st)
+
+
+@log
+async def handle_availability(handle: str) -> HandleAvailability:
+    h = await stubs.identity_stub().CheckHandle(
+        identity_pb2.CheckHandleRequest(handle=handle),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return HandleAvailability(handle=h.handle, available=h.available, suggestion=h.suggestion)
+
+
+@log
+async def update_personal_account(body: AccountPatch) -> AccountSummary:
+    """Edits the actor's PERSONAL account, whatever the active one is."""
+    a = await stubs.identity_stub().UpdatePersonalAccount(
+        identity_pb2.UpdatePersonalAccountRequest(
+            handle=body.handle, display_name=body.display_name
+        ),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return _account_summary(a, "owner")
+
+
+@log
+async def set_plan(body: PlanChoice) -> AccountSummary:
+    a = await stubs.identity_stub().SetPlan(
+        identity_pb2.SetPlanRequest(plan_key=body.plan_key),
+        metadata=core.metadata(),
+        timeout=_deadline(),
+    )
+    return _account_summary(a, "owner")
 
 
 @log
@@ -191,6 +384,7 @@ async def list_accounts() -> list[AccountSummary]:
             display_name=it.account.display_name,
             kind=account_kind_name(it.account.kind),
             role=role_name(it.role),
+            plan_key=it.account.plan_key,
         )
         for it in resp.items
     ]

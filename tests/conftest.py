@@ -21,6 +21,7 @@ from grpc.aio import AioRpcError
 
 from app.coreclient import stubs
 from app.coreclient.gen.dop.v1 import (
+    catalog_pb2,
     common_pb2,
     hierarchy_pb2,
     identity_pb2,
@@ -104,6 +105,44 @@ class FakeCore:
             display_name="ACME",
         )
         self.EnsureUser = FakeCall(identity_pb2.User(id=user_id, email="dev@dop.local"))
+        # /me now reads the core's row: the name the person chose, the phone,
+        # the journey. The fake answers what a fresh user looks like.
+        self.user = identity_pb2.User(
+            id=user_id, email="dev@dop.local", name="Dev", email_verified=True
+        )
+        self.GetUser = FakeCall(self.user)
+        # ── the onboarding journey ──
+        self.onboarding = identity_pb2.OnboardingState(
+            steps=[
+                identity_pb2.OnboardingStep(step=s, status="pending")
+                for s in ("profile", "contact", "code", "tasks", "plan")
+            ],
+            current="profile",
+            email_verified=True,
+            personal_account_id="acct-personal",
+        )
+        self.UpdateProfile = FakeCall(self.user)
+        self.GetOnboarding = FakeCall(self.onboarding)
+        self.RecordOnboardingStep = FakeCall(self.onboarding)
+        self.CompleteOnboarding = FakeCall(self.onboarding)
+        self.CheckHandle = FakeCall(identity_pb2.HandleAvailability(handle="dev", available=True))
+        self.UpdatePersonalAccount = FakeCall(
+            identity_pb2.Account(
+                id="acct-personal",
+                kind=identity_pb2.Account.KIND_PERSONAL,
+                handle="dev",
+                display_name="Dev",
+            )
+        )
+        self.SetPlan = FakeCall(
+            identity_pb2.Account(
+                id="acct-personal",
+                kind=identity_pb2.Account.KIND_PERSONAL,
+                handle="dev",
+                display_name="Dev",
+                plan_key="free",
+            )
+        )
         # Both fields, the way the real core answers: `accounts` is deprecated
         # but still filled (the resolver proves membership with it), and `items`
         # is what carries the role per account. A fake that filled only one of
@@ -114,9 +153,7 @@ class FakeCore:
                 items=[identity_pb2.AccountMembership(account=account, role=role)],
             )
         )
-        self.SendEmailVerification = FakeCall(
-            identity_pb2.SendEmailVerificationResponse()
-        )
+        self.SendEmailVerification = FakeCall(identity_pb2.SendEmailVerificationResponse())
         self.ListMemberships = FakeCall(
             identity_pb2.ListMembershipsResponse(
                 memberships=[
@@ -140,7 +177,6 @@ class FakeCore:
             )
         )
 
-
     def demote_to_developer(self):
         """Demotes the actor to developer.
 
@@ -148,9 +184,7 @@ class FakeCore:
         the role means changing what that RPC answers, not a shortcut in the
         context. Testing through the shortcut would prove less than it seems.
         """
-        self.SendEmailVerification = FakeCall(
-            identity_pb2.SendEmailVerificationResponse()
-        )
+        self.SendEmailVerification = FakeCall(identity_pb2.SendEmailVerificationResponse())
         self.ListMemberships = FakeCall(
             identity_pb2.ListMembershipsResponse(
                 memberships=[
@@ -276,15 +310,11 @@ class FakeHierarchy:
         self.GetTree = FakeCall(
             hierarchy_pb2.GetTreeResponse(
                 nodes=[
-                    hierarchy_pb2.GetTreeResponse.Node(
-                        workspace=ws, projects=[prj, without_board]
-                    )
+                    hierarchy_pb2.GetTreeResponse.Node(workspace=ws, projects=[prj, without_board])
                 ]
             )
         )
-        self.ListWorkspaces = FakeCall(
-            hierarchy_pb2.ListWorkspacesResponse(workspaces=[ws])
-        )
+        self.ListWorkspaces = FakeCall(hierarchy_pb2.ListWorkspacesResponse(workspaces=[ws]))
         self.CreateWorkspace = FakeCall(ws)
         self.ListProjects = FakeCall(
             hierarchy_pb2.ListProjectsResponse(projects=[prj, without_board])
@@ -337,9 +367,7 @@ class FakeResources:
             credential_ref="integration_credential:acct-1:res-1",
         )
         self.resource = r
-        self.ListResources = FakeCall(
-            resource_pb2.ListResourcesResponse(resources=[r])
-        )
+        self.ListResources = FakeCall(resource_pb2.ListResourcesResponse(resources=[r]))
         self.GetResource = FakeCall(r)
         self.CreateResource = FakeCall(r)
         self.SetCredential = FakeCall(
@@ -354,6 +382,9 @@ class FakeResources:
             )
         )
         self.RevokeGrant = FakeCall(resource_pb2.RevokeGrantResponse(revoked=True))
+        self.CheckResource = FakeCall(
+            resource_pb2.CheckResult(operated=True, ok=True, identity="octo-dev")
+        )
         self.ListMemberGrants = FakeCall(
             resource_pb2.ListMemberGrantsResponse(
                 grants=[
@@ -385,3 +416,52 @@ def client_res(resources):
 async def stub_res(grpc_server, resources):
     async with grpc.aio.insecure_channel(f"127.0.0.1:{grpc_server.port}") as channel:
         yield bff_res_grpc.ResourceServiceStub(channel)
+
+
+# ── catalog ─────────────────────────────────────────────────────────────────
+
+
+class FakeCatalog:
+    """The catalog's fake core: two lists, the way the migration seeds them."""
+
+    def __init__(self):
+        self.ListPlans = FakeCall(
+            catalog_pb2.ListPlansResponse(
+                plans=[
+                    catalog_pb2.Plan(
+                        key="free", name="Free", tagline="Try it.", features=["1 workspace"]
+                    ),
+                    catalog_pb2.Plan(key="pro", name="Pro", tagline="Teams.", features=[]),
+                ]
+            )
+        )
+        self.ListProviders = FakeCall(
+            catalog_pb2.ListProvidersResponse(
+                providers=[
+                    catalog_pb2.Provider(
+                        key="github",
+                        category="git",
+                        name="GitHub",
+                        credential_kind="token",
+                        permissions=["repo"],
+                        operated=True,
+                        brand_color="#24292F",
+                    ),
+                    catalog_pb2.Provider(
+                        key="jira",
+                        category="task_manager",
+                        name="Jira",
+                        credential_kind="token",
+                        needs_base_url=True,
+                        operated=False,
+                    ),
+                ]
+            )
+        )
+
+
+@pytest.fixture
+def catalog(core, monkeypatch):
+    fake = FakeCatalog()
+    monkeypatch.setattr(stubs, "catalog_stub", lambda: fake)
+    return fake

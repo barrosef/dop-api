@@ -16,8 +16,10 @@ from app.platform.security.decorator import token_only
 from app.usecases import identity as uc
 from app.usecases.identity import (
     AcceptedInvite,
+    AccountPatch,
     AccountSummary,
     GrantSpec,
+    HandleAvailability,
     InvitePreview,
     InviteSummary,
     MemberRole,
@@ -25,6 +27,10 @@ from app.usecases.identity import (
     MeResponse,
     NewAccount,
     NewInvite,
+    OnboardingState,
+    PlanChoice,
+    ProfilePatch,
+    StepUpdate,
     VerificationRequested,
 )
 
@@ -52,6 +58,48 @@ router = APIRouter(prefix="/api/v1", tags=["identity"])
 async def me() -> MeResponse:
     """Who I am, in the active account."""
     return await uc.me()
+
+
+@router.patch("/me", response_model=MeResponse)
+async def update_profile(body: ProfilePatch) -> MeResponse:
+    """Edits my profile (onboarding spec 2026-09-20 §3.1). Absent fields stay."""
+    return await uc.update_profile(body)
+
+
+@router.get("/me/onboarding", response_model=OnboardingState)
+async def onboarding() -> OnboardingState:
+    """Where I am in the journey, and what the closing screen lists (D-2)."""
+    return await uc.onboarding()
+
+
+@router.post("/me/onboarding/steps/{step}", response_model=OnboardingState)
+async def record_step(step: str, body: StepUpdate) -> OnboardingState:
+    """Records a step as done or skipped; the core decides whether it may be."""
+    return await uc.record_step(step, body)
+
+
+@router.post("/me/onboarding/complete", response_model=OnboardingState)
+async def complete_onboarding() -> OnboardingState:
+    """Finishes the journey; refused naming the required step still undone."""
+    return await uc.complete_onboarding()
+
+
+@router.get("/accounts/handles/{handle}/availability", response_model=HandleAvailability)
+async def handle_availability(handle: str) -> HandleAvailability:
+    """As typed: is this handle free, and if not, a suggestion."""
+    return await uc.handle_availability(handle)
+
+
+@router.patch("/accounts/current", response_model=AccountSummary)
+async def update_personal_account(body: AccountPatch) -> AccountSummary:
+    """Edits my PERSONAL account's handle and display name."""
+    return await uc.update_personal_account(body)
+
+
+@router.put("/accounts/current/plan", response_model=AccountSummary)
+async def set_plan(body: PlanChoice) -> AccountSummary:
+    """Records the chosen plan on my personal account (D-6). No price, no billing."""
+    return await uc.set_plan(body)
 
 
 @router.post("/verification/email", response_model=VerificationRequested)

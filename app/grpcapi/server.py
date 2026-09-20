@@ -17,12 +17,15 @@ import grpc
 from grpc_reflection.v1alpha import reflection
 
 from app.grpcapi.attention import AttentionServicer
+from app.grpcapi.catalog import CatalogServicer
 from app.grpcapi.cost import CostServicer
 from app.grpcapi.delivery import DeliveryServicer
 from app.grpcapi.demand import DemandServicer
 from app.grpcapi.execution import ExecutionServicer
 from app.grpcapi.gen.dop.bff.v1 import attention_pb2 as bff_attention_pb2
 from app.grpcapi.gen.dop.bff.v1 import attention_pb2_grpc as bff_attention_grpc
+from app.grpcapi.gen.dop.bff.v1 import catalog_pb2 as bff_catalog_pb2
+from app.grpcapi.gen.dop.bff.v1 import catalog_pb2_grpc as bff_catalog_grpc
 from app.grpcapi.gen.dop.bff.v1 import cost_pb2 as bff_cost_pb2
 from app.grpcapi.gen.dop.bff.v1 import cost_pb2_grpc as bff_cost_grpc
 from app.grpcapi.gen.dop.bff.v1 import delivery_pb2 as bff_delivery_pb2
@@ -103,6 +106,7 @@ class GrpcServer:
         bff_2fa_grpc.add_SecondFactorServiceServicer_to_server(SecondFactorServicer(), self._server)
         bff_runtime_grpc.add_RuntimeServiceServicer_to_server(RuntimeServicer(), self._server)
         bff_attention_grpc.add_AttentionServiceServicer_to_server(AttentionServicer(), self._server)
+        bff_catalog_grpc.add_CatalogServiceServicer_to_server(CatalogServicer(), self._server)
         bff_cost_grpc.add_CostServiceServicer_to_server(CostServicer(), self._server)
         bff_delivery_grpc.add_DeliveryServiceServicer_to_server(DeliveryServicer(), self._server)
         bff_demand_grpc.add_DemandServiceServicer_to_server(DemandServicer(), self._server)
@@ -121,6 +125,7 @@ class GrpcServer:
                 bff_res_pb2.DESCRIPTOR.services_by_name["ResourceService"].full_name,
                 bff_runtime_pb2.DESCRIPTOR.services_by_name["RuntimeService"].full_name,
                 bff_attention_pb2.DESCRIPTOR.services_by_name["AttentionService"].full_name,
+                bff_catalog_pb2.DESCRIPTOR.services_by_name["CatalogService"].full_name,
                 bff_cost_pb2.DESCRIPTOR.services_by_name["CostService"].full_name,
                 bff_delivery_pb2.DESCRIPTOR.services_by_name["DeliveryService"].full_name,
                 bff_demand_pb2.DESCRIPTOR.services_by_name["DemandService"].full_name,

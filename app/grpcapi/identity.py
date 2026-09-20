@@ -48,21 +48,90 @@ def _account(a: uc.AccountSummary) -> bff.AccountSummary:
         handle=a.handle,
         display_name=a.display_name,
         role=convert.role_enum(a.role),
+        plan_key=a.plan_key,
+    )
+
+
+def _me(r: uc.MeResponse) -> bff.Me:
+    return bff.Me(
+        subject=r.subject,
+        user_id=r.user_id,
+        email=r.email,
+        name=r.name,
+        providers=r.providers,
+        account_id=r.account_id,
+        role=convert.role_enum(r.role),
+        avatar_url=r.avatar_url,
+        locale=r.locale,
+        timezone=r.timezone,
+        phone=r.phone,
+        phone_verified=r.phone_verified,
+        email_verified=r.email_verified,
+        birth_date=r.birth_date,
+        onboarded=r.onboarded,
+    )
+
+
+def _onboarding(st: uc.OnboardingState) -> bff.OnboardingState:
+    return bff.OnboardingState(
+        steps=[bff.OnboardingStep(step=s.step, status=s.status) for s in st.steps],
+        current=st.current,
+        complete=st.complete,
+        email_verified=st.email_verified,
+        phone=st.phone,
+        phone_verified=st.phone_verified,
+        code_connections=st.code_connections,
+        task_connections=st.task_connections,
+        plan_key=st.plan_key,
+        personal_account_id=st.personal_account_id,
     )
 
 
 class IdentityServicer(bff_grpc.IdentityServiceServicer):
     async def GetMe(self, request: bff.GetMeRequest, context) -> bff.Me:
-        r = await uc.me()
-        return bff.Me(
-            subject=r.subject,
-            user_id=r.user_id,
-            email=r.email,
-            name=r.name,
-            providers=r.providers,
-            account_id=r.account_id,
-            role=convert.role_enum(r.role),
+        return _me(await uc.me())
+
+    # ── the onboarding journey ──────────────────────────────────────────────
+
+    async def UpdateProfile(self, request: bff.UpdateProfileRequest, context) -> bff.Me:
+        body = uc.ProfilePatch(
+            name=request.name if request.HasField("name") else None,
+            birth_date=request.birth_date if request.HasField("birth_date") else None,
+            locale=request.locale if request.HasField("locale") else None,
+            timezone=request.timezone if request.HasField("timezone") else None,
+            phone=request.phone if request.HasField("phone") else None,
         )
+        return _me(await uc.update_profile(body))
+
+    async def GetOnboarding(
+        self, request: bff.GetOnboardingRequest, context
+    ) -> bff.OnboardingState:
+        return _onboarding(await uc.onboarding())
+
+    async def RecordOnboardingStep(
+        self, request: bff.RecordOnboardingStepRequest, context
+    ) -> bff.OnboardingState:
+        return _onboarding(await uc.record_step(request.step, uc.StepUpdate(status=request.status)))
+
+    async def CompleteOnboarding(
+        self, request: bff.CompleteOnboardingRequest, context
+    ) -> bff.OnboardingState:
+        return _onboarding(await uc.complete_onboarding())
+
+    async def CheckHandle(self, request: bff.CheckHandleRequest, context) -> bff.HandleAvailability:
+        h = await uc.handle_availability(request.handle)
+        return bff.HandleAvailability(
+            handle=h.handle, available=h.available, suggestion=h.suggestion
+        )
+
+    async def UpdatePersonalAccount(
+        self, request: bff.UpdatePersonalAccountRequest, context
+    ) -> bff.AccountSummary:
+        body = uc.AccountPatch(handle=request.handle, display_name=request.display_name)
+        return _account(await uc.update_personal_account(body))
+
+    async def SetPlan(self, request: bff.SetPlanRequest, context) -> bff.AccountSummary:
+        return _account(await uc.set_plan(uc.PlanChoice(plan_key=request.plan_key)))
 
     async def ListAccounts(
         self, request: bff.ListAccountsRequest, context
@@ -116,9 +185,7 @@ class IdentityServicer(bff_grpc.IdentityServiceServicer):
         )
         return bff.MemberSummary(id=m.id, user_id=m.user_id, role=convert.role_enum(m.role))
 
-    async def CreateAccount(
-        self, request: bff.CreateAccountRequest, context
-    ) -> bff.AccountSummary:
+    async def CreateAccount(self, request: bff.CreateAccountRequest, context) -> bff.AccountSummary:
         return _account(
             await uc.create_account(
                 uc.NewAccount(

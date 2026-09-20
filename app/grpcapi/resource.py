@@ -48,9 +48,7 @@ class ResourceServicer(bff_grpc.ResourceServiceServicer):
     async def GetResource(self, request: bff.GetResourceRequest, context) -> bff.Resource:
         return _resource(await uc.get_resource(request.id))
 
-    async def CreateResource(
-        self, request: bff.CreateResourceRequest, context
-    ) -> bff.Resource:
+    async def CreateResource(self, request: bff.CreateResourceRequest, context) -> bff.Resource:
         body = uc.NewResource(
             kind=_NAME_BY_ENUM.get(request.kind, ""),
             name=request.name,
@@ -58,18 +56,18 @@ class ResourceServicer(bff_grpc.ResourceServiceServicer):
         )
         return _resource(await uc.create_resource(body, request.idempotency_key))
 
-    async def SetCredential(
-        self, request: bff.SetCredentialRequest, context
-    ) -> bff.Resource:
+    async def SetCredential(self, request: bff.SetCredentialRequest, context) -> bff.Resource:
         # The use case takes base64 because that is how REST delivers it; here
         # the bytes already arrive raw and are encoded again. A single signature
         # for both transports is worth the re-encode.
         body = uc.NewCredential(secret_base64=base64.b64encode(request.secret).decode())
         return _resource(await uc.set_credential(request.resource_id, body))
 
-    async def GrantResource(
-        self, request: bff.GrantResourceRequest, context
-    ) -> bff.Grant:
+    async def CheckResource(self, request: bff.CheckResourceRequest, context) -> bff.CheckResult:
+        r = await uc.check_resource(request.resource_id)
+        return bff.CheckResult(operated=r.operated, ok=r.ok, identity=r.identity, message=r.message)
+
+    async def GrantResource(self, request: bff.GrantResourceRequest, context) -> bff.Grant:
         g = await uc.grant_resource(
             uc.NewGrant(
                 resource_id=request.resource_id,
@@ -77,9 +75,7 @@ class ResourceServicer(bff_grpc.ResourceServiceServicer):
                 level=request.level,
             )
         )
-        return bff.Grant(
-            id=g.id, resource_id=g.resource_id, user_id=g.user_id, level=g.level
-        )
+        return bff.Grant(id=g.id, resource_id=g.resource_id, user_id=g.user_id, level=g.level)
 
     async def RevokeGrant(
         self, request: bff.RevokeGrantRequest, context

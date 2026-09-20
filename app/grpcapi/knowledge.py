@@ -104,19 +104,13 @@ class KnowledgeServicer(bff_grpc.KnowledgeServiceServicer):
         hits = await uc.search_memory(request.project_id, request.query, request.limit)
         return bff.SearchMemoryResponse(hits=[_hit(h) for h in hits])
 
-    async def ReadIndex(
-        self, request: bff.ReadIndexRequest, context
-    ) -> bff.KnowledgeArtifact:
+    async def ReadIndex(self, request: bff.ReadIndexRequest, context) -> bff.KnowledgeArtifact:
         return _artifact(await uc.read_index(request.project_id, request.repo))
 
-    async def ListRules(
-        self, request: bff.ListRulesRequest, context
-    ) -> bff.ListRulesResponse:
+    async def ListRules(self, request: bff.ListRulesRequest, context) -> bff.ListRulesResponse:
         return bff.ListRulesResponse(rules=await uc.list_rules(request.project_id))
 
-    async def PutArtifact(
-        self, request: bff.PutArtifactRequest, context
-    ) -> bff.KnowledgeArtifact:
+    async def PutArtifact(self, request: bff.PutArtifactRequest, context) -> bff.KnowledgeArtifact:
         # The use case takes base64 because that is how REST delivers it; here
         # the bytes already arrive raw. A single signature for both transports is
         # worth the re-encode — two signatures would be worth two

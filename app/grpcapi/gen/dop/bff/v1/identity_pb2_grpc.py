@@ -89,6 +89,41 @@ class IdentityServiceStub:
                 request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.UpdateMemberRequest.SerializeToString,
                 response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.MemberSummary.FromString,
                 _registered_method=True)
+        self.UpdateProfile = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/UpdateProfile',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.UpdateProfileRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.Me.FromString,
+                _registered_method=True)
+        self.GetOnboarding = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/GetOnboarding',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.GetOnboardingRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.OnboardingState.FromString,
+                _registered_method=True)
+        self.RecordOnboardingStep = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/RecordOnboardingStep',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.RecordOnboardingStepRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.OnboardingState.FromString,
+                _registered_method=True)
+        self.CompleteOnboarding = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/CompleteOnboarding',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.CompleteOnboardingRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.OnboardingState.FromString,
+                _registered_method=True)
+        self.CheckHandle = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/CheckHandle',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.CheckHandleRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.HandleAvailability.FromString,
+                _registered_method=True)
+        self.UpdatePersonalAccount = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/UpdatePersonalAccount',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.UpdatePersonalAccountRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.AccountSummary.FromString,
+                _registered_method=True)
+        self.SetPlan = channel.unary_unary(
+                '/dop.bff.v1.IdentityService/SetPlan',
+                request_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.SetPlanRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.AccountSummary.FromString,
+                _registered_method=True)
 
 
 class IdentityServiceServicer:
@@ -159,6 +194,51 @@ class IdentityServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpdateProfile(self, request, context):
+        """── the onboarding journey (spec 2026-09-20) ──────────────────────────
+        A session is required, an active account is not: the journey runs before
+        the cockpit has picked one. Every RPC is about the caller alone.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetOnboarding(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RecordOnboardingStep(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CompleteOnboarding(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CheckHandle(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdatePersonalAccount(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetPlan(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_IdentityServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -211,6 +291,41 @@ def add_IdentityServiceServicer_to_server(servicer, server):
                     servicer.UpdateMember,
                     request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.UpdateMemberRequest.FromString,
                     response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.MemberSummary.SerializeToString,
+            ),
+            'UpdateProfile': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateProfile,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.UpdateProfileRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.Me.SerializeToString,
+            ),
+            'GetOnboarding': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetOnboarding,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.GetOnboardingRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.OnboardingState.SerializeToString,
+            ),
+            'RecordOnboardingStep': grpc.unary_unary_rpc_method_handler(
+                    servicer.RecordOnboardingStep,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.RecordOnboardingStepRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.OnboardingState.SerializeToString,
+            ),
+            'CompleteOnboarding': grpc.unary_unary_rpc_method_handler(
+                    servicer.CompleteOnboarding,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.CompleteOnboardingRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.OnboardingState.SerializeToString,
+            ),
+            'CheckHandle': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckHandle,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.CheckHandleRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.HandleAvailability.SerializeToString,
+            ),
+            'UpdatePersonalAccount': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdatePersonalAccount,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.UpdatePersonalAccountRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.AccountSummary.SerializeToString,
+            ),
+            'SetPlan': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetPlan,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_identity__pb2.SetPlanRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_identity__pb2.AccountSummary.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -488,6 +603,195 @@ class IdentityService:
             '/dop.bff.v1.IdentityService/UpdateMember',
             dop_dot_bff_dot_v1_dot_identity__pb2.UpdateMemberRequest.SerializeToString,
             dop_dot_bff_dot_v1_dot_identity__pb2.MemberSummary.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateProfile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/UpdateProfile',
+            dop_dot_bff_dot_v1_dot_identity__pb2.UpdateProfileRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.Me.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOnboarding(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/GetOnboarding',
+            dop_dot_bff_dot_v1_dot_identity__pb2.GetOnboardingRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.OnboardingState.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RecordOnboardingStep(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/RecordOnboardingStep',
+            dop_dot_bff_dot_v1_dot_identity__pb2.RecordOnboardingStepRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.OnboardingState.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CompleteOnboarding(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/CompleteOnboarding',
+            dop_dot_bff_dot_v1_dot_identity__pb2.CompleteOnboardingRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.OnboardingState.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CheckHandle(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/CheckHandle',
+            dop_dot_bff_dot_v1_dot_identity__pb2.CheckHandleRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.HandleAvailability.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdatePersonalAccount(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/UpdatePersonalAccount',
+            dop_dot_bff_dot_v1_dot_identity__pb2.UpdatePersonalAccountRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.AccountSummary.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetPlan(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.IdentityService/SetPlan',
+            dop_dot_bff_dot_v1_dot_identity__pb2.SetPlanRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_identity__pb2.AccountSummary.FromString,
             options,
             channel_credentials,
             insecure,

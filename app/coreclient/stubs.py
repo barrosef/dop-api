@@ -13,6 +13,7 @@ from app.coreclient.client import core
 from app.coreclient.gen.dop.v1 import (
     agent_pb2_grpc,
     attention_pb2_grpc,
+    catalog_pb2_grpc,
     cost_pb2_grpc,
     delivery_pb2_grpc,
     demand_pb2_grpc,
@@ -29,6 +30,10 @@ from app.coreclient.gen.dop.v1 import (
 
 def identity_stub() -> identity_pb2_grpc.IdentityServiceStub:
     return identity_pb2_grpc.IdentityServiceStub(core.channel)
+
+
+def catalog_stub() -> catalog_pb2_grpc.CatalogServiceStub:
+    return catalog_pb2_grpc.CatalogServiceStub(core.channel)
 
 
 def resource_stub() -> resource_pb2_grpc.ResourceServiceStub:

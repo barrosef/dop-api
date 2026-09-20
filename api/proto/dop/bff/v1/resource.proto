@@ -84,4 +84,15 @@ service ResourceService {
   rpc SetCredential  (SetCredentialRequest)  returns (Resource);
   rpc GrantResource  (GrantResourceRequest)  returns (Grant);
   rpc RevokeGrant    (RevokeGrantRequest)    returns (RevokeGrantResponse);
+  // CheckResource probes the credential with the provider (onboarding spec
+  // 2026-09-20 §5); the secret never reaches this process.
+  rpc CheckResource  (CheckResourceRequest)  returns (CheckResult);
+}
+
+message CheckResourceRequest { string resource_id = 1; }
+message CheckResult {
+  bool   operated = 1;  // false: no adapter for this provider yet — nothing was tried
+  bool   ok       = 2;
+  string identity = 3;
+  string message  = 4;
 }

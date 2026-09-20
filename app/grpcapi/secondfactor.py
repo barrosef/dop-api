@@ -55,9 +55,7 @@ def _factor(f: uc.FactorSummary) -> bff.SecondFactorSummary:
 
 
 class SecondFactorServicer(bff_grpc.SecondFactorServiceServicer):
-    async def GetSecondFactorState(
-        self, request, context
-    ) -> bff.GetSecondFactorStateResponse:
+    async def GetSecondFactorState(self, request, context) -> bff.GetSecondFactorStateResponse:
         st = await uc.state()
         msg = bff.GetSecondFactorStateResponse(
             required=st.required,
@@ -73,9 +71,7 @@ class SecondFactorServicer(bff_grpc.SecondFactorServiceServicer):
         return msg
 
     async def ListSecondFactors(self, request, context) -> bff.ListSecondFactorsResponse:
-        return bff.ListSecondFactorsResponse(
-            factors=[_factor(f) for f in await uc.list_factors()]
-        )
+        return bff.ListSecondFactorsResponse(factors=[_factor(f) for f in await uc.list_factors()])
 
     async def EnrollSecondFactor(self, request, context) -> bff.EnrollSecondFactorResponse:
         r = await uc.enroll(
@@ -92,9 +88,7 @@ class SecondFactorServicer(bff_grpc.SecondFactorServiceServicer):
             uri=r.uri,
         )
 
-    async def ConfirmSecondFactor(
-        self, request, context
-    ) -> bff.ConfirmSecondFactorResponse:
+    async def ConfirmSecondFactor(self, request, context) -> bff.ConfirmSecondFactorResponse:
         r = await uc.confirm(
             request.factor_id,
             uc.ConfirmFactor(challenge_id=request.challenge_id, code=request.code),
@@ -106,13 +100,9 @@ class SecondFactorServicer(bff_grpc.SecondFactorServiceServicer):
 
     async def RevokeSecondFactor(self, request, context) -> bff.SecondFactorSummary:
         await uc.revoke(request.id)
-        return bff.SecondFactorSummary(
-            id=request.id, status=bff.SecondFactorSummary.STATUS_REVOKED
-        )
+        return bff.SecondFactorSummary(id=request.id, status=bff.SecondFactorSummary.STATUS_REVOKED)
 
-    async def ChallengeSecondFactor(
-        self, request, context
-    ) -> bff.ChallengeSecondFactorResponse:
+    async def ChallengeSecondFactor(self, request, context) -> bff.ChallengeSecondFactorResponse:
         r = await uc.challenge(uc.ChallengeRequest(factor_id=request.factor_id))
         msg = bff.ChallengeSecondFactorResponse(
             challenge_id=r.challenge_id,
@@ -125,9 +115,7 @@ class SecondFactorServicer(bff_grpc.SecondFactorServiceServicer):
 
     async def VerifySecondFactor(self, request, context) -> bff.StepUpResult:
         return _step_up(
-            await uc.verify(
-                uc.VerifyRequest(challenge_id=request.challenge_id, code=request.code)
-            )
+            await uc.verify(uc.VerifyRequest(challenge_id=request.challenge_id, code=request.code))
         )
 
     async def VerifyRecoveryCode(self, request, context) -> bff.StepUpResult:

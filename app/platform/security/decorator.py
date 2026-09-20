@@ -1,9 +1,9 @@
 """Authorization decorators — they read the ContextVar, they take no parameter.
 
-    @public                       exempt from authentication
-    @account_scoped               requires an active account (SP-0's rule)
-    @require_role("admin")        a role in the active account
-    @require_grant("use")         a grant over a resource (ADR-0009)
+@public                       exempt from authentication
+@account_scoped               requires an active account (SP-0's rule)
+@require_role("admin")        a role in the active account
+@require_grant("use")         a grant over a resource (ADR-0009)
 """
 
 import asyncio
@@ -176,9 +176,7 @@ def require_grant(level: str = "use", *, param: str = "resource_id"):
                 raise HTTPException(status_code=400, detail=f"Missing parameter {param}")
             have = ranking.get(ctx.grant_level(str(resource_id)) or "", 0)
             if have < needed:
-                raise HTTPException(
-                    status_code=403, detail=f"No '{level}' grant over the resource"
-                )
+                raise HTTPException(status_code=403, detail=f"No '{level}' grant over the resource")
 
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):

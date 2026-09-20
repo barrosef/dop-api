@@ -79,6 +79,11 @@ class ResourceServiceStub:
                 request_serializer=dop_dot_v1_dot_resource__pb2.SetCredentialRequest.SerializeToString,
                 response_deserializer=dop_dot_v1_dot_resource__pb2.SetCredentialResponse.FromString,
                 _registered_method=True)
+        self.CheckResource = channel.unary_unary(
+                '/dop.v1.ResourceService/CheckResource',
+                request_serializer=dop_dot_v1_dot_resource__pb2.CheckResourceRequest.SerializeToString,
+                response_deserializer=dop_dot_v1_dot_resource__pb2.CheckResult.FromString,
+                _registered_method=True)
 
 
 class ResourceServiceServicer:
@@ -141,6 +146,15 @@ class ResourceServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CheckResource(self, request, context):
+        """CheckResource probes the integration's credential with the provider
+        (onboarding spec 2026-09-20 §5). `operated` false means the platform has no
+        adapter for that provider: nothing was tried, the credential is stored.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ResourceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -188,6 +202,11 @@ def add_ResourceServiceServicer_to_server(servicer, server):
                     servicer.SetCredential,
                     request_deserializer=dop_dot_v1_dot_resource__pb2.SetCredentialRequest.FromString,
                     response_serializer=dop_dot_v1_dot_resource__pb2.SetCredentialResponse.SerializeToString,
+            ),
+            'CheckResource': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckResource,
+                    request_deserializer=dop_dot_v1_dot_resource__pb2.CheckResourceRequest.FromString,
+                    response_serializer=dop_dot_v1_dot_resource__pb2.CheckResult.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -433,6 +452,33 @@ class ResourceService:
             '/dop.v1.ResourceService/SetCredential',
             dop_dot_v1_dot_resource__pb2.SetCredentialRequest.SerializeToString,
             dop_dot_v1_dot_resource__pb2.SetCredentialResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CheckResource(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.v1.ResourceService/CheckResource',
+            dop_dot_v1_dot_resource__pb2.CheckResourceRequest.SerializeToString,
+            dop_dot_v1_dot_resource__pb2.CheckResult.FromString,
             options,
             channel_credentials,
             insecure,

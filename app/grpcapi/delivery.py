@@ -45,8 +45,7 @@ def _pull_request(pr: uc.PullRequest) -> bff.PullRequest:
         merged=pr.merged,
         has_conflict=pr.has_conflict,
         reviewers=[
-            bff.Reviewer(name=r.name, initials=r.initials, status=r.status)
-            for r in pr.reviewers
+            bff.Reviewer(name=r.name, initials=r.initials, status=r.status) for r in pr.reviewers
         ],
         pending_reviews=pr.pending_reviews,
     )
@@ -90,9 +89,7 @@ class DeliveryServicer(bff_grpc.DeliveryServiceServicer):
         self, request: bff.ListPullRequestsRequest, context
     ) -> bff.ListPullRequestsResponse:
         prs = await uc.list_pull_requests(request.demand_id, request.project_id)
-        return bff.ListPullRequestsResponse(
-            pull_requests=[_pull_request(p) for p in prs]
-        )
+        return bff.ListPullRequestsResponse(pull_requests=[_pull_request(p) for p in prs])
 
     async def GetMergeQueue(
         self, request: bff.GetMergeQueueRequest, context
@@ -115,9 +112,7 @@ class DeliveryServicer(bff_grpc.DeliveryServiceServicer):
             resp.entry.CopyFrom(_entry(attempt.entry))
         if attempt.refusal is not None:
             resp.refusal.CopyFrom(
-                bff.MergeRefusal(
-                    reason=attempt.refusal.reason, missing=attempt.refusal.missing
-                )
+                bff.MergeRefusal(reason=attempt.refusal.reason, missing=attempt.refusal.missing)
             )
         return resp
 
@@ -127,9 +122,7 @@ class DeliveryServicer(bff_grpc.DeliveryServiceServicer):
         directives = await uc.list_directives(request.project_id)
         return bff.ListDirectivesResponse(directives=[_directive(d) for d in directives])
 
-    async def DecideDirective(
-        self, request: bff.DecideDirectiveRequest, context
-    ) -> bff.Directive:
+    async def DecideDirective(self, request: bff.DecideDirectiveRequest, context) -> bff.Directive:
         body = uc.DirectiveDecision(
             decision=MessageToDict(request.decision) if request.HasField("decision") else {}
         )

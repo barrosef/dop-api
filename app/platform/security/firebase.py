@@ -35,8 +35,7 @@ from app.platform.context import Principal
 # Firebase publishes X.509 CERTIFICATES, not a JWKS: the public key comes out of
 # the certificate, not out of an (n, e) pair.
 _CERTS_URL = (
-    "https://www.googleapis.com/robot/v1/metadata/x509/"
-    "securetoken@system.gserviceaccount.com"
+    "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
 )
 
 # Clock tolerance, in both directions. Without it, NTP drift becomes an

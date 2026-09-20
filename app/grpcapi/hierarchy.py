@@ -11,9 +11,7 @@ from app.usecases import hierarchy as uc
 
 
 def _workspace(w: uc.WorkspaceSummary) -> bff.Workspace:
-    return bff.Workspace(
-        id=w.id, name=w.name, key=w.key, description=w.description, tags=w.tags
-    )
+    return bff.Workspace(id=w.id, name=w.name, key=w.key, description=w.description, tags=w.tags)
 
 
 def _project(p: uc.ProjectSummary) -> bff.Project:
@@ -58,9 +56,7 @@ class HierarchyServicer(bff_grpc.HierarchyServiceServicer):
             workspaces=[_workspace(w) for w in await uc.list_workspaces()]
         )
 
-    async def CreateWorkspace(
-        self, request: bff.CreateWorkspaceRequest, context
-    ) -> bff.Workspace:
+    async def CreateWorkspace(self, request: bff.CreateWorkspaceRequest, context) -> bff.Workspace:
         body = uc.NewWorkspace(
             name=request.name,
             key=request.key,
@@ -87,9 +83,7 @@ class HierarchyServicer(bff_grpc.HierarchyServiceServicer):
         )
         return _project(await uc.create_project(body, request.idempotency_key))
 
-    async def BindTaskManager(
-        self, request: bff.BindTaskManagerRequest, context
-    ) -> bff.Project:
+    async def BindTaskManager(self, request: bff.BindTaskManagerRequest, context) -> bff.Project:
         b = request.binding
         vinculo = uc.TaskManagerBinding(
             integration_id=b.integration_id,

@@ -11,6 +11,7 @@ import base64
 import grpc
 import pytest
 
+from app.coreclient.gen.dop.v1 import resource_pb2
 from app.grpcapi.gen.dop.bff.v1 import resource_pb2 as bff
 from tests.conftest import metadata_for, token_for
 
@@ -99,9 +100,7 @@ class TestGRPC:
 
     async def test_with_no_token(self, stub_res):
         with pytest.raises(grpc.aio.AioRpcError) as e:
-            await stub_res.ListResources(
-                bff.ListResourcesRequest(), metadata=metadata_for(None)
-            )
+            await stub_res.ListResources(bff.ListResourcesRequest(), metadata=metadata_for(None))
         assert e.value.code() == grpc.StatusCode.UNAUTHENTICATED
 
     async def test_granting_requires_a_role(self, stub_res, core):
@@ -124,3 +123,35 @@ class TestParityBetweenTransports:
             assert g.name == j["name"]
             assert g.credential_ref == j["credential_ref"]
             assert dict(g.config) == j["config"]
+
+
+class TestCheck:
+    """Probing a credential: the id goes in, a verdict comes out, no secret ever."""
+
+    def test_it_forwards_the_id_and_returns_the_verdict(self, client_res, resources):
+        r = client_res.post("/api/v1/resources/res-1/check", headers=REST_HEADERS)
+        assert r.status_code == 200
+        assert r.json() == {"operated": True, "ok": True, "identity": "octo-dev", "message": ""}
+        assert resources.CheckResource.last["request"].id == "res-1"
+
+    def test_a_non_operated_provider_is_an_honest_answer_not_an_error(self, client_res, resources):
+        resources.CheckResource.returns(
+            resource_pb2.CheckResult(operated=False, message="registered, not operated yet")
+        )
+        r = client_res.post("/api/v1/resources/res-1/check", headers=REST_HEADERS)
+        assert r.status_code == 200
+        assert r.json()["operated"] is False
+        assert r.json()["ok"] is False
+
+    def test_it_needs_an_active_account(self, client_res, resources):
+        r = client_res.post("/api/v1/resources/res-1/check", headers={"authorization": token_for()})
+        assert r.status_code == 400
+        assert resources.CheckResource.calls == []
+
+    async def test_parity_between_transports(self, client_res, stub_res, resources):
+        client_res.post("/api/v1/resources/res-1/check", headers=REST_HEADERS)
+        await stub_res.CheckResource(
+            bff.CheckResourceRequest(resource_id="res-1"), metadata=ACCOUNT
+        )
+        requests = resources.CheckResource.requests
+        assert len(requests) == 2 and requests[0] == requests[1]

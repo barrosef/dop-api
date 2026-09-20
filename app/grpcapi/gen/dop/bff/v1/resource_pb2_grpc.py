@@ -64,6 +64,11 @@ class ResourceServiceStub:
                 request_serializer=dop_dot_bff_dot_v1_dot_resource__pb2.RevokeGrantRequest.SerializeToString,
                 response_deserializer=dop_dot_bff_dot_v1_dot_resource__pb2.RevokeGrantResponse.FromString,
                 _registered_method=True)
+        self.CheckResource = channel.unary_unary(
+                '/dop.bff.v1.ResourceService/CheckResource',
+                request_serializer=dop_dot_bff_dot_v1_dot_resource__pb2.CheckResourceRequest.SerializeToString,
+                response_deserializer=dop_dot_bff_dot_v1_dot_resource__pb2.CheckResult.FromString,
+                _registered_method=True)
 
 
 class ResourceServiceServicer:
@@ -108,6 +113,14 @@ class ResourceServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CheckResource(self, request, context):
+        """CheckResource probes the credential with the provider (onboarding spec
+        2026-09-20 §5); the secret never reaches this process.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ResourceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -140,6 +153,11 @@ def add_ResourceServiceServicer_to_server(servicer, server):
                     servicer.RevokeGrant,
                     request_deserializer=dop_dot_bff_dot_v1_dot_resource__pb2.RevokeGrantRequest.FromString,
                     response_serializer=dop_dot_bff_dot_v1_dot_resource__pb2.RevokeGrantResponse.SerializeToString,
+            ),
+            'CheckResource': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckResource,
+                    request_deserializer=dop_dot_bff_dot_v1_dot_resource__pb2.CheckResourceRequest.FromString,
+                    response_serializer=dop_dot_bff_dot_v1_dot_resource__pb2.CheckResult.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -304,6 +322,33 @@ class ResourceService:
             '/dop.bff.v1.ResourceService/RevokeGrant',
             dop_dot_bff_dot_v1_dot_resource__pb2.RevokeGrantRequest.SerializeToString,
             dop_dot_bff_dot_v1_dot_resource__pb2.RevokeGrantResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CheckResource(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/dop.bff.v1.ResourceService/CheckResource',
+            dop_dot_bff_dot_v1_dot_resource__pb2.CheckResourceRequest.SerializeToString,
+            dop_dot_bff_dot_v1_dot_resource__pb2.CheckResult.FromString,
             options,
             channel_credentials,
             insecure,

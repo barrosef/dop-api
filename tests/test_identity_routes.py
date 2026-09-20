@@ -194,6 +194,7 @@ class TestListings:
                 "display_name": "ACME",
                 "kind": "organization",
                 "role": "admin",
+                "plan_key": "",
             }
         ]
 

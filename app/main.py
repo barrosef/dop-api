@@ -27,6 +27,7 @@ from app.platform.security.firebase import FirebaseVerifier
 from app.platform.security.middleware import AuthMiddleware
 from app.routers import (
     attention,
+    catalog,
     cost,
     delivery,
     demand,
@@ -109,6 +110,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(identity.router)
+    app.include_router(catalog.router)
     app.include_router(secondfactor.router)
     app.include_router(hierarchy.router)
     app.include_router(resource.router)

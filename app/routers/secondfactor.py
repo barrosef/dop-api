@@ -46,9 +46,7 @@ async def enroll_second_factor(body: NewFactor) -> EnrollResponse:
     return await uc.enroll(body)
 
 
-@router.post(
-    "/me/second-factor/factors/{factor_id}/confirm", response_model=ConfirmResponse
-)
+@router.post("/me/second-factor/factors/{factor_id}/confirm", response_model=ConfirmResponse)
 async def confirm_second_factor(factor_id: str, body: ConfirmFactor) -> ConfirmResponse:
     """Proves possession and activates. On the FIRST factor it returns the recovery codes."""
     return await uc.confirm(factor_id, body)

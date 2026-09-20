@@ -165,16 +165,18 @@ class CoreClient:
         # the caller is the edge, which is the question those calls raise.
         key = settings.call_auth_key
         if key:
-            md.append((
-                "x-dop-assertion",
-                callauth.sign(
-                    key,
-                    actor_id=user_id,
-                    actor_kind=actor_kind if (user_id or account_id) else "system",
-                    account_id=account_id,
-                    session_id=session_id,
-                ),
-            ))
+            md.append(
+                (
+                    "x-dop-assertion",
+                    callauth.sign(
+                        key,
+                        actor_id=user_id,
+                        actor_kind=actor_kind if (user_id or account_id) else "system",
+                        account_id=account_id,
+                        session_id=session_id,
+                    ),
+                )
+            )
         if raw_token:
             # The person's own token, forwarded whole. The core verifies it
             # against the identity provider — a signature neither of us controls.

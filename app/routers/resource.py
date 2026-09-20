@@ -4,6 +4,7 @@ from fastapi import APIRouter, Header
 
 from app.usecases import resource as uc
 from app.usecases.resource import (
+    CheckResult,
     GrantSummary,
     NewCredential,
     NewGrant,
@@ -61,3 +62,9 @@ async def grant_resource(body: NewGrant) -> GrantSummary:
 @router.delete("/grants/{grant_id}", status_code=204)
 async def revoke_grant(grant_id: str) -> None:
     await uc.revoke_grant(grant_id)
+
+
+@router.post("/resources/{resource_id}/check", response_model=CheckResult)
+async def check_resource(resource_id: str) -> CheckResult:
+    """Tests the credential with the provider — or says the provider is not operated yet."""
+    return await uc.check_resource(resource_id)
