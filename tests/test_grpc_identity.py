@@ -323,6 +323,7 @@ class TestParityBetweenTransports:
             "email_verified": me.email_verified,
             "birth_date": me.birth_date,
             "onboarded": me.onboarded,
+            "phone_whatsapp": me.phone_whatsapp,
         } == rest
 
     async def test_members_gives_the_same_result_on_both_ports(self, client, stub_grpc):

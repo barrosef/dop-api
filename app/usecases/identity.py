@@ -74,6 +74,7 @@ class MeResponse(BaseModel):
     email_verified: bool = False
     birth_date: str = ""
     onboarded: bool = False
+    phone_whatsapp: bool = False
 
 
 class AccountSummary(BaseModel):
@@ -98,6 +99,7 @@ class ProfilePatch(BaseModel):
     locale: str | None = None
     timezone: str | None = None
     phone: str | None = None
+    phone_whatsapp: bool | None = None
 
 
 class OnboardingStep(BaseModel):
@@ -247,6 +249,7 @@ def _user_summary(u: identity_pb2.User, ctx) -> MeResponse:
         email_verified=u.email_verified,
         birth_date=u.birth_date,
         onboarded=u.onboarded,
+        phone_whatsapp=u.phone_whatsapp,
     )
 
 
@@ -286,7 +289,7 @@ async def update_profile(body: ProfilePatch) -> MeResponse:
     ctx = auth_ctx.get()
     req = identity_pb2.UpdateProfileRequest()
     # `optional` fields: set only what arrived, so an absent field stays untouched.
-    for field in ("name", "birth_date", "locale", "timezone", "phone"):
+    for field in ("name", "birth_date", "locale", "timezone", "phone", "phone_whatsapp"):
         value = getattr(body, field)
         if value is not None:
             setattr(req, field, value)

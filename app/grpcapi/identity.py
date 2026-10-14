@@ -69,6 +69,7 @@ def _me(r: uc.MeResponse) -> bff.Me:
         email_verified=r.email_verified,
         birth_date=r.birth_date,
         onboarded=r.onboarded,
+        phone_whatsapp=r.phone_whatsapp,
     )
 
 
@@ -100,6 +101,9 @@ class IdentityServicer(bff_grpc.IdentityServiceServicer):
             locale=request.locale if request.HasField("locale") else None,
             timezone=request.timezone if request.HasField("timezone") else None,
             phone=request.phone if request.HasField("phone") else None,
+            phone_whatsapp=(
+                request.phone_whatsapp if request.HasField("phone_whatsapp") else None
+            ),
         )
         return _me(await uc.update_profile(body))
 

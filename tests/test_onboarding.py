@@ -39,6 +39,13 @@ class TestProfile:
         assert req.HasField("phone") and req.phone == ""
         assert not req.HasField("locale"), "an absent field must stay untouched"
         assert not req.HasField("birth_date")
+        assert not req.HasField("phone_whatsapp")
+
+    def test_patch_carries_the_whatsapp_flag_as_a_tristate(self, client, core):
+        r = client.patch("/api/v1/me", headers=SESSION, json={"phone_whatsapp": False})
+        assert r.status_code == 200
+        req = core.UpdateProfile.last["request"]
+        assert req.HasField("phone_whatsapp") and req.phone_whatsapp is False
 
     def test_the_cores_refusal_crosses_as_a_400(self, client, core):
         core.UpdateProfile.fails_with(grpc.StatusCode.INVALID_ARGUMENT, "invalid phone")

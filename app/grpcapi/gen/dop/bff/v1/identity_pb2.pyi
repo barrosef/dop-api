@@ -32,7 +32,7 @@ class ResourceGrantSpec(_message.Message):
     def __init__(self, resource_id: _Optional[str] = ..., level: _Optional[str] = ...) -> None: ...
 
 class Me(_message.Message):
-    __slots__ = ("subject", "user_id", "email", "name", "providers", "account_id", "role", "avatar_url", "locale", "timezone", "phone", "phone_verified", "email_verified", "birth_date", "onboarded")
+    __slots__ = ("subject", "user_id", "email", "name", "providers", "account_id", "role", "avatar_url", "locale", "timezone", "phone", "phone_verified", "email_verified", "birth_date", "onboarded", "phone_whatsapp")
     SUBJECT_FIELD_NUMBER: _ClassVar[int]
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     EMAIL_FIELD_NUMBER: _ClassVar[int]
@@ -48,6 +48,7 @@ class Me(_message.Message):
     EMAIL_VERIFIED_FIELD_NUMBER: _ClassVar[int]
     BIRTH_DATE_FIELD_NUMBER: _ClassVar[int]
     ONBOARDED_FIELD_NUMBER: _ClassVar[int]
+    PHONE_WHATSAPP_FIELD_NUMBER: _ClassVar[int]
     subject: str
     user_id: str
     email: str
@@ -63,7 +64,8 @@ class Me(_message.Message):
     email_verified: bool
     birth_date: str
     onboarded: bool
-    def __init__(self, subject: _Optional[str] = ..., user_id: _Optional[str] = ..., email: _Optional[str] = ..., name: _Optional[str] = ..., providers: _Optional[_Iterable[str]] = ..., account_id: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., avatar_url: _Optional[str] = ..., locale: _Optional[str] = ..., timezone: _Optional[str] = ..., phone: _Optional[str] = ..., phone_verified: _Optional[bool] = ..., email_verified: _Optional[bool] = ..., birth_date: _Optional[str] = ..., onboarded: _Optional[bool] = ...) -> None: ...
+    phone_whatsapp: bool
+    def __init__(self, subject: _Optional[str] = ..., user_id: _Optional[str] = ..., email: _Optional[str] = ..., name: _Optional[str] = ..., providers: _Optional[_Iterable[str]] = ..., account_id: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., avatar_url: _Optional[str] = ..., locale: _Optional[str] = ..., timezone: _Optional[str] = ..., phone: _Optional[str] = ..., phone_verified: _Optional[bool] = ..., email_verified: _Optional[bool] = ..., birth_date: _Optional[str] = ..., onboarded: _Optional[bool] = ..., phone_whatsapp: _Optional[bool] = ...) -> None: ...
 
 class AccountSummary(_message.Message):
     __slots__ = ("id", "kind", "handle", "display_name", "role", "plan_key")
@@ -142,18 +144,20 @@ class InvitePreview(_message.Message):
     def __init__(self, id: _Optional[str] = ..., account_name: _Optional[str] = ..., role: _Optional[_Union[Role, str]] = ..., status: _Optional[_Union[InviteSummary.Status, str]] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., usable: _Optional[bool] = ...) -> None: ...
 
 class UpdateProfileRequest(_message.Message):
-    __slots__ = ("name", "birth_date", "locale", "timezone", "phone")
+    __slots__ = ("name", "birth_date", "locale", "timezone", "phone", "phone_whatsapp")
     NAME_FIELD_NUMBER: _ClassVar[int]
     BIRTH_DATE_FIELD_NUMBER: _ClassVar[int]
     LOCALE_FIELD_NUMBER: _ClassVar[int]
     TIMEZONE_FIELD_NUMBER: _ClassVar[int]
     PHONE_FIELD_NUMBER: _ClassVar[int]
+    PHONE_WHATSAPP_FIELD_NUMBER: _ClassVar[int]
     name: str
     birth_date: str
     locale: str
     timezone: str
     phone: str
-    def __init__(self, name: _Optional[str] = ..., birth_date: _Optional[str] = ..., locale: _Optional[str] = ..., timezone: _Optional[str] = ..., phone: _Optional[str] = ...) -> None: ...
+    phone_whatsapp: bool
+    def __init__(self, name: _Optional[str] = ..., birth_date: _Optional[str] = ..., locale: _Optional[str] = ..., timezone: _Optional[str] = ..., phone: _Optional[str] = ..., phone_whatsapp: _Optional[bool] = ...) -> None: ...
 
 class GetOnboardingRequest(_message.Message):
     __slots__ = ()

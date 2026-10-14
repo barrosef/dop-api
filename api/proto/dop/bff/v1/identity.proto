@@ -79,6 +79,9 @@ message Me {
   bool   email_verified = 17;
   string birth_date     = 18;
   bool   onboarded      = 19;
+  // The person says this phone is also their WhatsApp. Independent of
+  // phone_verified.
+  bool   phone_whatsapp = 20;
 }
 
 // An account as the screen needs it: the account's data PLUS the asker's role.
@@ -187,6 +190,7 @@ message UpdateProfileRequest {
   optional string locale     = 3;
   optional string timezone   = 4;
   optional string phone      = 5;
+  optional bool   phone_whatsapp = 6;
 }
 message GetOnboardingRequest {}
 message OnboardingStep {
